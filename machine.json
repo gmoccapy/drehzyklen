@@ -1,0 +1,17 @@
+{
+  "max_rpm": 3000.0,
+  "min_rpm": 50.0,
+  "max_vel_x": 3000.0,
+  "max_vel_z": 4000.0,
+  "max_acc_x": 500.0,
+  "max_acc_z": 500.0,
+  "max_diameter": 200.0,
+  "tc_enabled": false,
+  "tc_x": 0.0,
+  "tc_z": 0.0,
+  "clearance": 1.0,
+  "retract": 5.0,
+  "thread_speed_factor": 0.8,
+  "back_tool": false,
+  "program_dir": "~/linuxcnc/nc_files"
+}

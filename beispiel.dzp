@@ -1,0 +1,136 @@
+{
+  "name": "Beispielwelle",
+  "stock": {
+    "D": 64,
+    "d": 0.0,
+    "L": 70,
+    "zero": "Vorderkante",
+    "face": 1,
+    "chuck_clear": 2.0
+  },
+  "ops": [
+    {
+      "cycle": "facing",
+      "values": {
+        "side": "Außen",
+        "tool": 1,
+        "tool_ok": false,
+        "speed_feed": "G96 Vc · G95 mm/U",
+        "speed": 180.0,
+        "spindle_dir": "auto",
+        "coolant": true,
+        "d_start": 64,
+        "d_end": -0.4,
+        "z_start": 1,
+        "z_end": 0.0,
+        "ap": 0.5,
+        "f_rough": 0.2,
+        "f_finish": 0.08,
+        "allow_z": 0.1
+      }
+    },
+    {
+      "cycle": "contour",
+      "values": {
+        "side": "Außen",
+        "tool": 7,
+        "tool_ok": false,
+        "speed_feed": "G96 Vc · G95 mm/U",
+        "speed": 180.0,
+        "spindle_dir": "auto",
+        "coolant": true,
+        "contour": "X0 Z0\nX50 Z0 C2 A30\nX50 Z-20\nX60 Z-20 R5\nX60 Z-50\nX64 Z-50",
+        "corner_mode": "keine",
+        "corner_size": 1.0,
+        "ap": 1.5,
+        "f_rough": 0.25,
+        "f_finish": 0.1,
+        "allow_x": 0.4,
+        "allow_z": 0.1,
+        "do_rough": true,
+        "do_finish": true,
+        "comp": "aus"
+      }
+    },
+    {
+      "cycle": "gcode",
+      "values": {
+        "code": "M5\nM9\nM0 (Späne entfernen – weiter mit Zyklusstart)",
+        "restart": true
+      }
+    },
+    {
+      "cycle": "drill",
+      "values": {
+        "tool": 11,
+        "tool_ok": false,
+        "speed_feed": "G96 Vc · G95 mm/U",
+        "speed": 25.0,
+        "spindle_dir": "auto",
+        "coolant": true,
+        "diameter": 10,
+        "tip_angle": 118.0,
+        "z_start": 0.0,
+        "z_end": -30,
+        "depth_ref": "Spitze",
+        "mode": "Entspanen",
+        "peck": 8,
+        "break_back": 0.5,
+        "dwell": 0.0,
+        "f": 0.1
+      }
+    },
+    {
+      "cycle": "long",
+      "values": {
+        "side": "Innen",
+        "tool": 12,
+        "tool_ok": false,
+        "speed_feed": "G96 Vc · G95 mm/U",
+        "speed": 180.0,
+        "spindle_dir": "auto",
+        "coolant": true,
+        "d_start": 10,
+        "d_end": 20,
+        "z_start": 0.0,
+        "z_end": -12,
+        "start_kind": "Fase",
+        "start_size": 1,
+        "end_kind": "keine",
+        "end_size": 1.0,
+        "ap": 1.5,
+        "f_rough": 0.25,
+        "f_finish": 0.1,
+        "allow_x": 0.4,
+        "allow_z": 0.1,
+        "do_rough": true,
+        "do_finish": true,
+        "comp": "aus"
+      }
+    },
+    {
+      "cycle": "thread",
+      "values": {
+        "side": "Außen",
+        "tool": 10,
+        "tool_ok": false,
+        "speed": 500,
+        "spindle_dir": "auto",
+        "coolant": true,
+        "diameter": 60,
+        "pitch": 1.5,
+        "z_begin": -25,
+        "z_end": -45,
+        "z_start": -21,
+        "depth": 0.0,
+        "first_cut": 0.3,
+        "degression": 1.5,
+        "infeed": 29.5,
+        "spring": 1,
+        "chamfer_l": 0,
+        "chamfer_e": 0.0,
+        "thread_clear": 1.0
+      }
+    }
+  ]
+}
