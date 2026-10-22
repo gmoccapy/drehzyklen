@@ -20,7 +20,7 @@ import math
 
 from .helpdraw import (BACKGROUND, DIMENSION, EDGE, HINT, MATERIAL, PATH, TEXT, Sketch,
                        value_text)
-from .tools import HAND_TEXT, KIND_LABELS
+from .tools import HAND_TEXT
 
 INSERT_COLOR = (0.95, 0.78, 0.30)
 HOLDER_COLOR = (0.48, 0.50, 0.56)
@@ -137,7 +137,7 @@ def _header(cr, font, tool, detail):
     cr.select_font_face("Sans", 0, 1)
     cr.set_source_rgb(*DIMENSION)
     cr.move_to(10, font * 1.5)
-    cr.show_text(f"T{tool.number}  {KIND_LABELS.get(tool.kind, tool.kind)}")
+    cr.show_text(f"T{tool.number}  {tool.kind_text()}")
     cr.select_font_face("Sans", 0, 0)
     cr.set_font_size(font * 0.9)
     cr.set_source_rgb(*TEXT)

@@ -105,6 +105,9 @@ Daraus folgt:
 **Mit LinuxCNC-Konfiguration** wird die `tool.tbl` aus `[EMCIO] TOOL_TABLE` gelesen:
 - Aus Orientierung Q und den Winkeln I/J werden Plattenform, Hand (links/rechts) und Lage
   (außen/innen) abgeleitet.
+- Eine symmetrische Spitze mit 55° oder 60° (z.B. I117.5 J62.5) gilt als Gewindewerkzeug mit diesem
+  Spitzenwinkel. Liefert die Tabelle die Winkel, bleiben Hand, Lage und Winkel fest; im Reiter
+  Werkzeuge lässt sich dann nur der Typ ändern (z.B. eine 55°-Spitze als ISO D statt Gewinde).
 - Geht das nicht (I = J = 0, Q = 0 oder 9), öffnet sich beim Start der Reiter Werkzeuge. Dort gibst
   du Typ, Hand und Lage an. Die Angabe wird gespeichert und **neu abgefragt, sobald sich die Zeile
   in der tool.tbl ändert**.

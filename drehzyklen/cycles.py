@@ -405,7 +405,7 @@ class Cycle:
 
 
 def _tool_name(tool) -> str:
-    return f"T{tool.number} ({KIND_LABELS.get(tool.kind, tool.kind)} {tool.hand} {tool.position})"
+    return f"T{tool.number} ({tool.kind_text()} {tool.hand} {tool.position})"
 
 
 def turning_tool_problems(tool, inside: bool, z_mirrored: bool, work_elements: List[Element],

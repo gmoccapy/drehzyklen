@@ -431,10 +431,14 @@ class ToolPage(Gtk.Box):
         self.radius_entry = NumEntry(width=6)
         self.width_entry = NumEntry(width=6)
         self.diameter_entry = NumEntry(width=6)
+        self.tip_entry = NumEntry(width=6)
+        self.tip_entry.set_tooltip_text("Spitzenwinkel der Gewindeplatte, z.B. 60° metrisch/UNF, "
+                                        "55° Whitworth")
         self.comment_entry = Gtk.Entry()
         rows = [("Typ", self.kind_combo), ("Hand", self.hand_combo), ("Lage", self.position_combo),
                 ("Einstellwinkel κ [°]", self.lead_entry), ("Schneidenradius r", self.radius_entry),
                 ("Einstechbreite b", self.width_entry), ("Bohrer-Ø", self.diameter_entry),
+                ("Gewinde-Spitzenwinkel ε [°]", self.tip_entry),
                 ("Bezeichnung", self.comment_entry)]
         self.editor_labels = {}
         for row, (text, widget) in enumerate(rows):
@@ -492,7 +496,7 @@ class ToolPage(Gtk.Box):
                 marker = "⚠"
             else:
                 marker = ""
-            self.store.append([tool.number, KIND_LABELS.get(tool.kind, tool.kind), tool.hand,
+            self.store.append([tool.number, tool.kind_text(), tool.hand,
                                tool.position, size_text, marker])
         if select_number is not None:
             for index, row in enumerate(self.store):
@@ -537,6 +541,7 @@ class ToolPage(Gtk.Box):
         self.radius_entry.set_value(tool.nose_radius)
         self.width_entry.set_value(tool.width)
         self.diameter_entry.set_value(tool.diameter)
+        self.tip_entry.set_value(round(tool.insert_angle, 1))
         self.comment_entry.set_text(tool.comment)
         from_table = self.panel.tools.from_linuxcnc
         self.radius_entry.set_sensitive(not from_table)
@@ -546,9 +551,17 @@ class ToolPage(Gtk.Box):
 
     def on_kind_changed(self, _combo):
         kind = self.kind_combo.get_active_id()
+        tool = self.selected_tool()
+        # Schneidenlage aus I/J/Q der tool.tbl: Hand, Lage und Winkel liegen fest,
+        # nur der Typ (die Einordnung) kann geändert werden
+        geometry_free = tool is None or not tool.angles_from_table
+        self.hand_combo.set_sensitive(geometry_free)
+        self.position_combo.set_sensitive(geometry_free)
         self.width_entry.set_sensitive(kind == "groove")
         self.diameter_entry.set_sensitive(kind == "drill")
-        self.lead_entry.set_sensitive(kind in ("C", "D", "T", "V", "W", "special"))
+        self.lead_entry.set_sensitive(geometry_free
+                                      and kind in ("C", "D", "T", "V", "W", "special"))
+        self.tip_entry.set_sensitive(geometry_free and kind == "thread")
 
     def on_apply(self, _button):
         tool = self.selected_tool()
@@ -559,6 +572,7 @@ class ToolPage(Gtk.Box):
             radius = self.radius_entry.get_value()
             width = self.width_entry.get_value()
             diameter = self.diameter_entry.get_value()
+            tip_angle = self.tip_entry.get_value()
         except (ValueError, SyntaxError, ZeroDivisionError):
             self.panel.message("Bitte gültige Zahlen eingeben.", Gtk.MessageType.ERROR)
             return
@@ -568,8 +582,12 @@ class ToolPage(Gtk.Box):
         if not kind or not hand or not position:
             self.panel.message("Typ, Hand und Lage auswählen.", Gtk.MessageType.ERROR)
             return
+        if kind == "thread" and not tool.angles_from_table and not 20.0 <= tip_angle <= 90.0:
+            self.panel.message("Spitzenwinkel des Gewindewerkzeugs: 20° … 90°.",
+                               Gtk.MessageType.ERROR)
+            return
         self.panel.tools.assign(tool, kind, hand, position, lead, radius, width, diameter,
-                                self.comment_entry.get_text())
+                                self.comment_entry.get_text(), tip_angle)
         self.panel.tools_changed(tool.number)
 
     def on_new(self, _button):

@@ -114,16 +114,29 @@ class Tool:
     table_sector: Optional[Tuple[float, float]] = None
     needs_input: bool = False
     fingerprint: str = ""
+    tip_angle: float = 0.0            # Spitzenwinkel Gewindewerkzeug (0 = 60°)
+
+    @property
+    def angles_from_table(self) -> bool:
+        """Lage der Schneide kommt aus I/J/Q der tool.tbl (nicht vom Bediener)."""
+        return self.table_sector is not None
 
     # ---------------------------------------------------------------- Beschreibung
     @property
     def insert_angle(self) -> float:
         if self.table_sector is not None:
             return self.table_sector[1] - self.table_sector[0]
+        if self.kind == "thread" and self.tip_angle > 0:
+            return self.tip_angle
         return INSERT_ANGLES.get(self.kind, 80.0)
 
+    def kind_text(self) -> str:
+        if self.kind == "thread":
+            return f"Gewindewerkzeug {self.insert_angle:g}°"
+        return KIND_LABELS.get(self.kind, self.kind)
+
     def label(self) -> str:
-        text = f"T{self.number}  {KIND_LABELS.get(self.kind, self.kind)}"
+        text = f"T{self.number}  {self.kind_text()}"
         if self.kind not in ("drill",):
             text += f" {self.hand} {self.position}"
         if self.kind == "drill":
@@ -276,8 +289,10 @@ def tool_from_table(entry: dict, back_tool: bool, mirror_z: bool = False) -> Too
     else:
         tool.hand = "neutral"
     tool.kind = "special"
-    if tool.hand == "neutral" and abs(width - 60.0) < 5.0:
+    if tool.hand == "neutral" and (abs(width - 60.0) < 3.0 or abs(width - 55.0) < 3.0):
+        # symmetrische Spitze mit 55° (Whitworth) oder 60° (metrisch, UNC/UNF)
         tool.kind = "thread"
+        tool.tip_angle = round(width, 1)
     elif tool.hand == "neutral" and width < 12.0:
         tool.kind = "groove"
     else:
@@ -394,12 +409,13 @@ class ToolTable:
     @staticmethod
     def _apply_assignment(tool: Tool, stored: dict):
         tool.kind = stored.get("kind", tool.kind)
-        tool.hand = stored.get("hand", tool.hand)
-        tool.position = stored.get("position", tool.position)
-        tool.lead_angle = float(stored.get("lead_angle", tool.lead_angle))
         tool.width = float(stored.get("width", tool.width))
         tool.diameter = float(stored.get("diameter", tool.diameter))
-        tool.table_sector = None
+        tool.tip_angle = float(stored.get("tip_angle", tool.tip_angle))
+        if not tool.angles_from_table:
+            tool.hand = stored.get("hand", tool.hand)
+            tool.position = stored.get("position", tool.position)
+            tool.lead_angle = float(stored.get("lead_angle", tool.lead_angle))
         tool.needs_input = False
         tool.source = "tool.tbl + Angabe"
 
@@ -414,7 +430,8 @@ class ToolTable:
                     assignments[str(tool.number)] = {
                         "fingerprint": tool.fingerprint, "kind": tool.kind, "hand": tool.hand,
                         "position": tool.position, "lead_angle": tool.lead_angle,
-                        "width": tool.width, "diameter": tool.diameter}
+                        "width": tool.width, "diameter": tool.diameter,
+                        "tip_angle": tool.tip_angle}
             data["assignments"] = assignments
         else:
             data["tools"] = [tool.to_dict() for tool in sorted(self.tools.values(),
@@ -440,15 +457,22 @@ class ToolTable:
         return [tool for tool in self.sorted_tools() if tool.needs_input]
 
     def assign(self, tool: Tool, kind: str, hand: str, position: str, lead_angle: float,
-               nose_radius: float, width: float, diameter: float, comment: str):
-        """Angaben des Bedieners übernehmen (bei tool.tbl nur Typ, Hand, Lage, Winkel)."""
+               nose_radius: float, width: float, diameter: float, comment: str,
+               tip_angle: float = 0.0):
+        """Angaben des Bedieners übernehmen.
+
+        Bei tool.tbl nur Typ, Hand, Lage und Winkel. Liefert die Tabelle die Schneidenlage
+        (I/J/Q), bleibt diese erhalten – geändert wird dann nur die Einordnung (Typ), z.B.
+        eine 55°-Spitze als Gewindewerkzeug statt als ISO D.
+        """
         tool.kind = kind
-        tool.hand = hand
-        tool.position = position
-        tool.lead_angle = lead_angle
+        if not tool.angles_from_table:
+            tool.hand = hand
+            tool.position = position
+            tool.lead_angle = lead_angle
+            tool.tip_angle = tip_angle
         tool.width = width
         tool.diameter = diameter
-        tool.table_sector = None
         tool.needs_input = False
         if self.from_linuxcnc:
             tool.source = "tool.tbl + Angabe"

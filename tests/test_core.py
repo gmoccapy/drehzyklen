@@ -28,7 +28,8 @@ from drehzyklen.geometry import (ContourError, parse_rows, polyline, resolve_row
 from drehzyklen.machine import Machine  # noqa: E402
 from drehzyklen.material import simulate  # noqa: E402
 from drehzyklen.settings import Settings  # noqa: E402
-from drehzyklen.tools import ToolTable, parse_tool_line, preset_tools, tool_from_table  # noqa: E402
+from drehzyklen.tools import (Tool, ToolTable, parse_tool_line, preset_tools,  # noqa: E402
+                             tool_from_table)
 
 
 def elements_of(text, default_corner=None, default_size=0):
@@ -470,6 +471,27 @@ def test_tool_table_change_is_detected():
     assert table.changed_on_disk()
     table.load()
     assert not table.changed_on_disk() and sorted(table.tools) == [1, 2]
+
+
+def test_thread_tool_55_degrees_from_table():
+    """55°-Spitze (I117.5 J62.5) ist ein Gewindewerkzeug; Typ ändern behält die Winkel."""
+    folder = tempfile.mkdtemp()
+    table_path = os.path.join(folder, "lathe.tbl")
+    with open(table_path, "w", encoding="utf-8") as file:
+        file.write("T7 P7 D0.1 I117.5 J62.5 Q6 ;Whitworth 55\n")
+    data_path = os.path.join(folder, "werkzeuge.json")
+    table = ToolTable(Machine(tool_table=table_path), data_path)
+    tool = table.get(7)
+    assert tool.kind == "thread" and math.isclose(tool.insert_angle, 55.0)
+    assert tool.label().startswith("T7  Gewindewerkzeug 55°")
+    assert not Thread().tool_problems(tool)
+    table.assign(tool, "D", "rechts", "außen", 93.0, 0.0, 0.0, 0.0, "")
+    table.assign(tool, "thread", "rechts", "außen", 93.0, 0.0, 0.0, 0.0, "", 60.0)
+    reloaded = ToolTable(Machine(tool_table=table_path), data_path).get(7)
+    assert reloaded.kind == "thread" and reloaded.sector() == (62.5, 117.5)
+    assert math.isclose(reloaded.insert_angle, 55.0)          # nicht auf 60° umgestellt
+    preset = Tool(9, kind="thread", hand="neutral", tip_angle=55.0)
+    assert preset.sector() == (62.5, 117.5)
 
 
 if __name__ == "__main__":
