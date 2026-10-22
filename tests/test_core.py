@@ -494,6 +494,34 @@ def test_thread_tool_55_degrees_from_table():
     assert preset.sector() == (62.5, 117.5)
 
 
+def test_thread_from_table():
+    from drehzyklen.threads import NORMS
+    values = {"side": "Außen", "norm": NORMS["M"], "size_m": "M12"}
+    values.update(Thread.switch("norm", values))
+    outside = Thread(values)
+    assert outside.diameter == 12 and outside.pitch == 1.75
+    assert math.isclose(outside.eff_depth(), 0.6134 * 1.75)
+    assert "Vordrehen auf Ø11.82" in outside.pre_turn_hint()
+    values["side"] = "Innen"
+    values.update(Thread.switch("side", values))
+    inside = Thread(values)
+    assert math.isclose(inside.diameter, 10.106, abs_tol=1e-3)            # Kern-Ø D1
+    assert math.isclose(inside.diameter + 2 * inside.eff_depth(), 12.0, abs_tol=1e-3)
+    values = {"side": "Außen", "norm": NORMS["UNF"], "size_unf": "1/4-28 UNF", "z_end": -10}
+    values.update(Thread.switch("norm", values))
+    unf = Thread(values)
+    assert math.isclose(unf.diameter, 6.35) and "G76 P0.907143 " in Program(
+        Machine(), [unf], stock=Stock({"D": 6.35})).generate().gcode
+    values = {"side": "Außen", "norm": NORMS["BSW"], "size_bsw": "1/2-12 BSW"}
+    values.update(Thread.switch("norm", values))
+    whitworth = Thread(values)
+    assert whitworth.infeed == 27.0 and math.isclose(whitworth.eff_depth(), 0.6403 * 25.4 / 12)
+    tool_60 = Tool(1, kind="thread", hand="neutral")
+    tool_55 = Tool(2, kind="thread", hand="neutral", tip_angle=55.0)
+    assert whitworth.tool_problems(tool_60) and not whitworth.tool_problems(tool_55)
+    assert unf.tool_problems(tool_55) and not unf.tool_problems(tool_60)
+
+
 if __name__ == "__main__":
     for name, function in list(globals().items()):
         if name.startswith("test_"):

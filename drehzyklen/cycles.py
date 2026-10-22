@@ -42,6 +42,7 @@ from .geometry import (EPS, ContourError, Element, Row, clip_at_radius, contour_
                        walk_back, walk_up)
 from .machine import Machine
 from .material import Material, bounds
+from .threads import NORMS, SIZE_KEYS, ThreadSpec, find, names_for, norm_of_label
 from .tools import KIND_LABELS, normalize_angle, sector_inside
 
 
@@ -1197,6 +1198,14 @@ class Thread(Cycle):
     TECH_PARAMS = TECH_THREAD
     FORCE_G97 = True
     PARAMS = [
+        P("norm", "Gewinde aus Tabelle", NORMS["frei"], "choice", tuple(NORMS.values()),
+          help="Norm und Größe wählen: Ø, Steigung, Tiefe und Zustellwinkel werden eingetragen "
+               "(danach von Hand änderbar)"),
+    ]
+    for _norm, _key in SIZE_KEYS.items():
+        PARAMS.append(P(_key, "Größe", names_for(_norm)[0], "choice", names_for(_norm),
+                        when=("norm", (NORMS[_norm],))))
+    PARAMS += [
         P("diameter", "Nenn-Ø", 20.0, unit="mm", min=0.5, sym="D", label_in="Kernloch-Ø"),
         P("pitch", "Steigung", 2.5, unit="mm", min=0.05, sym="P"),
         P("z_begin", "Z Gewindeanfang", 0.0, unit="mm", sym="Z1"),
@@ -1220,15 +1229,61 @@ class Thread(Cycle):
             return 1
         return -1
 
+    @staticmethod
+    def spec_from(values: Dict[str, Any]) -> Optional[ThreadSpec]:
+        """Gewinde aus der Tabelle (None bei „frei“)."""
+        norm = norm_of_label(str(values.get("norm", "frei")))
+        if norm == "frei":
+            return None
+        return find(norm, str(values.get(SIZE_KEYS[norm], "")))
+
+    def spec(self) -> Optional[ThreadSpec]:
+        return self.spec_from(self.v)
+
+    @classmethod
+    def switch(cls, key, values, old_value=None):
+        updates = super().switch(key, values, old_value)
+        if key not in ("norm", "side") and key not in SIZE_KEYS.values():
+            return updates
+        spec = cls.spec_from(values)
+        if spec is None:
+            return updates
+        inside = values.get("side") == "Innen"
+        updates["diameter"] = round(spec.cycle_diameter(inside), 3)
+        updates["pitch"] = round(spec.pitch, 6)
+        updates["depth"] = 0.0
+        updates["infeed"] = spec.infeed()
+        return updates
+
+    def pre_turn_hint(self) -> str:
+        """Hinweis auf den Vordreh-Ø (außen D − 0,1·P, innen D1 + 0,1·P)."""
+        spec = self.spec()
+        if self.inside:
+            pre_turn = self.diameter + 0.1 * self.pitch
+            text = (f"Bohrung vordrehen auf Ø{pre_turn:.2f} (Kern-Ø D1 {self.diameter:.2f} "
+                    f"+ 0,1·P)")
+        else:
+            pre_turn = self.diameter - 0.1 * self.pitch
+            text = f"Vordrehen auf Ø{pre_turn:.2f} (Nenn-Ø − 0,1·P)"
+        if spec is not None:
+            text = f"{spec.name} {spec.pitch_text()}: " + text
+        return text
+
     def eff_depth(self):
         if self.depth > 0:
             return self.depth
+        spec = self.spec()
+        if spec is not None:
+            return spec.depth(self.inside)
         if self.inside:
             return 0.5413 * self.pitch
         return 0.6134 * self.pitch
 
     def summary(self):
-        if self.inside:
+        spec = self.spec()
+        if spec is not None:
+            text = f"{self.side_text} {spec.name}"
+        elif self.inside:
             text = f"innen Kernloch Ø{fmt(self.diameter)}×P{fmt(self.pitch)}"
         else:
             text = f"außen M{fmt(self.diameter)}×{fmt(self.pitch)}"
@@ -1287,6 +1342,7 @@ class Thread(Cycle):
             warnings.append(f"Anlaufweg {run_in:.2f} mm ist knapp (Beschleunigungsweg ≈ "
                             f"{acceleration_way:.2f} mm) – Startpunkt weiter weg legen oder "
                             f"Drehzahl senken")
+        warnings.append(self.pre_turn_hint())
         warnings.append(f"{len(self.passes())} Gewindeschnitte + {self.spring} Leerschnitt(e); "
                         f"Spindel-Encoder erforderlich")
         return warnings
@@ -1310,6 +1366,10 @@ class Thread(Cycle):
             return [f"{name}: Innengewinde braucht ein Innen-Gewindewerkzeug"]
         if not self.inside and tool.position == "innen":
             return [f"{name}: Außengewinde braucht ein Außen-Gewindewerkzeug"]
+        spec = self.spec()
+        if spec is not None and abs(tool.insert_angle - spec.angle) > 2.0:
+            return [f"{name}: Spitzenwinkel {tool.insert_angle:g}° passt nicht zu {spec.name} "
+                    f"({spec.angle:g}°)"]
         return []
 
     def body(self, emitter, machine, material):
@@ -1326,7 +1386,7 @@ class Thread(Cycle):
         emitter.rapid(x=2 * drive_radius)
         emitter.comment("G76 im Radiusmodus G8 (I, J, K als Radiuswerte), danach zurück zu G7")
         emitter.set_radius_mode(True)
-        g76 = (f"G76 P{fmt(self.pitch)} Z{fmt(self.z_end)} I{fmt(-sign_r * clear)} "
+        g76 = (f"G76 P{fmt(self.pitch, 6)} Z{fmt(self.z_end)} I{fmt(-sign_r * clear)} "
                f"J{fmt(self.first_cut)} R{fmt(self.degression)} K{fmt(depth)} "
                f"Q{fmt(self.infeed)} H{int(self.spring)}")
         if self.chamfer_e > 0 and self.chamfer_l > 0:

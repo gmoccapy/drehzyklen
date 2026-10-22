@@ -246,8 +246,10 @@ class CyclePage(Gtk.Box):
         self.on_param("side", None)
 
     def on_param(self, key=None, old_value=None):
-        if key and key != "side":
+        if key:
             values, _errors = self.form.get_values(lenient=True)
+            if self.cycle_class.HAS_SIDE:
+                values["side"] = self.side
             updates = self.cycle_class.switch(key, values, old_value)
             if updates:
                 self.form.set_values(updates)

@@ -48,7 +48,7 @@ Alle Zyklen außer Bohren und G-Code haben den Schalter **Außen | Innen**.
 | Plan | D → d radial, Z1 → Z2 in Zustellungen ap. D > d: zur Mitte, D < d: nach außen |
 | Längs | D → d zwischen Z1 und Z2. Kante am Anfang und Ende einzeln: keine, Fase oder Radius. Die Endkante darf größer sein als der Absatz und endet dann bei D |
 | Konus | „Angabe über Enddurchmesser“ (D, d, Z1, Z2) oder „Winkel“ (D, d, Z1, α/2). Umschalten berechnet den fehlenden Wert. Ein fallender Konus (z.B. D44 → d30) wird je Ebene schräg am Kegel angefahren |
-| Gewinde | G76 außen/innen, Z1 Gewindeanfang, Z2 Gewindeende, Zs Startpunkt. Abfrage von L vor E |
+| Gewinde | G76 außen/innen, Z1 Gewindeanfang, Z2 Gewindeende, Zs Startpunkt. Abfrage von L vor E. Gewinde aus Tabelle: metrisch Regel/Fein, UNC, UNF, Whitworth BSW, Rohrgewinde G |
 | Fase/R | Fase L × α (Winkel zur Z-Achse) oder Radius an Vorder- oder Rückkante. **Negativer Winkel = Fase an der Rückkante**; sie wird schräg angefahren |
 | Kontur | freie Kontur, Ecken je Punkt, Bögen; Richtung = erster → letzter Punkt |
 | Bohren | durchgehend, Spanbruch oder Entspanen; Tiefe auf Spitze oder vollen Ø |
@@ -144,6 +144,24 @@ Rund- oder Sondergewinde. Dann bleibt eine deutliche Warnung.
   - innen: erst X zur Mitte, dann Z heraus
 - Programm in G7, G18, mm. G76 und Konturbögen stehen in G8, Bogenmittelpunkte relativ (G91.1).
 
+## Gewinde aus Tabelle
+
+Im Gewindezyklus Norm und Größe wählen (z.B. M12, M12x1, 1/4-28 UNF, 1/2-12 BSW, G1/2). Eingetragen
+werden Ø, Steigung, Zustellwinkel (60°-Gewinde 29,5°, 55°-Gewinde 27°) und die Tiefe (automatisch
+aus dem Grundprofil). Alle Werte lassen sich danach von Hand ändern.
+
+| | 60° (metrisch, UNC/UNF) | 55° (Whitworth, G) |
+|---|---|---|
+| Gewindetiefe außen | 0,6134·P | 0,6403·P |
+| Gewindetiefe innen | 0,5413·P | 0,6403·P |
+| Kern-Ø D1 (Feld D bei innen) | D − 1,0825·P | D − 1,2806·P |
+| Vordrehen außen | D − 0,1·P | D − 0,1·P |
+| Bohrung vordrehen innen | D1 + 0,1·P | D1 + 0,1·P |
+
+Der Vordreh-Ø erscheint als Hinweis unter der Vorschau. Die Werte sind Faustformeln, sie liegen etwa
+in der Mitte der Toleranzfelder 6g (Bolzen) und 6H (Mutter). Passt der Spitzenwinkel des Werkzeugs
+nicht zur Norm (55° gegen 60°), meldet die Werkzeugprüfung das.
+
 ## G-Code bearbeiten
 
 - Die Taste **G-Code** zeigt den erzeugten Code in einem Editor. Dort ergänzen, speichern oder direkt
@@ -211,6 +229,7 @@ drehzyklen/cycles.py     Zyklen, Grenzwerte, Werkzeugprüfung, Programmerzeugung
 drehzyklen/gcode.py      G-Code-Ausgabe, Spiegelung ins Arbeitssystem
 drehzyklen/material.py   Abtragssimulation
 drehzyklen/tools.py      Werkzeugtabelle (tool.tbl / Vorgaben)
+drehzyklen/threads.py    Gewindetabellen (metrisch, UNC, UNF, BSW, G)
 drehzyklen/machine.py    Maschinendaten (machine.json + INI)
 drehzyklen/settings.py   letzter Ordner, Textbausteine, Schnittdaten
 drehzyklen/render.py     Vorschau mit Zoom

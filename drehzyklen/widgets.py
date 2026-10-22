@@ -28,7 +28,7 @@ from gi.repository import Gdk, GLib, Gtk, Pango  # noqa: E402
 
 from . import helpdraw, render, tooldraw  # noqa: E402
 from .cycles import P  # noqa: E402
-from .geometry import ContourError, Row, format_number, parse_rows, rows_to_text  # noqa: E402
+from .geometry import ContourError, Row, parse_rows, rows_to_text  # noqa: E402
 from .machine import Machine  # noqa: E402
 
 SYM_COLOR = "#e0a422"
@@ -59,7 +59,11 @@ def number_text(value) -> str:
     if value is None:
         return ""
     if isinstance(value, float):
-        return format_number(value)
+        # bis 6 Nachkommastellen, damit z.B. Zollsteigungen (25,4/28) genau bleiben
+        text = f"{value:.6f}".rstrip("0").rstrip(".")
+        if text in ("-0", ""):
+            return "0"
+        return text
     return str(value)
 
 
