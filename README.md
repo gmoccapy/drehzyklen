@@ -108,6 +108,8 @@ Daraus folgt:
 - Geht das nicht (I = J = 0, Q = 0 oder 9), öffnet sich beim Start der Reiter Werkzeuge. Dort gibst
   du Typ, Hand und Lage an. Die Angabe wird gespeichert und **neu abgefragt, sobald sich die Zeile
   in der tool.tbl ändert**.
+- Ändert LinuxCNC die tool.tbl (z.B. neues Werkzeug im Werkzeugeditor), liest Drehzyklen sie nach
+  spätestens 2 Sekunden automatisch neu ein. Von Hand geht es mit **⟳ Einlesen**.
 - Die Grafik zeigt jedes Werkzeug mit Schneidplatte, Halter, κ, ε und Schnittrichtung.
 - Wenn ein bekanntes rechtes Werkzeug als linkes erscheint, schalte „Winkel I/J der tool.tbl in Z
   spiegeln“ um. Die Winkelkonvention der LinuxCNC-Doku („im Uhrzeigersinn ab Z+“) ist nicht

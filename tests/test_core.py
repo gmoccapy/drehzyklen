@@ -458,6 +458,20 @@ def test_ini_from_machine_tab_and_insert_kind():
     assert LongTurning().comp == "auto"
 
 
+def test_tool_table_change_is_detected():
+    folder = tempfile.mkdtemp()
+    table_path = os.path.join(folder, "lathe.tbl")
+    with open(table_path, "w", encoding="utf-8") as file:
+        file.write("T1 P1 D0.4 I26.0 J86.0 Q2.0 ;60 Grad vorn\n")
+    table = ToolTable(Machine(tool_table=table_path), os.path.join(folder, "werkzeuge.json"))
+    assert not table.changed_on_disk() and sorted(table.tools) == [1]
+    with open(table_path, "a", encoding="utf-8") as file:
+        file.write("T2 P2 D0.1 I50.0 J85.0 Q2.0 ;35 Grad vorn\n")
+    assert table.changed_on_disk()
+    table.load()
+    assert not table.changed_on_disk() and sorted(table.tools) == [1, 2]
+
+
 if __name__ == "__main__":
     for name, function in list(globals().items()):
         if name.startswith("test_"):

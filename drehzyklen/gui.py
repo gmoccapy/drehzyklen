@@ -452,7 +452,12 @@ class ToolPage(Gtk.Box):
         self.new_button.connect("clicked", self.on_new)
         self.delete_button = Gtk.Button(label="Löschen")
         self.delete_button.connect("clicked", self.on_delete)
-        for button in (self.apply_button, self.new_button, self.delete_button):
+        self.reload_button = Gtk.Button(label="⟳ Einlesen")
+        self.reload_button.set_tooltip_text("Werkzeugtabelle neu einlesen (Änderungen aus LinuxCNC "
+                                            "werden auch automatisch erkannt)")
+        self.reload_button.connect("clicked", self.on_reload)
+        for button in (self.apply_button, self.new_button, self.delete_button,
+                       self.reload_button):
             buttons.pack_start(button, True, True, 0)
         self.pack_start(buttons, False, False, 0)
         self.mirror_check = Gtk.CheckButton(label="Winkel I/J der tool.tbl in Z spiegeln")
@@ -572,6 +577,9 @@ class ToolPage(Gtk.Box):
         number = table.next_number()
         table.add(Tool(number, number, "C", "rechts", "außen", 0.4, 95.0, comment="neu"))
         self.panel.tools_changed(number)
+
+    def on_reload(self, _button):
+        self.panel.reload_tools()
 
     def on_delete(self, _button):
         number = self.selected_number()
@@ -867,6 +875,7 @@ class DrehzyklenPanel(Gtk.Box):
         for page in self.pages.values():
             page.form.set_stock(self.program.stock, force=True)
         self.starting = False
+        GLib.timeout_add_seconds(2, self.watch_tool_table)
         self.connect("size-allocate", self.on_size_allocate)
         self.refresh_list()
 
@@ -1037,6 +1046,20 @@ class DrehzyklenPanel(Gtk.Box):
             page.form.set_stock(stock, old_stock)
             page.schedule_update()
         self.refresh_gcode()
+
+    def reload_tools(self):
+        selected = self.tool_page.selected_number()
+        self.tools.load()
+        self.tools_changed(selected)
+
+    def watch_tool_table(self):
+        """Alle 2 s prüfen, ob LinuxCNC die tool.tbl geändert hat, und dann neu einlesen."""
+        if self.tools.from_linuxcnc or self.tools.table_path():
+            if self.tools.changed_on_disk():
+                self.reload_tools()
+                self.program_column.status.set_text("Werkzeugtabelle wurde geändert – neu "
+                                                    "eingelesen")
+        return True
 
     def tools_changed(self, select_number):
         self.tool_page.refresh(select_number)

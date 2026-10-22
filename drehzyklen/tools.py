@@ -309,12 +309,32 @@ class ToolTable:
         self.from_linuxcnc = False
         self.mirror_table_angles = bool(self._stored().get("mirror_table_angles", False))
         self.message = ""
+        self.loaded_stamp = None
         self.load()
 
     # ---------------------------------------------------------------- Laden
+    def table_path(self) -> str:
+        return getattr(self.machine, "tool_table", "")
+
+    def table_stamp(self):
+        """Änderungszeit und Größe der tool.tbl (None ohne LinuxCNC-Tabelle)."""
+        table_path = self.table_path()
+        if not table_path:
+            return None
+        try:
+            info = os.stat(table_path)
+        except OSError:
+            return None
+        return (info.st_mtime_ns, info.st_size)
+
+    def changed_on_disk(self) -> bool:
+        """Wurde die tool.tbl seit dem Einlesen verändert (z.B. Werkzeug in LinuxCNC angelegt)?"""
+        return self.table_stamp() != self.loaded_stamp
+
     def load(self):
         self.tools = {}
-        table_path = getattr(self.machine, "tool_table", "")
+        table_path = self.table_path()
+        self.loaded_stamp = self.table_stamp()
         if table_path and os.path.isfile(table_path):
             self.from_linuxcnc = True
             self._load_tbl(table_path)
