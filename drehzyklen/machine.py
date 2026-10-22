@@ -20,6 +20,10 @@ Quellen (spätere überschreiben frühere):
   2. machine.json (eigene Einstellungen, Reiter "Maschine")
   3. LinuxCNC-INI: Drehzahl- und Achsgrenzen, Werkzeugwechselposition, Programmordner,
      Werkzeugtabelle
+
+Welche INI? Der Reihe nach: Aufrufparameter --ini, Umgebungsvariable INI_FILE_NAME (gesetzt,
+wenn LinuxCNC das Programm startet), INI des gerade laufenden LinuxCNC, zuletzt die im Reiter
+Maschine eingetragene INI (für den Betrieb ohne LinuxCNC).
 """
 from __future__ import annotations
 
@@ -28,6 +32,20 @@ import json
 import os
 from dataclasses import asdict, dataclass, fields
 from typing import List, Optional
+
+
+def running_linuxcnc_ini() -> Optional[str]:
+    """INI des laufenden LinuxCNC (wenn das Programm z.B. im Terminal gestartet wurde)."""
+    try:
+        import linuxcnc
+        status = linuxcnc.stat()
+        status.poll()
+        path = status.ini_filename
+    except Exception:  # noqa: BLE001 – Modul fehlt oder LinuxCNC läuft nicht
+        return None
+    if path and os.path.isfile(path):
+        return path
+    return None
 
 
 @dataclass
@@ -47,13 +65,15 @@ class Machine:
     thread_speed_factor: float = 0.8  # Anteil der Z-Geschwindigkeit beim Gewinden
     back_tool: bool = False          # Werkzeug hinter der Drehmitte
     program_dir: str = "~/linuxcnc/nc_files"
+    ini_file: str = ""               # LinuxCNC-INI für den Betrieb ohne laufendes LinuxCNC
 
     source: str = "Standardwerte"
     tc_source: str = ""
     ini_loaded: bool = False
+    ini_used: str = ""               # tatsächlich gelesene INI
     tool_table: str = ""             # Pfad der tool.tbl aus der INI
 
-    _INTERNAL = ("source", "tc_source", "ini_loaded", "tool_table")
+    _INTERNAL = ("source", "tc_source", "ini_loaded", "ini_used", "tool_table")
 
     # ---------------------------------------------------------------- Laden/Speichern
     @classmethod
@@ -71,10 +91,15 @@ class Machine:
                 pass
         if not ini_path:
             ini_path = os.environ.get("INI_FILE_NAME")
+        if not ini_path:
+            ini_path = running_linuxcnc_ini()
+        if not ini_path and machine.ini_file:
+            ini_path = os.path.expanduser(machine.ini_file)
         if ini_path and os.path.isfile(ini_path):
             if machine.update_from_ini(ini_path):
                 sources.append(os.path.basename(ini_path))
                 machine.ini_loaded = True
+                machine.ini_used = os.path.abspath(ini_path)
         if sources:
             machine.source = " + ".join(sources)
         else:
@@ -232,4 +257,5 @@ MACHINE_FIELDS = [
     ("thread_speed_factor", "Gewinde: Anteil v_Z max"),
     ("back_tool", "Werkzeug hinter der Drehmitte"),
     ("program_dir", "Programmordner"),
+    ("ini_file", "LinuxCNC-INI (ohne laufendes LinuxCNC)"),
 ]

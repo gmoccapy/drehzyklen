@@ -437,6 +437,27 @@ def test_cutting_data_is_remembered():
     assert Settings(path).cutting["long/Innen"] == {"tool": 12, "f_rough": 0.15}
 
 
+def test_ini_from_machine_tab_and_insert_kind():
+    """Ohne LinuxCNC: INI aus machine.json (Reiter Maschine), tool.tbl relativ zur INI."""
+    folder = tempfile.mkdtemp()
+    with open(os.path.join(folder, "lathe.ini"), "w", encoding="utf-8") as file:
+        file.write("[EMCIO]\n# tool table file\nTOOL_TABLE = lathe.tbl\n")
+    with open(os.path.join(folder, "lathe.tbl"), "w", encoding="utf-8") as file:
+        file.write("T1 P1 X-12.0 Z-25.0 D0.4 I26.0 J86.0 Q2.0 ;60 Grad vorn\n")
+    machine_json = os.path.join(folder, "machine.json")
+    Machine(ini_file=os.path.join(folder, "lathe.ini")).save(machine_json)
+    saved_environment = os.environ.pop("INI_FILE_NAME", None)
+    try:
+        machine = Machine.load(machine_json)
+    finally:
+        if saved_environment is not None:
+            os.environ["INI_FILE_NAME"] = saved_environment
+    assert machine.tool_table == os.path.join(folder, "lathe.tbl")
+    table = ToolTable(machine, os.path.join(folder, "werkzeuge.json"))
+    assert table.from_linuxcnc and table.get(1).kind == "T"     # 60° ist T, nicht D (55°)
+    assert LongTurning().comp == "auto"
+
+
 if __name__ == "__main__":
     for name, function in list(globals().items()):
         if name.startswith("test_"):

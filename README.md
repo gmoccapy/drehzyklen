@@ -182,6 +182,14 @@ python3 start_drehzyklen.py --ini ~/linuxcnc/configs/meine_drehe/meine_drehe.ini
 python3 start_drehzyklen.py --gcode beispiel.dzp > teil.ngc
 ```
 
+Welche INI gelesen wird (Werkzeugtabelle `[EMCIO] TOOL_TABLE`, Grenzen, G53-Wechselposition):
+1. `--ini` beim Aufruf
+2. `INI_FILE_NAME` – setzt LinuxCNC, wenn es das Programm startet (eingebettet in gmoccapy)
+3. die INI des gerade laufenden LinuxCNC (z.B. wenn das Programm im Terminal gestartet wurde)
+4. die im Reiter Maschine unter „LinuxCNC-INI“ eingetragene Datei (Betrieb ohne LinuxCNC)
+
+Welche Datei benutzt wurde, steht unten im Reiter Maschine.
+
 ## Wichtig vor dem ersten Span
 
 - Prüfe neue Programme in der Simulation (`configs/sim/gmoccapy/lathe_configs`) oder im Luftschnitt.

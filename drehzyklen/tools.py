@@ -281,10 +281,13 @@ def tool_from_table(entry: dict, back_tool: bool, mirror_z: bool = False) -> Too
     elif tool.hand == "neutral" and width < 12.0:
         tool.kind = "groove"
     else:
+        # nächstliegender Plattenwinkel (60° ist T, nicht D mit 55°)
+        best_difference = 6.0
         for kind in ("C", "D", "T", "V"):
-            if abs(width - INSERT_ANGLES[kind]) < 6.0:
+            difference = abs(width - INSERT_ANGLES[kind])
+            if difference < best_difference:
+                best_difference = difference
                 tool.kind = kind
-                break
     if tool.position == "außen":
         outside_low, outside_high = tool.table_sector
     else:

@@ -137,7 +137,7 @@ ROUGH = [
     P("allow_z", "Schlichtaufmaß Z", 0.1, unit="mm", min=0, sym="aZ"),
     P("do_rough", "Schruppen", True, "bool"),
     P("do_finish", "Schlichten", True, "bool"),
-    P("comp", "Schneidenradiuskorrektur", "aus", "choice", ("aus", "auto", "G41", "G42"),
+    P("comp", "Schneidenradiuskorrektur", "auto", "choice", ("aus", "auto", "G41", "G42"),
       help="Nur beim Schlichten; auto wählt die Seite nach Bearbeitungsrichtung. "
            "Werkzeugtabelle mit Radius und Orientierung nötig."),
 ]
@@ -1083,7 +1083,7 @@ class EdgeBreak(TurningCycle):
         feed_param("f_finish", "Vorschub Schlichten", 0.08, "Fs"),
         P("allow_x", "Schlichtaufmaß X (Ø)", 0.2, unit="mm", min=0, sym="aX"),
         P("allow_z", "Schlichtaufmaß Z", 0.1, unit="mm", min=0, sym="aZ"),
-        P("comp", "Schneidenradiuskorrektur", "aus", "choice", ("aus", "auto", "G41", "G42")),
+        P("comp", "Schneidenradiuskorrektur", "auto", "choice", ("aus", "auto", "G41", "G42")),
     ]
 
     def z_sign(self):

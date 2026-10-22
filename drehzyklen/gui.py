@@ -627,7 +627,11 @@ class MachinePage(Gtk.Box):
         for key, _label in MACHINE_FIELDS:
             values[key] = getattr(machine, key)
         self.form.set_values(values)
-        text = (f"Quelle: {machine.source}. Drehzahl-, Achsgrenzen, Werkzeugtabelle und "
+        if machine.ini_used:
+            source_text = f"{machine.source} ({machine.ini_used})"
+        else:
+            source_text = machine.source
+        text = (f"Quelle: {source_text}. Drehzahl-, Achsgrenzen, Werkzeugtabelle und "
                 f"Werkzeugwechselposition (G53) kommen aus der LinuxCNC-INI und überschreiben "
                 f"machine.json. Werkzeugwechsel immer mit M6.")
         if machine.tc_enabled:
@@ -1292,6 +1296,8 @@ class DrehzyklenPanel(Gtk.Box):
         self.program.ops.clear()
         self.clear_edit()
         self.refresh_list()
+        # Rohteil bleibt – zur Kontrolle gleich den Reiter Rohteil zeigen
+        self.selector.buttons["stock"].set_active(True)
 
     def load_project(self, path):
         with open(path, encoding="utf-8") as file:
@@ -1358,14 +1364,39 @@ class DrehzyklenPanel(Gtk.Box):
                 self.message(f"Ordner kann nicht angelegt werden: {error}",
                              Gtk.MessageType.ERROR)
                 return False
+        ini_text = str(values.get("ini_file", "")).strip()
+        ini_path = os.path.expanduser(ini_text)
+        if ini_text and not os.path.isfile(ini_path):
+            self.message(f"Die INI-Datei\n{ini_path}\nexistiert nicht.", Gtk.MessageType.ERROR)
+            return False
         old_values = dict(self.machine.__dict__)
         self.machine.update_from_dict(values)
+        if ini_text != old_values.get("ini_file", ""):
+            self.use_ini_file(ini_path, old_values)
         if self.machine.tc_enabled and not self.machine.tc_source:
             self.machine.tc_source = "Reiter Maschine"
         self.settings.last_dir = ""
         self.settings.save()
         self.machine_updated(old_values)
         return True
+
+    def use_ini_file(self, ini_path, old_values):
+        """Im Reiter Maschine eingetragene INI sofort lesen (Werkzeugtabelle, Grenzen, G53)."""
+        if self.ini_path or os.environ.get("INI_FILE_NAME"):
+            self.message("LinuxCNC hat beim Start bereits eine INI übergeben – die eingetragene "
+                         "INI wird nur ohne laufendes LinuxCNC benutzt.", Gtk.MessageType.INFO)
+            return
+        if ini_path and self.machine.update_from_ini(ini_path):
+            self.machine.ini_loaded = True
+            self.machine.ini_used = os.path.abspath(ini_path)
+            self.machine.source = (f"{os.path.basename(self.machine_json)} + "
+                                   f"{os.path.basename(ini_path)}")
+        elif not ini_path and old_values.get("ini_used"):
+            self.machine.ini_loaded = False
+            self.machine.ini_used = ""
+            self.machine.tool_table = ""
+            self.machine.source = os.path.basename(self.machine_json)
+        self.machine_page.refresh()
 
     def on_machine_save(self, button):
         if self.on_machine_apply(button):
