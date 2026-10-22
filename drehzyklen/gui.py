@@ -113,6 +113,7 @@ class CyclePage(Gtk.Box):
         self.form = ParamForm(cycle_class.all_params(), panel.machine, self.on_param,
                               panel.tool_choices)
         self.pack_start(scrolled(self.form), True, True, 0)
+        self.restore_cutting()
         button_box = Gtk.Box(spacing=4)
         self.add_button = Gtk.Button(label="＋ Zum Programm")
         self.add_button.set_tooltip_text("Diesen Zyklus am Ende des Programms anfügen")
@@ -130,43 +131,72 @@ class CyclePage(Gtk.Box):
         box = Gtk.Grid(row_spacing=4, column_spacing=4)
         self.snippet_combo = Gtk.ComboBoxText()
         self.snippet_combo.set_hexpand(True)
+        self.snippet_combo.set_tooltip_text("Baustein wählen – ersetzt den Inhalt des Codefelds")
+        self.snippet_filling = False
         self.fill_snippets()
+        self.snippet_combo.connect("changed", self.on_snippet_chosen)
         insert_button = Gtk.Button(label="Einfügen")
-        insert_button.set_tooltip_text("Textbaustein an der Schreibmarke einfügen")
+        insert_button.set_tooltip_text("Textbaustein zusätzlich an der Schreibmarke einfügen")
         insert_button.connect("clicked", self.on_insert_snippet)
-        save_button = Gtk.Button(label="Als Baustein speichern")
+        clear_button = Gtk.Button(label="Leeren")
+        clear_button.set_tooltip_text("Codefeld leeren, um einen neuen Baustein zu schreiben")
+        clear_button.connect("clicked", self.on_clear_code)
+        save_button = Gtk.Button(label="Speichern …")
         save_button.set_tooltip_text("Aktuellen Code als Textbaustein unter einem Namen speichern")
         save_button.connect("clicked", self.on_save_snippet)
-        delete_button = Gtk.Button(label="Baustein löschen")
+        delete_button = Gtk.Button(label="Löschen")
+        delete_button.set_tooltip_text("Gewählten Textbaustein löschen")
         delete_button.connect("clicked", self.on_delete_snippet)
+        buttons = Gtk.Box(spacing=4, homogeneous=True)
+        for button in (insert_button, clear_button, save_button, delete_button):
+            buttons.pack_start(button, True, True, 0)
         box.attach(Gtk.Label(label="Textbaustein", xalign=0), 0, 0, 1, 1)
-        box.attach(self.snippet_combo, 1, 0, 2, 1)
-        box.attach(insert_button, 0, 1, 1, 1)
-        box.attach(save_button, 1, 1, 1, 1)
-        box.attach(delete_button, 2, 1, 1, 1)
+        box.attach(self.snippet_combo, 1, 0, 1, 1)
+        box.attach(buttons, 0, 1, 2, 1)
         return box
 
-    def fill_snippets(self):
-        self.snippet_combo.remove_all()
-        for snippet in self.panel.settings.snippets:
-            self.snippet_combo.append(snippet["name"], snippet["name"])
-        if self.panel.settings.snippets:
-            self.snippet_combo.set_active(0)
+    def fill_snippets(self, active_name=None):
+        self.snippet_filling = True
+        try:
+            self.snippet_combo.remove_all()
+            for snippet in self.panel.settings.snippets:
+                self.snippet_combo.append(snippet["name"], snippet["name"])
+            if active_name is not None:
+                self.snippet_combo.set_active_id(active_name)
+            elif self.panel.settings.snippets:
+                self.snippet_combo.set_active(0)
+        finally:
+            self.snippet_filling = False
 
     def _code_buffer(self):
         return self.form.widgets["code"].get_buffer()
 
-    def on_insert_snippet(self, _button):
-        name = self.snippet_combo.get_active_id()
+    def _snippet_code(self, name):
         for snippet in self.panel.settings.snippets:
             if snippet["name"] == name:
-                buffer = self._code_buffer()
-                text = snippet["code"]
-                cursor = buffer.get_iter_at_mark(buffer.get_insert())
-                if cursor.get_line_offset() > 0:
-                    text = "\n" + text
-                buffer.insert(cursor, text + "\n")
-                return
+                return snippet["code"]
+        return None
+
+    def on_snippet_chosen(self, _combo):
+        if self.snippet_filling:
+            return
+        code = self._snippet_code(self.snippet_combo.get_active_id())
+        if code is not None:
+            self._code_buffer().set_text(code + "\n")
+
+    def on_clear_code(self, _button):
+        self._code_buffer().set_text("")
+        self.form.widgets["code"].grab_focus()
+
+    def on_insert_snippet(self, _button):
+        text = self._snippet_code(self.snippet_combo.get_active_id())
+        if text is None:
+            return
+        buffer = self._code_buffer()
+        cursor = buffer.get_iter_at_mark(buffer.get_insert())
+        if cursor.get_line_offset() > 0:
+            text = "\n" + text
+        buffer.insert(cursor, text + "\n")
 
     def on_save_snippet(self, _button):
         name = self.panel.ask_text("Textbaustein speichern", "Name des Bausteins:")
@@ -175,8 +205,7 @@ class CyclePage(Gtk.Box):
         buffer = self._code_buffer()
         code = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), True).strip()
         self.panel.settings.add_snippet(name, code)
-        self.fill_snippets()
-        self.snippet_combo.set_active_id(name)
+        self.fill_snippets(name)
 
     def on_delete_snippet(self, _button):
         name = self.snippet_combo.get_active_id()
@@ -184,10 +213,36 @@ class CyclePage(Gtk.Box):
             self.panel.settings.remove_snippet(name)
             self.fill_snippets()
 
+    # ---- zuletzt benutzte Schnittdaten (je Zyklus und Außen/Innen)
+    def cutting_key(self):
+        if self.cycle_class.HAS_SIDE:
+            return f"{self.cycle_class.KEY}/{self.side}"
+        return self.cycle_class.KEY
+
+    def restore_cutting(self):
+        stored = self.panel.settings.cutting.get(self.cutting_key())
+        if not stored:
+            return
+        values = {}
+        for key in self.cycle_class.cutting_keys():
+            if key in stored:
+                values[key] = stored[key]
+        if values:
+            self.form.set_values(values)
+
+    def remember_cutting(self, values):
+        cutting = {}
+        for key in self.cycle_class.cutting_keys():
+            if key in values:
+                cutting[key] = values[key]
+        if cutting:
+            self.panel.settings.remember_cutting(self.cutting_key(), cutting)
+
     # ---- Bedienung
     def set_side(self, side):
         self.side = side
         self.form.set_side(side)
+        self.restore_cutting()
         self.on_param("side", None)
 
     def on_param(self, key=None, old_value=None):
@@ -224,6 +279,8 @@ class CyclePage(Gtk.Box):
         lenient_op = self.cycle_class(values)
         self.help = (self.cycle_class.KEY, lenient_op.help_values(), lenient_op.inside)
         op = self.build()
+        if op is not None:
+            self.remember_cutting(op.v)
         if op is None:
             self.scene = {}
         elif not op.HAS_TOOL:
@@ -442,6 +499,16 @@ class ToolPage(Gtk.Box):
         if tree_iter is None:
             return None
         return model[tree_iter][0]
+
+    def select_number(self, number):
+        """Werkzeug in der Liste markieren und sichtbar machen."""
+        for index, row in enumerate(self.store):
+            if row[0] == number:
+                path = Gtk.TreePath.new_from_indices([index])
+                self.tree.get_selection().select_path(path)
+                self.tree.scroll_to_cell(path, None, False, 0.0, 0.0)
+                return True
+        return False
 
     def selected_tool(self) -> Optional[Tool]:
         number = self.selected_number()
@@ -726,6 +793,7 @@ class DrehzyklenPanel(Gtk.Box):
         self.positioned = False
         self.starting = True
         self.program_result = None
+        self.active_dialog = None
         self.set_size_request(300, 200)
 
         # ---- Auswahlleiste - Hier werden die Reiter in der Anordnung festgelegt
@@ -861,6 +929,13 @@ class DrehzyklenPanel(Gtk.Box):
 
     # ---------------------------------------------------------------- Seiten / Ansicht
     def show_page(self, key):
+        previous_page = self.pages.get(self.current)
+        if key == "tools" and previous_page is not None and previous_page.cycle_class.HAS_TOOL:
+            # Werkzeug des zuletzt bearbeiteten Zyklus im Werkzeugreiter zeigen
+            values, _errors = previous_page.form.get_values(lenient=True)
+            tool_number = values.get("tool")
+            if tool_number:
+                self.tool_page.select_number(int(tool_number))
         self.current = key
         self.stack.set_visible_child_name(key)
         self.view_column.view.reset_view()
@@ -1120,6 +1195,12 @@ class DrehzyklenPanel(Gtk.Box):
         dialog.add_buttons("Schließen", Gtk.ResponseType.CANCEL, "Speichern unter …", 1,
                            "In LinuxCNC laden", 2)
         dialog.set_default_size(720, 520)
+        running = linuxcnc_running()
+        dialog.set_response_sensitive(2, running)
+        if not running:
+            load_button = dialog.get_widget_for_response(2)
+            if load_button is not None:
+                load_button.set_tooltip_text("LinuxCNC läuft nicht")
         content = dialog.get_content_area()
         info = Gtk.Label(xalign=0, label="Ergänzungen hier gelten nur für diese Datei. Code, der "
                                          "dauerhaft zwischen zwei Zyklen stehen soll, gehört in "
@@ -1132,6 +1213,7 @@ class DrehzyklenPanel(Gtk.Box):
         scroller.add(text_view)
         content.pack_start(scroller, True, True, 0)
         dialog.show_all()
+        self.active_dialog = dialog
         while True:
             response = dialog.run()
             buffer = text_view.get_buffer()
@@ -1146,9 +1228,15 @@ class DrehzyklenPanel(Gtk.Box):
                     break
             else:
                 break
+        self.active_dialog = None
         dialog.destroy()
 
     def on_send(self, _button):
+        if not linuxcnc_running():
+            self.message("LinuxCNC läuft nicht – das Programm kann nicht geladen werden.\n"
+                         "Zum Speichern bitte »G-Code« → »Speichern unter …« verwenden.",
+                         Gtk.MessageType.WARNING)
+            return
         result = self.refresh_gcode()
         if self.gcode_ok(result):
             self.send_text(result.gcode, result.warnings)
@@ -1255,6 +1343,21 @@ class DrehzyklenPanel(Gtk.Box):
         if errors:
             self.message("\n".join(errors), Gtk.MessageType.ERROR)
             return False
+        folder = os.path.expanduser(str(values.get("program_dir", "")).strip())
+        if not folder:
+            self.message("Bitte einen Programmordner angeben.", Gtk.MessageType.ERROR)
+            return False
+        if not os.path.isdir(folder):
+            if not self.confirm(f"Der Programmordner\n{folder}\nexistiert nicht. Jetzt anlegen?"):
+                self.message("Programmordner nicht übernommen – bitte einen vorhandenen Ordner "
+                             "angeben.", Gtk.MessageType.WARNING)
+                return False
+            try:
+                os.makedirs(folder, exist_ok=True)
+            except OSError as error:
+                self.message(f"Ordner kann nicht angelegt werden: {error}",
+                             Gtk.MessageType.ERROR)
+                return False
         old_values = dict(self.machine.__dict__)
         self.machine.update_from_dict(values)
         if self.machine.tc_enabled and not self.machine.tc_source:
@@ -1282,14 +1385,20 @@ class DrehzyklenPanel(Gtk.Box):
         self.machine_updated(old_values)
 
     # ---------------------------------------------------------------- Dialoge
+    def dialog_parent(self):
+        """Fenster, über dem Meldungen erscheinen: ein offener Dialog, sonst das Hauptfenster."""
+        if self.active_dialog is not None:
+            return self.active_dialog
+        return self.get_toplevel()
+
     def message(self, text, kind=Gtk.MessageType.INFO):
-        dialog = Gtk.MessageDialog(transient_for=self.get_toplevel(), flags=0, message_type=kind,
+        dialog = Gtk.MessageDialog(transient_for=self.dialog_parent(), flags=0, message_type=kind,
                                    buttons=Gtk.ButtonsType.OK, text=text)
         dialog.run()
         dialog.destroy()
 
     def confirm(self, text) -> bool:
-        dialog = Gtk.MessageDialog(transient_for=self.get_toplevel(), flags=0,
+        dialog = Gtk.MessageDialog(transient_for=self.dialog_parent(), flags=0,
                                    message_type=Gtk.MessageType.QUESTION,
                                    buttons=Gtk.ButtonsType.YES_NO, text=text)
         answer = dialog.run() == Gtk.ResponseType.YES
@@ -1297,7 +1406,7 @@ class DrehzyklenPanel(Gtk.Box):
         return answer
 
     def ask_text(self, title, prompt) -> Optional[str]:
-        dialog = Gtk.Dialog(title=title, transient_for=self.get_toplevel(), modal=True)
+        dialog = Gtk.Dialog(title=title, transient_for=self.dialog_parent(), modal=True)
         dialog.add_buttons("Abbrechen", Gtk.ResponseType.CANCEL, "OK", Gtk.ResponseType.OK)
         content = dialog.get_content_area()
         content.pack_start(Gtk.Label(label=prompt, xalign=0), False, False, 4)
@@ -1313,7 +1422,7 @@ class DrehzyklenPanel(Gtk.Box):
         return answer
 
     def file_dialog(self, title, action, name, file_filter):
-        dialog = Gtk.FileChooserDialog(title=title, transient_for=self.get_toplevel(),
+        dialog = Gtk.FileChooserDialog(title=title, transient_for=self.dialog_parent(),
                                        action=action)
         if action == Gtk.FileChooserAction.SAVE:
             confirm_text = "Speichern"

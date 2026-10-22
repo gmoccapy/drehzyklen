@@ -121,7 +121,7 @@ def all_ops():
             EdgeBreak({"kind": "Radius", "diameter": 64}),
             Contour({"comp": "G42"}),
             Drill({"diameter": 10}),
-            Facing({"side": "Innen", "d_start": 30, "d_end": 16, "z_start": -10, "z_end": -12}),
+            Facing({"side": "Innen", "d_start": 16, "d_end": 30, "z_start": 1, "z_end": -2}),
             LongTurning({"side": "Innen", "d_start": 16, "d_end": 20, "z_end": -8,
                          "start_kind": "Fase", "start_size": 1}),
             Taper({"side": "Innen", "d_start": 24, "d_end": 18, "z_end": -6}),
@@ -384,6 +384,57 @@ def test_old_project_keys():
     assert old.spindle_mode() == "G97"
     assert EdgeBreak({"edge_d": 33}).diameter == 33
     assert Drill({"drill_d": 8}).diameter == 8
+
+
+def test_facing_no_false_rapid_collision():
+    """Eilgang direkt auf der eben gedrehten Planfläche ist kein Fehler (Rasterauflösung)."""
+    cases = [(Facing({"d_start": 51, "d_end": -0.4, "z_start": 1, "z_end": 0}), {"D": 50}),
+             (Facing({"side": "Innen", "d_start": 8, "d_end": 15, "z_start": 1, "z_end": -15}),
+              {"D": 50, "d": 10})]
+    for op, stock_values in cases:
+        for length in range(20, 200, 7):
+            stock = Stock(dict(stock_values, L=length))
+            before = simulate(stock, [], 0, extra=op)
+            result = Program(Machine(), [op], stock=stock).generate(start_material=before)
+            assert not result.errors, (length, result.errors)
+
+
+def test_inside_facing_outward_order():
+    """Innen nach außen: in der Bohrung auf Tiefe, nach außen schneiden, abheben, zurück."""
+    op = Facing({"side": "Innen", "d_start": 8, "d_end": 15, "z_start": 1, "z_end": -15})
+    gcode = Program(Machine(), [op], stock=Stock({"D": 50, "d": 10})).generate().gcode
+    finish = gcode[gcode.index("(Schlichten)"):].splitlines()
+    assert finish[1:5] == ["G0 Z-15", "G1 X15 F0.08", "G0 Z-14", "G0 X6"], finish
+
+
+def test_thread_exit_taper_in_preview():
+    op = Thread({"diameter": 20, "pitch": 2, "z_end": -25, "chamfer_l": 2, "chamfer_e": 5})
+    result = Program(Machine(), [op], stock=Stock({"D": 20})).generate()
+    threads = [segment for segment in result.path if segment.kind == "thread"]
+    tapered = [segment for segment in threads
+               if abs(segment.x1 - segment.x0) > 1e-6 and abs(segment.z1 - segment.z0) > 1e-6]
+    assert tapered and all(math.isclose(segment.z0, -20) and math.isclose(segment.z1, -25)
+                           and math.isclose(segment.x1, 20) for segment in tapered)
+    assert "E5 L2" in result.gcode
+
+
+def test_gcode_block_restarts_spindle_and_coolant():
+    ops = [Facing({"d_start": 51}), GCodeOp({"code": "M5 M9 M0"}),
+           Facing({"d_start": 51, "z_start": 0, "z_end": -1})]
+    gcode = Program(Machine(), ops, stock=Stock({"D": 50})).generate().gcode
+    after_block = gcode.split("(--- Ende eigener G-Code ---)")[1].splitlines()
+    assert after_block[2].endswith(" M3") and after_block[3] == "M8", after_block[:5]
+
+
+def test_cutting_data_is_remembered():
+    folder = tempfile.mkdtemp()
+    path = os.path.join(folder, "settings.json")
+    settings = Settings(path)
+    keys = LongTurning.cutting_keys()
+    assert "f_rough" in keys and "tool" in keys
+    assert "d_start" not in keys and "tool_ok" not in keys
+    settings.remember_cutting("long/Innen", {"tool": 12, "f_rough": 0.15})
+    assert Settings(path).cutting["long/Innen"] == {"tool": 12, "f_rough": 0.15}
 
 
 if __name__ == "__main__":

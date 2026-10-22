@@ -141,12 +141,20 @@ Rund- oder Sondergewinde. Dann bleibt eine deutliche Warnung.
 ## G-Code bearbeiten
 
 - Die Taste **G-Code** zeigt den erzeugten Code in einem Editor. Dort ergänzen, speichern oder direkt
-  in LinuxCNC laden.
-- Dauerhafter Code zwischen zwei Zyklen gehört in einen Schritt **G-Code**. Die Textbausteine
-  („Späne entfernen“, „Nachmessen“, eigene über „Als Baustein speichern“) werden in `settings.json`
-  gespeichert.
-- Der **Programmordner** steht im Reiter Maschine (Standard aus `PROGRAM_PREFIX`). Danach merkt sich
-  das Programm den zuletzt benutzten Ordner.
+  in LinuxCNC laden (nur möglich, wenn LinuxCNC läuft).
+- Dauerhafter Code zwischen zwei Zyklen gehört in einen Schritt **G-Code**. Einen Textbaustein
+  auswählen ersetzt den Inhalt des Codefelds, **Einfügen** fügt ihn zusätzlich an der Schreibmarke
+  ein, **Leeren** macht das Feld frei für einen neuen Baustein. Die Bausteine („Späne entfernen“,
+  „Nachmessen“, eigene über **Speichern …**) stehen in `settings.json`.
+- „Spindel/Kühlung danach wieder einschalten“: Folgt ein Zyklus mit demselben Werkzeug, werden
+  Drehzahl mit M3/M4 und M8 direkt nach dem Baustein wieder ausgegeben; bei einem Werkzeugwechsel
+  schaltet der nächste Zyklus sie ein.
+- Der **Programmordner** steht im Reiter Maschine (Standard aus `PROGRAM_PREFIX`). Ein Ordner, den
+  es nicht gibt, wird nicht übernommen (auf Wunsch wird er angelegt). Danach merkt sich das
+  Programm den zuletzt benutzten Ordner.
+- Die **Schnittdaten** (Werkzeug, Drehzahl, Vorschübe, Zustellung, Aufmaße …) merkt sich jeder
+  Zyklus getrennt für außen und innen, auch über einen Neustart hinweg (`settings.json`).
+  „Werkzeug trotz Warnung freigeben“ wird bewusst nicht gemerkt.
 
 ## Installation
 
@@ -190,7 +198,7 @@ drehzyklen/gcode.py      G-Code-Ausgabe, Spiegelung ins Arbeitssystem
 drehzyklen/material.py   Abtragssimulation
 drehzyklen/tools.py      Werkzeugtabelle (tool.tbl / Vorgaben)
 drehzyklen/machine.py    Maschinendaten (machine.json + INI)
-drehzyklen/settings.py   letzter Ordner, Textbausteine
+drehzyklen/settings.py   letzter Ordner, Textbausteine, Schnittdaten
 drehzyklen/render.py     Vorschau mit Zoom
 drehzyklen/helpdraw.py   Parameterbilder und Symbole
 drehzyklen/tooldraw.py   Werkzeuggrafik

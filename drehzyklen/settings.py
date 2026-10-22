@@ -13,7 +13,8 @@
 # if not, see <https://www.gnu.org/licenses/>.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Benutzereinstellungen: zuletzt benutzter Ordner und G-Code-Textbausteine.
+"""Benutzereinstellungen: zuletzt benutzter Ordner, G-Code-Textbausteine und die zuletzt
+benutzten Schnittdaten je Zyklus.
 
 Gespeichert in ~/.config/drehzyklen/settings.json (bzw. neben machine.json).
 """
@@ -21,7 +22,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Dict, List
+from typing import Any, Dict, List
 
 DEFAULT_SNIPPETS = [
     {"name": "Späne entfernen", "code": "M5\nM9\nM0 (Späne entfernen – weiter mit Zyklusstart)"},
@@ -34,6 +35,7 @@ class Settings:
         self.path = path
         self.last_dir = ""
         self.snippets: List[Dict[str, str]] = [dict(snippet) for snippet in DEFAULT_SNIPPETS]
+        self.cutting: Dict[str, Dict[str, Any]] = {}
         self.load()
 
     def load(self):
@@ -52,13 +54,18 @@ class Settings:
                 if isinstance(snippet, dict) and "name" in snippet and "code" in snippet:
                     cleaned.append({"name": str(snippet["name"]), "code": str(snippet["code"])})
             self.snippets = cleaned
+        cutting = data.get("cutting")
+        if isinstance(cutting, dict):
+            for cycle_key, values in cutting.items():
+                if isinstance(values, dict):
+                    self.cutting[str(cycle_key)] = dict(values)
 
     def save(self):
         try:
             os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
             with open(self.path, "w", encoding="utf-8") as file:
-                json.dump({"last_dir": self.last_dir, "snippets": self.snippets}, file,
-                          indent=2, ensure_ascii=False)
+                json.dump({"last_dir": self.last_dir, "snippets": self.snippets,
+                           "cutting": self.cutting}, file, indent=2, ensure_ascii=False)
         except OSError:
             pass
 
@@ -85,4 +92,11 @@ class Settings:
 
     def remove_snippet(self, name: str):
         self.snippets = [snippet for snippet in self.snippets if snippet["name"] != name]
+        self.save()
+
+    def remember_cutting(self, cycle_key: str, values: Dict[str, Any]):
+        """Schnittdaten eines Zyklus merken (nur speichern, wenn sich etwas geändert hat)."""
+        if self.cutting.get(cycle_key) == values:
+            return
+        self.cutting[cycle_key] = dict(values)
         self.save()

@@ -625,6 +625,10 @@ class ParamForm(Gtk.Grid):
             scroller = Gtk.ScrolledWindow()
             scroller.set_shadow_type(Gtk.ShadowType.IN)
             scroller.set_min_content_height(150)
+            # Breite folgt der mittleren Spalte (lange Zeilen: waagrecht scrollen)
+            scroller.set_hexpand(True)
+            scroller.set_vexpand(True)
+            scroller.set_min_content_width(120)
             scroller.add(text_view)
             text_view.scroller = scroller
             return text_view

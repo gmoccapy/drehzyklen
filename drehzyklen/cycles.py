@@ -142,6 +142,13 @@ ROUGH = [
            "Werkzeugtabelle mit Radius und Orientierung nötig."),
 ]
 
+# Werte, die beim nächsten Zyklus gleicher Art wieder vorgeschlagen werden. Nicht dabei:
+# Geometrie und "Werkzeug trotz Warnung freigeben" (muss jedes Mal bewusst gesetzt werden).
+CUTTING_DATA_KEYS = {"tool", "speed_feed", "speed", "spindle_dir", "coolant",
+                     "ap", "allow_x", "allow_z", "do_rough", "do_finish", "comp",
+                     "peck", "break_back", "dwell",
+                     "first_cut", "degression", "infeed", "spring", "thread_clear"}
+
 STOCK_PARAMS = [
     P("D", "Außen-Ø", 50.0, unit="mm", min=0.5, sym="D"),
     P("d", "Innen-Ø (0 = Vollmaterial)", 0.0, unit="mm", min=0, sym="d"),
@@ -247,6 +254,17 @@ class Cycle:
         if values is not None and item in values:
             return values[item]
         raise AttributeError(item)
+
+    @classmethod
+    def cutting_keys(cls) -> List[str]:
+        """Schnittdaten, die zwischen Zyklen/Sitzungen behalten werden (keine Geometrie)."""
+        keys = []
+        for param in cls.all_params():
+            if param.key in CUTTING_DATA_KEYS:
+                keys.append(param.key)
+            elif param.unit_by is not None:      # Vorschübe
+                keys.append(param.key)
+        return keys
 
     # ---------------------------------------------------------------- Lage und Richtung
     @property
@@ -816,20 +834,24 @@ class Facing(Cycle):
             approach_x = max(min(start_d, end_d) - 2 * clearance, 0.0)
         else:
             approach_x = max(start_d, end_d) + 2 * clearance
+        # Schnitt beginnt auf der Seite, von der das Werkzeug kommt (außen zur Mitte,
+        # innen nach außen)? Dann direkt auf Tiefe fahren und durchschneiden.
+        if self.inside:
+            cut_from_approach_side = end_d > start_d
+        else:
+            cut_from_approach_side = end_d < start_d
         work.rapid(x=approach_x)
         work.rapid(z=z_first + clearance)
         previous = z_first
         for index, (level, feed) in enumerate(passes):
             if index == len(passes) - 1 and self.allow_z > 0:
                 work.comment("Schlichten")
-            if not self.inside and end_d < start_d:
-                work.rapid(x=approach_x)
+            if cut_from_approach_side:
                 work.rapid(z=level)
                 work.feed(x=end_d, f=feed)
             else:
                 work.rapid(z=previous + clearance)
-                work.rapid(x=approach_x)
-                work.feed(x=start_d, f=feed)
+                work.rapid(x=start_d)
                 work.feed(z=level, f=feed)
                 work.feed(x=end_d, f=feed)
             work.rapid(z=level + clearance)
@@ -1272,6 +1294,11 @@ class Thread(Cycle):
     def outline(self):
         radius = self.diameter / 2
         root = radius - self.radius_sign * self.eff_depth()
+        if self.chamfer_e > 0 and self.chamfer_l in (2, 3):
+            taper_length = min(self.chamfer_e, abs(self.z_end - self.z_begin))
+            taper_z = self.z_end - self.thread_direction() * taper_length
+            return [Element("line", self.z_begin, root, taper_z, root),
+                    Element("line", taper_z, root, self.z_end, radius)]
         return [Element("line", self.z_begin, root, self.z_end, root)]
 
     def tool_problems(self, tool):
@@ -1306,11 +1333,32 @@ class Thread(Cycle):
             g76 += f" E{fmt(self.chamfer_e)} L{int(self.chamfer_l)}"
         emitter.lines.append(g76)
         emitter.set_radius_mode(False)
+        # Bahn für die Vorschau: Kegel am Ein-/Auslauf (L, E) laufen über die Länge E
+        # von der Gewindespitze (Nenn-Ø) auf Schnitttiefe bzw. zurück.
+        direction = self.thread_direction()
+        taper_length = 0.0
+        if self.chamfer_e > 0 and self.chamfer_l > 0:
+            taper_length = min(self.chamfer_e, abs(self.z_end - self.z_start))
+        entry_taper = taper_length > 0 and self.chamfer_l in (1, 3)
+        exit_taper = taper_length > 0 and self.chamfer_l in (2, 3)
         for cut in self.passes():
             pass_radius = radius - sign_r * cut
-            emitter.record_thread(2 * drive_radius, self.z_start, 2 * pass_radius, self.z_start)
-            emitter.record_thread(2 * pass_radius, self.z_start, 2 * pass_radius, self.z_end)
-            emitter.record_thread(2 * pass_radius, self.z_end, 2 * drive_radius, self.z_end)
+            if entry_taper:
+                emitter.record_thread(2 * drive_radius, self.z_start, 2 * radius, self.z_start)
+                cut_start_z = self.z_start + direction * taper_length
+                emitter.record_thread(2 * radius, self.z_start, 2 * pass_radius, cut_start_z)
+            else:
+                cut_start_z = self.z_start
+                emitter.record_thread(2 * drive_radius, self.z_start, 2 * pass_radius,
+                                      self.z_start)
+            if exit_taper:
+                cut_end_z = self.z_end - direction * taper_length
+                emitter.record_thread(2 * pass_radius, cut_start_z, 2 * pass_radius, cut_end_z)
+                emitter.record_thread(2 * pass_radius, cut_end_z, 2 * radius, self.z_end)
+                emitter.record_thread(2 * radius, self.z_end, 2 * drive_radius, self.z_end)
+            else:
+                emitter.record_thread(2 * pass_radius, cut_start_z, 2 * pass_radius, self.z_end)
+                emitter.record_thread(2 * pass_radius, self.z_end, 2 * drive_radius, self.z_end)
         emitter.set_pos(2 * drive_radius, self.z_start)
         emitter.rapid(x=safe_x)
 
@@ -1437,7 +1485,8 @@ class GCodeOp(Cycle):
           help="Wird unverändert an dieser Stelle eingefügt. Das Werkzeug steht dabei auf der "
                "Rückzugsebene. Eigene Fahrbewegungen müssen dorthin zurückkehren."),
         P("restart", "Spindel/Kühlung danach wieder einschalten", True, "bool",
-          help="Der folgende Zyklus gibt Drehzahl, M3/M4 und M8 erneut aus"),
+          help="Direkt nach dem Baustein werden Drehzahl mit M3/M4 und M8 des vorherigen "
+               "Zyklus wieder ausgegeben"),
     ]
 
     @property
@@ -1713,7 +1762,7 @@ class Program:
         last_tool = None
         spindle = None
         coolant = False
-        for number, op in valid:
+        for position, (number, op) in enumerate(valid):
             tag = f"Op {number} ({op.TITLE}): "
             emitter.op = number
             if not op.HAS_TOOL:
@@ -1721,8 +1770,23 @@ class Program:
                 emitter.comment(f"--- {number}: {op.TITLE} ---")
                 op.body(emitter, machine, material)
                 if op.restart:
-                    spindle = None
-                    coolant = False
+                    next_tool = None
+                    for _next_number, next_op in valid[position + 1:]:
+                        if next_op.HAS_TOOL:
+                            next_tool = next_op.tool
+                            break
+                    if next_tool != last_tool:
+                        # Werkzeugwechsel folgt: der nächste Zyklus schaltet Spindel/Kühlung ein
+                        spindle = None
+                        coolant = False
+                        continue
+                    # gleiches Werkzeug: Zustand vor dem Baustein gleich wiederherstellen
+                    if spindle or coolant:
+                        emitter.comment("Spindel/Kühlung wieder einschalten")
+                    if spindle:
+                        emitter.emit(spindle)
+                    if coolant:
+                        emitter.emit("M8")
                 continue
             mark = (len(emitter.lines), len(emitter.path), len(warnings), emitter.x, emitter.z,
                     emitter.feed_value, emitter.radius_mode, emitter.feed_mode, spindle, coolant)

@@ -103,18 +103,27 @@ class Material:
         return end
 
     def contains(self, z: float, r: float, margin: float = 0.05) -> bool:
-        """Liegt der Punkt (z, Radius) deutlich im Material?"""
+        """Liegt der Punkt (z, Radius) deutlich im Material?
+
+        Der Abstand margin gilt radial und axial: Ein Punkt direkt auf einer eben gedrehten
+        Planfläche zählt nicht als „im Material“, auch wenn der nächste Rasterpunkt knapp
+        dahinter liegt.
+        """
         if z < self.z[0] or z > self.z[-1]:
             return False
-        index = bisect.bisect_left(self.z, z)
-        if index >= self.count:
-            index = self.count - 1
-        if index > 0 and abs(self.z[index - 1] - z) < abs(self.z[index] - z):
-            index -= 1
-        if not self.has_material(index):
-            return False
+        grid_step = (self.z[-1] - self.z[0]) / (self.count - 1)
+        margin_z = max(margin, 1.5 * grid_step)
+        indices = self._indices(z - margin_z, z + margin_z)
+        if len(indices) == 0:
+            nearest = min(self.count - 1, bisect.bisect_left(self.z, z))
+            indices = [nearest]
         radius = abs(r)
-        return self.inner[index] + margin < radius < self.outer[index] - margin
+        for index in indices:
+            if not self.has_material(index):
+                return False
+            if not self.inner[index] + margin < radius < self.outer[index] - margin:
+                return False
+        return True
 
     # ---------------------------------------------------------------- Abtrag
     def _profile(self, points, choose):

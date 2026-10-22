@@ -322,20 +322,33 @@ def feeds_text(values) -> str:
 # =========================================================================== Skizzen
 
 def draw_facing(sketch: Sketch, values, inside):
+    # Richtung aus den Werten: D < d = Planschnitt nach außen, sonst zur Mitte
+    try:
+        outward = float(values["d_end"]) > float(values["d_start"])
+    except (TypeError, ValueError):
+        outward = False
     if not inside:
         sketch.polygon([(0, 0), (6, 0), (6, 20), (0, 20)], fill=MATERIAL_REMOVED, stroke=HINT,
                        line_width=0.8, dash=[3, 3])
         sketch.polygon([(-30, 0), (0, 0), (0, 20), (-30, 20)], fill=MATERIAL, stroke=EDGE)
         sketch.axis(-33, 11)
+        if outward:
+            radius_from, radius_to = -0.6, 23
+        else:
+            radius_from, radius_to = 23, -0.6
         for z in (4, 2):
-            sketch.arrow((z, 23), (z, -0.6), PATH, 1.3)
-        sketch.arrow((0.25, 23), (0.25, -0.6), PATH, 1.0, dash=[4, 3])
+            sketch.arrow((z, radius_from), (z, radius_to), PATH, 1.3)
+        sketch.arrow((0.25, radius_from), (0.25, radius_to), PATH, 1.0, dash=[4, 3])
         sketch.z_mark(6, 20, 28.5, "Z1", value_text(values["z_start"]), "l")
         sketch.z_mark(0, 20, 26, "Z2", value_text(values["z_end"]), "r")
         sketch.dim_z(6, 4, -3, "ap", value_text(values["ap"]), anchor="l", label_position=0.0,
                      label_dy=sketch.font)
-        sketch.dim_r(-23, 0, 20, "ØD", value_text(values["d_start"]))
-        sketch.leader((0, 0), (-9, -4), "Ød", value_text(values["d_end"]))
+        if outward:
+            sketch.dim_r(-23, 0, 20, "Ød", value_text(values["d_end"]))
+            sketch.leader((0, 0), (-9, -4), "ØD", value_text(values["d_start"]))
+        else:
+            sketch.dim_r(-23, 0, 20, "ØD", value_text(values["d_start"]))
+            sketch.leader((0, 0), (-9, -4), "Ød", value_text(values["d_end"]))
         sketch.label((-30, -5), "aZ", value_text(values["allow_z"]), anchor="l")
         sketch.label((-30, -8.5), "F / Fs", feeds_text(values), anchor="l")
     else:
@@ -344,15 +357,23 @@ def draw_facing(sketch: Sketch, values, inside):
         sketch.polygon([(0, 15), (0, 25), (-30, 25), (-30, 4), (-14, 4), (-14, 15)],
                        fill=MATERIAL, stroke=EDGE)
         sketch.axis(-33, 8)
+        if outward:
+            radius_from, radius_to = 4.6, 14.6
+        else:
+            radius_from, radius_to = 14.6, 4.6
         for z in (-11, -12.6):
-            sketch.arrow((z, 14.6), (z, 4.6), PATH, 1.3)
-        sketch.arrow((-13.85, 14.6), (-13.85, 4.6), PATH, 1.0, dash=[4, 3])
+            sketch.arrow((z, radius_from), (z, radius_to), PATH, 1.3)
+        sketch.arrow((-13.85, radius_from), (-13.85, radius_to), PATH, 1.0, dash=[4, 3])
         sketch.z_mark(-10, 4, -4.5, "Z1", value_text(values["z_start"]), "l")
         sketch.z_mark(-14, 4, -8.5, "Z2", value_text(values["z_end"]), "r")
         sketch.dim_z(-10, -11, 17.5, "ap", value_text(values["ap"]), anchor="l",
                      label_position=0.0, label_dy=0)
-        sketch.dim_r(-5, 0, 15, "ØD", value_text(values["d_start"]))
-        sketch.dim_r(-22, 0, 4, "Ød", value_text(values["d_end"]), label_position=1.0)
+        if outward:
+            sketch.dim_r(-5, 0, 15, "Ød", value_text(values["d_end"]))
+            sketch.dim_r(-22, 0, 4, "ØD", value_text(values["d_start"]), label_position=1.0)
+        else:
+            sketch.dim_r(-5, 0, 15, "ØD", value_text(values["d_start"]))
+            sketch.dim_r(-22, 0, 4, "Ød", value_text(values["d_end"]), label_position=1.0)
         sketch.label((-33, -11), "aZ", value_text(values["allow_z"]), anchor="l")
         sketch.label((-24, -11), "F / Fs", feeds_text(values), anchor="l")
 
