@@ -453,8 +453,8 @@ class ToolPage(Gtk.Box):
         self.delete_button = Gtk.Button(label="Löschen")
         self.delete_button.connect("clicked", self.on_delete)
         self.reload_button = Gtk.Button(label="⟳ Einlesen")
-        self.reload_button.set_tooltip_text("Werkzeugtabelle neu einlesen (Änderungen aus LinuxCNC "
-                                            "werden auch automatisch erkannt)")
+        self.reload_button.set_tooltip_text("Werkzeugtabelle neu einlesen (automatisch: Schalter "
+                                            "im Reiter Maschine)")
         self.reload_button.connect("clicked", self.on_reload)
         for button in (self.apply_button, self.new_button, self.delete_button,
                        self.reload_button):
@@ -1053,7 +1053,10 @@ class DrehzyklenPanel(Gtk.Box):
         self.tools_changed(selected)
 
     def watch_tool_table(self):
-        """Alle 2 s prüfen, ob LinuxCNC die tool.tbl geändert hat, und dann neu einlesen."""
+        """Alle 2 s prüfen, ob LinuxCNC die tool.tbl geändert hat, und dann neu einlesen
+        (nur wenn im Reiter Maschine eingeschaltet)."""
+        if not self.machine.auto_reload_tools:
+            return True
         if self.tools.from_linuxcnc or self.tools.table_path():
             if self.tools.changed_on_disk():
                 self.reload_tools()

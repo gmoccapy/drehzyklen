@@ -66,6 +66,7 @@ class Machine:
     back_tool: bool = False          # Werkzeug hinter der Drehmitte
     program_dir: str = "~/linuxcnc/nc_files"
     ini_file: str = ""               # LinuxCNC-INI für den Betrieb ohne laufendes LinuxCNC
+    auto_reload_tools: bool = False  # tool.tbl bei Änderung automatisch neu einlesen
 
     source: str = "Standardwerte"
     tc_source: str = ""
@@ -258,4 +259,5 @@ MACHINE_FIELDS = [
     ("back_tool", "Werkzeug hinter der Drehmitte"),
     ("program_dir", "Programmordner"),
     ("ini_file", "LinuxCNC-INI (ohne laufendes LinuxCNC)"),
+    ("auto_reload_tools", "Werkzeugtabelle bei Änderung automatisch einlesen"),
 ]
