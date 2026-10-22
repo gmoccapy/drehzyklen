@@ -728,11 +728,11 @@ class DrehzyklenPanel(Gtk.Box):
         self.program_result = None
         self.set_size_request(300, 200)
 
-        # ---- Auswahlleiste
-        items = [("stock", "Rohteil", "stock", "Rohteil und Einspannung"),
-                 ("tools", "Werkzeuge", "tools", "Werkzeugtabelle")]
+        # ---- Auswahlleiste - Hier werden die Reiter in der Anordnung festgelegt
+        items = [("stock", "Rohteil", "stock", "Rohteil und Einspannung")]
         for cycle_class in CYCLES:
             items.append((cycle_class.KEY, cycle_class.SHORT, cycle_class.KEY, cycle_class.TITLE))
+        items.append(("tools", "Werkzeuge", "tools", "Werkzeugtabelle"))
         items.append(("machine", "Maschine", "machine", "Maschinendaten"))
         self.selector = RadioBar(items, "selbar", self.show_page, icon_size=22)
         selector_scroller = Gtk.ScrolledWindow()
