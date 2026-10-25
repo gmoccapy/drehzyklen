@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Drehzyklen icon: small lathe (headstock, chuck, workpiece, tool post, tailstock, bed) -->
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d9dde3"/>
+      <stop offset="1" stop-color="#8a9099"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4f7fb8"/>
+      <stop offset="1" stop-color="#2c4f7c"/>
+    </linearGradient>
+  </defs>
+  <!-- bed and feet -->
+  <rect x="4" y="44" width="56" height="7" rx="1.5" fill="url(#body)"/>
+  <rect x="7" y="51" width="7" height="9" rx="1" fill="#2c4f7c"/>
+  <rect x="50" y="51" width="7" height="9" rx="1" fill="#2c4f7c"/>
+  <!-- headstock -->
+  <rect x="4" y="16" width="14" height="28" rx="2" fill="url(#body)"/>
+  <!-- chuck with jaws -->
+  <rect x="18" y="20" width="6" height="20" rx="1" fill="url(#metal)" stroke="#5a6068" stroke-width="0.8"/>
+  <rect x="24" y="21.5" width="3" height="5" fill="#6b717a"/>
+  <rect x="24" y="33.5" width="3" height="5" fill="#6b717a"/>
+  <!-- workpiece: turned step and chamfer -->
+  <path d="M27 25 H40 L42 27 V33 L40 35 H27 Z" fill="#e8b04a" stroke="#9c6f1c" stroke-width="0.8"/>
+  <path d="M42 27.5 H49 V32.5 H42 Z" fill="#f2c66e" stroke="#9c6f1c" stroke-width="0.8"/>
+  <!-- tailstock with centre -->
+  <rect x="52" y="22" width="9" height="22" rx="1.5" fill="url(#body)"/>
+  <path d="M52 28 L49.5 30 L52 32 Z" fill="#c9ced6" stroke="#5a6068" stroke-width="0.6"/>
+  <!-- carriage, tool post and tool, tip touching the workpiece -->
+  <rect x="31" y="40" width="14" height="4" rx="0.8" fill="#3a3f47"/>
+  <rect x="35" y="36.5" width="7" height="3.5" fill="#5a6068"/>
+  <path d="M41 36.5 L44.5 35.2 L42 38 Z" fill="#ff5a3c"/>
+  <!-- spin arrow -->
+  <path d="M12 9 A8 4 0 1 1 26 11" fill="none" stroke="#ff9a30" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M26.8 7.6 L27 12.6 L22.6 11.2 Z" fill="#ff9a30"/>
+</svg>

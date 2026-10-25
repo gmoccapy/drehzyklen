@@ -1,4 +1,4 @@
-# Drehzyklen – Zyklenprogrammierung für LinuxCNC-Drehmaschinen (gmoccapy)
+# Drehzyklen - lathe cycle programming for LinuxCNC (gmoccapy)
 # Copyright (C) 2026  nieson@web.de
 #
 # This program is free software; you can redistribute it and/or modify it under the terms of
@@ -13,21 +13,24 @@
 # if not, see <https://www.gnu.org/licenses/>.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Zeichnen der Vorschau (reines Cairo, unabhängig von GTK).
+"""Drawing the preview (plain Cairo, independent of GTK).
 
-Szene (Dictionary):
-  stock       Stock-Objekt (Rohteil + Futter) oder None
-  before      Material vor der Operation – der Abtrag wird farbig hervorgehoben
-  after       Material nach der Operation bzw. nach dem Programm
-  path        Werkzeugbahn (Segmente)
-  outlines    Fertigkonturen [(op, elements, inside)]
-  highlight   Nummer der hervorgehobenen Operation (andere Bahnen gedimmt)
+Scene (dictionary):
+  stock       Stock object (stock + chuck) or None
+  before      material before the operation - the removal is highlighted in colour
+  after       material after the operation or after the whole program
+  path        tool path (segments)
+  outlines    finished contours [(op, elements, inside)]
+  highlight   number of the highlighted operation (other paths dimmed)
 
-Ansicht: view = (zoom, verschiebung_x, verschiebung_y) in Pixeln, um die Bildmitte.
+View: view = (zoom, shift_x, shift_y) in pixels around the centre of the picture.
 """
 from __future__ import annotations
 
 import math
+
+from .drawtext import show_text, text_width
+from .i18n import _
 
 BACKGROUND = (0.11, 0.12, 0.14)
 COLORS = {"rapid": (0.95, 0.35, 0.3), "feed": (0.35, 0.7, 1.0),
@@ -60,7 +63,7 @@ def segment_points(segment):
     return points
 
 
-# alter Name, wird von Tests/Werkzeugen benutzt
+# old name, used by tests and tools
 seg_points = segment_points
 
 
@@ -75,7 +78,7 @@ def outline_points(elements):
 
 
 def chuck_jaws(stock):
-    """Futterbacken als Rechtecke (z_von, z_bis, r_von, r_bis)."""
+    """Chuck jaws as rectangles (z_from, z_to, r_from, r_to)."""
     if stock is None:
         return []
     chuck_z = stock.z_chuck
@@ -86,7 +89,7 @@ def chuck_jaws(stock):
 
 
 class ViewTransform:
-    """Modell (z, r) -> Bildschirm, eingepasst plus Zoom/Verschiebung."""
+    """Model (z, r) -> screen, fitted plus zoom/shift."""
 
     def __init__(self, width, height, bounds, back_tool, legend_height, view):
         z_min, z_max, r_min, r_max = bounds
@@ -95,9 +98,9 @@ class ViewTransform:
         self.scale = min((width - 2 * padding) / max(z_max - z_min, 1e-3),
                          usable_height / max(r_max - r_min, 1e-3))
         if back_tool:
-            self.flip = 1                     # X+ nach oben
+            self.flip = 1                     # X+ up
         else:
-            self.flip = -1                    # Werkzeug vor der Drehmitte: X+ nach unten
+            self.flip = -1                    # tool in front of the centre line: X+ down
         self.origin_x = (padding + ((width - 2 * padding) - (z_max - z_min) * self.scale) / 2
                          - z_min * self.scale)
         top = padding + (usable_height - (r_max - r_min) * self.scale) / 2
@@ -149,7 +152,7 @@ def draw_preview(cr, width, height, path=(), outlines=(), back_tool=False, show_
     if not points:
         cr.set_source_rgb(*text_color)
         cr.move_to(12, 12 + font)
-        cr.show_text("Keine Vorschau")
+        show_text(cr, _("No preview"))
         return
     z_min = min(point[0] for point in points)
     z_max = max(point[0] for point in points)
@@ -169,7 +172,7 @@ def draw_preview(cr, width, height, path=(), outlines=(), back_tool=False, show_
             cr.set_source_rgb(*color)
         cr.fill()
 
-    # Futterbacken
+    # chuck jaws
     for z_from, z_to, r_from, r_to in jaws:
         fill_polygon([(z_from, r_from), (z_to, r_from), (z_to, r_to), (z_from, r_to)], JAW)
         cr.set_source_rgb(0.55, 0.56, 0.6)
@@ -178,7 +181,7 @@ def draw_preview(cr, width, height, path=(), outlines=(), back_tool=False, show_
         x_to, y_to = to_screen(z_to, r_to)
         cr.rectangle(min(x_from, x_to), min(y_from, y_to), abs(x_to - x_from), abs(y_to - y_from))
         cr.stroke()
-    # Material: vorher (Abtrag farbig) und nachher
+    # material: before (removal in colour) and after
     if before is not None and after is not None:
         for polygon in polygons_before:
             fill_polygon(polygon, removed_color)
@@ -187,7 +190,7 @@ def draw_preview(cr, width, height, path=(), outlines=(), back_tool=False, show_
             fill_polygon(polygon, MATERIAL)
     for polygon in polygons_after:
         fill_polygon(polygon, MATERIAL)
-    # Rohteilkontur
+    # stock outline
     if stock is not None:
         z_inside = stock.z_chuck - min(20.0, max(5.0, 0.25 * stock.L))
         z_front = stock.z_front
@@ -202,7 +205,7 @@ def draw_preview(cr, width, height, path=(), outlines=(), back_tool=False, show_
         cr.line_to(*to_screen(z_front, stock.D / 2))
         cr.stroke()
         cr.set_dash([])
-    # Drehmitte
+    # centre line
     cr.set_source_rgba(0.8, 0.8, 0.8, 0.5)
     cr.set_dash([8, 4, 2, 4])
     cr.set_line_width(1)
@@ -210,7 +213,7 @@ def draw_preview(cr, width, height, path=(), outlines=(), back_tool=False, show_
     cr.line_to(*to_screen(z_max + 2, 0))
     cr.stroke()
     cr.set_dash([])
-    # Fertigkonturen
+    # finished contours
     for number, elements, _inside in outlines:
         polygon = outline_points(elements)
         if len(polygon) < 2:
@@ -225,7 +228,7 @@ def draw_preview(cr, width, height, path=(), outlines=(), back_tool=False, show_
         cr.set_source_rgba(1, 1, 1, alpha)
         cr.set_line_width(1.6)
         cr.stroke()
-    # Werkzeugbahn
+    # tool path
     for segment in segments:
         dimmed = highlight is not None and segment.op != highlight
         color = COLORS[segment.kind]
@@ -245,12 +248,12 @@ def draw_preview(cr, width, height, path=(), outlines=(), back_tool=False, show_
             cr.line_to(*to_screen(*point))
         cr.stroke()
     cr.set_dash([])
-    # Nullpunkt
+    # zero point
     zero_x, zero_y = to_screen(0, 0)
     cr.set_source_rgb(1, 0.85, 0.2)
     cr.arc(zero_x, zero_y, 4, 0, 2 * math.pi)
     cr.fill()
-    # Legende
+    # legend
     cr.set_source_rgba(*BACKGROUND, 0.85)
     cr.rectangle(0, height - font - 10, width, font + 10)
     cr.fill()
@@ -259,18 +262,19 @@ def draw_preview(cr, width, height, path=(), outlines=(), back_tool=False, show_
     zoom_text = ""
     if view is not None and abs(view[0] - 1.0) > 1e-3:
         zoom_text = f"   Zoom {view[0]:.1f}×"
-    cr.show_text(f"Z {z_min:.1f} … {z_max:.1f}   Ø max {2 * r_max:.1f}{zoom_text}")
+    show_text(cr, f"Z {z_min:.1f} … {z_max:.1f}   Ø max {2 * r_max:.1f}{zoom_text}")
     x = width - 8
-    items = [("thread", "Gewinde"), ("arc", "Bogen"), ("feed", "Vorschub"), ("rapid", "Eilgang")]
+    items = [("thread", _("Thread")), ("arc", _("Arc")), ("feed", _("Feed")),
+             ("rapid", _("Rapid"))]
     if before is not None and after is not None:
-        items.append(("remove", "Abtrag"))
+        items.append(("remove", _("Removal")))
     for name, label in items:
-        label_width = cr.text_extents(label)[4]
+        label_width = text_width(cr, label)
         x -= label_width
         if name == "remove":
             cr.set_source_rgb(*removed_color[:3])
         else:
             cr.set_source_rgb(*COLORS[name])
         cr.move_to(x, height - 6)
-        cr.show_text(label)
+        show_text(cr, label)
         x -= 12

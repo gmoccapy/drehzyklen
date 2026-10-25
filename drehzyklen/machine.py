@@ -1,4 +1,4 @@
-# Drehzyklen – Zyklenprogrammierung für LinuxCNC-Drehmaschinen (gmoccapy)
+# Drehzyklen - lathe cycle programming for LinuxCNC (gmoccapy)
 # Copyright (C) 2026  nieson@web.de
 #
 # This program is free software; you can redistribute it and/or modify it under the terms of
@@ -13,13 +13,16 @@
 # if not, see <https://www.gnu.org/licenses/>.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Maschinendaten und -grenzen.
+"""Machine data and limits.
 
-Quellen (spätere überschreiben frühere):
-  1. Standardwerte
-  2. machine.json (eigene Einstellungen, Reiter "Maschine")
-  3. LinuxCNC-INI: Drehzahl- und Achsgrenzen, Werkzeugwechselposition, Programmordner,
-     Werkzeugtabelle
+Sources (later ones override earlier ones):
+  1. defaults
+  2. machine.json (own settings, machine tab)
+  3. LinuxCNC INI: spindle and axis limits, tool change position, program folder, tool table
+
+Which INI? In this order: the command line option --ini, the environment variable
+INI_FILE_NAME (set when LinuxCNC starts the program), the INI of a running LinuxCNC, and finally
+the INI entered in the machine tab (for use without LinuxCNC).
 """
 from __future__ import annotations
 
@@ -28,6 +31,22 @@ import json
 import os
 from dataclasses import asdict, dataclass, fields
 from typing import List, Optional
+
+from .i18n import N_, _
+
+
+def running_linuxcnc_ini() -> Optional[str]:
+    """INI of the running LinuxCNC (e.g. when the program was started in a terminal)."""
+    try:
+        import linuxcnc
+        status = linuxcnc.stat()
+        status.poll()
+        path = status.ini_filename
+    except Exception:  # noqa: BLE001 - module missing or LinuxCNC not running
+        return None
+    if path and os.path.isfile(path):
+        return path
+    return None
 
 
 @dataclass
@@ -38,24 +57,28 @@ class Machine:
     max_vel_z: float = 4000.0        # mm/min
     max_acc_x: float = 500.0         # mm/s²
     max_acc_z: float = 500.0         # mm/s²
-    max_diameter: float = 200.0      # mm (Umlaufdurchmesser / Futter)
-    tc_enabled: bool = False         # Werkzeugwechselposition mit G53 anfahren
-    tc_x: float = 0.0                # G53-Position X (Radiuswert wie in der INI)
-    tc_z: float = 0.0                # G53-Position Z
-    clearance: float = 1.0           # Sicherheitsabstand mm
-    retract: float = 5.0             # Rückzugsebene: Abstand vor der vordersten Werkstückkante
-    thread_speed_factor: float = 0.8  # Anteil der Z-Geschwindigkeit beim Gewinden
-    back_tool: bool = False          # Werkzeug hinter der Drehmitte
+    max_diameter: float = 200.0      # mm (swing / chuck)
+    tc_enabled: bool = False         # move to the tool change position with G53
+    tc_x: float = 0.0                # G53 position X (radius value as in the INI)
+    tc_z: float = 0.0                # G53 position Z
+    tc_move_z: bool = True           # off: move X only, Z stays
+    clearance: float = 1.0           # safety distance mm
+    retract: float = 5.0             # retract plane: distance in front of the foremost edge
+    thread_speed_factor: float = 0.8  # share of the Z velocity used for threading
+    back_tool: bool = False          # tool behind the centre line
     program_dir: str = "~/linuxcnc/nc_files"
+    ini_file: str = ""               # LinuxCNC INI for use without a running LinuxCNC
+    auto_reload_tools: bool = False  # read the tool.tbl again automatically when it changes
 
-    source: str = "Standardwerte"
+    source: str = N_("defaults")
     tc_source: str = ""
     ini_loaded: bool = False
-    tool_table: str = ""             # Pfad der tool.tbl aus der INI
+    ini_used: str = ""               # INI that was actually read
+    tool_table: str = ""             # path of the tool.tbl from the INI
 
-    _INTERNAL = ("source", "tc_source", "ini_loaded", "tool_table")
+    _INTERNAL = ("source", "tc_source", "ini_loaded", "ini_used", "tool_table")
 
-    # ---------------------------------------------------------------- Laden/Speichern
+    # ---------------------------------------------------------------- loading/saving
     @classmethod
     def load(cls, json_path: Optional[str] = None, ini_path: Optional[str] = None) -> "Machine":
         machine = cls()
@@ -71,14 +94,19 @@ class Machine:
                 pass
         if not ini_path:
             ini_path = os.environ.get("INI_FILE_NAME")
+        if not ini_path:
+            ini_path = running_linuxcnc_ini()
+        if not ini_path and machine.ini_file:
+            ini_path = os.path.expanduser(machine.ini_file)
         if ini_path and os.path.isfile(ini_path):
             if machine.update_from_ini(ini_path):
                 sources.append(os.path.basename(ini_path))
                 machine.ini_loaded = True
+                machine.ini_used = os.path.abspath(ini_path)
         if sources:
             machine.source = " + ".join(sources)
         else:
-            machine.source = "Standardwerte"
+            machine.source = N_("defaults")
         return machine
 
     def update_from_dict(self, values: dict):
@@ -174,10 +202,15 @@ class Machine:
         # Werkzeugwechselposition: gmoccapy [CHANGE_POSITION], sonst [EMCIO] TOOL_CHANGE_POSITION
         change_x = get_number("CHANGE_POSITION", "X")
         change_z = get_number("CHANGE_POSITION", "Z")
-        if change_x is not None and change_z is not None:
+        if change_x is not None:
+            # [CHANGE_POSITION] with X only: Z stays where it is during the change
             self.tc_enabled = True
             self.tc_x = change_x * factor
-            self.tc_z = change_z * factor
+            if change_z is not None:
+                self.tc_z = change_z * factor
+                self.tc_move_z = True
+            else:
+                self.tc_move_z = False
             self.tc_source = "INI [CHANGE_POSITION]"
         else:
             text = get_text("EMCIO", "TOOL_CHANGE_POSITION")
@@ -193,43 +226,57 @@ class Machine:
                     self.tc_source = "INI [EMCIO] TOOL_CHANGE_POSITION"
         return True
 
-    # ---------------------------------------------------------------- Hilfen
+    # ---------------------------------------------------------------- helpers
     @property
     def max_feed_vel(self) -> float:
-        """Langsamste Achse in mm/min (konservativ für Vorschubprüfung)."""
+        """Slowest axis in mm/min (conservative for the feed check)."""
         return min(self.max_vel_x, self.max_vel_z)
 
     @property
     def default_spindle_dir(self) -> str:
-        """Werkzeug vor der Drehmitte: M3, hinter der Drehmitte: M4."""
+        """Tool in front of the centre line: M3, behind it: M4."""
         if self.back_tool:
             return "M4"
         return "M3"
 
     def summary(self) -> str:
-        if self.tc_enabled:
-            tool_change = f"WZW G53 X{self.tc_x:g} Z{self.tc_z:g}"
+        if self.tc_enabled and self.tc_move_z:
+            tool_change = _("TC G53 X{x:g} Z{z:g}").format(x=self.tc_x, z=self.tc_z)
+        elif self.tc_enabled:
+            tool_change = _("TC G53 X{x:g} (Z stays)").format(x=self.tc_x)
         else:
-            tool_change = "keine WZW-Position"
+            tool_change = _("no tool change position")
         return (f"n {self.min_rpm:.0f}–{self.max_rpm:.0f} 1/min · "
                 f"vX {self.max_vel_x:.0f} / vZ {self.max_vel_z:.0f} mm/min · "
-                f"Ø max {self.max_diameter:.0f} · {tool_change}  ({self.source})")
+                f"Ø max {self.max_diameter:.0f} · {tool_change}  ({_(self.source)})")
 
 
 MACHINE_FIELDS = [
-    ("max_rpm", "Max. Spindeldrehzahl [1/min]"),
-    ("min_rpm", "Min. Spindeldrehzahl [1/min]"),
-    ("max_vel_x", "Max. Geschwindigkeit X [mm/min]"),
-    ("max_vel_z", "Max. Geschwindigkeit Z [mm/min]"),
-    ("max_acc_x", "Max. Beschleunigung X [mm/s²]"),
-    ("max_acc_z", "Max. Beschleunigung Z [mm/s²]"),
-    ("max_diameter", "Max. Drehdurchmesser [mm]"),
-    ("tc_enabled", "Werkzeugwechselposition G53 anfahren"),
-    ("tc_x", "Werkzeugwechsel G53 X (Radius wie INI)"),
-    ("tc_z", "Werkzeugwechsel G53 Z"),
-    ("clearance", "Sicherheitsabstand [mm]"),
-    ("retract", "Rückzugsebene vor Werkstück [mm]"),
-    ("thread_speed_factor", "Gewinde: Anteil v_Z max"),
-    ("back_tool", "Werkzeug hinter der Drehmitte"),
-    ("program_dir", "Programmordner"),
+    ("max_rpm", N_("Max. spindle speed [1/min]")),
+    ("min_rpm", N_("Min. spindle speed [1/min]")),
+    ("max_vel_x", N_("Max. velocity X [mm/min]")),
+    ("max_vel_z", N_("Max. velocity Z [mm/min]")),
+    ("max_acc_x", N_("Max. acceleration X [mm/s²]")),
+    ("max_acc_z", N_("Max. acceleration Z [mm/s²]")),
+    ("max_diameter", N_("Max. turning diameter [mm]")),
+    ("tc_enabled", N_("Tool change position G53")),
+    ("tc_x", N_("Tool change G53 X (radius)")),
+    ("tc_move_z", N_("Tool change: move Z too")),
+    ("tc_z", N_("Tool change G53 Z")),
+    ("clearance", N_("Safety distance [mm]")),
+    ("retract", N_("Retract plane [mm]")),
+    ("thread_speed_factor", N_("Threading: share of max. v_Z")),
+    ("back_tool", N_("Tool behind the centre line")),
+    ("program_dir", N_("Program folder")),
+    ("ini_file", N_("LinuxCNC INI file")),
+    ("auto_reload_tools", N_("Reload tool table automatically")),
 ]
+# tooltips for the machine fields (the labels are kept short)
+MACHINE_HELP = {
+    "tc_enabled": N_("Move to the tool change position with G53"),
+    "tc_x": N_("Radius value as in the INI"),
+    "tc_move_z": N_("Off: only X is moved to the tool change position, Z stays"),
+    "retract": N_("Distance of the retract plane in front of the part"),
+    "ini_file": N_("LinuxCNC INI (without running LinuxCNC)"),
+    "auto_reload_tools": N_("Read the tool table again automatically when it changes"),
+}

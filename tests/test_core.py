@@ -1,4 +1,4 @@
-# Drehzyklen – Zyklenprogrammierung für LinuxCNC-Drehmaschinen (gmoccapy)
+# Drehzyklen - lathe cycle programming for LinuxCNC (gmoccapy)
 # Copyright (C) 2026  nieson@web.de
 #
 # This program is free software; you can redistribute it and/or modify it under the terms of
@@ -13,7 +13,7 @@
 # if not, see <https://www.gnu.org/licenses/>.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Tests für den Zyklenkern (ohne GTK):  python3 tests/test_core.py   (oder pytest)"""
+"""Tests of the cycle core (without GTK):  python3 tests/test_core.py   (or pytest)"""
 import math
 import os
 import sys
@@ -28,7 +28,8 @@ from drehzyklen.geometry import (ContourError, parse_rows, polyline, resolve_row
 from drehzyklen.machine import Machine  # noqa: E402
 from drehzyklen.material import simulate  # noqa: E402
 from drehzyklen.settings import Settings  # noqa: E402
-from drehzyklen.tools import ToolTable, parse_tool_line, preset_tools, tool_from_table  # noqa: E402
+from drehzyklen.tools import (Tool, ToolTable, parse_tool_line, preset_tools,  # noqa: E402
+                             tool_from_table)
 
 
 def elements_of(text, default_corner=None, default_size=0):
@@ -56,10 +57,10 @@ def tool_table():
     return ToolTable(Machine(), os.path.join(folder, "werkzeuge.json"))
 
 
-# ------------------------------------------------------------------ Kontur
+# ------------------------------------------------------------------ contour
 
 def test_parser_increment_comma_roundtrip():
-    rows = parse_rows("X0 Z0\nU10 # Plan\nW-20,5 R2\n(Kommentar) X20 Z-40; X30\nG3 X40 Z-45 R5 RND1")
+    rows = parse_rows("X0 Z0\nU10 # face\nW-20,5 R2\n(comment) X20 Z-40; X30\nG3 X40 Z-45 R5 RND1")
     assert [(row.x, row.z) for row in rows] == [(0, 0), (10, 0), (10, -20.5), (20, -40), (30, -40),
                                                 (40, -45)]
     assert rows[2].corner == "R" and rows[2].csize == 2
@@ -92,7 +93,7 @@ def test_arcs_radius_center_tangential():
     try:
         elements_of("X10 Z-10\nG2 X20 Z-20 R3")
     except ContourError as error:
-        assert "zu klein" in str(error)
+        assert "too small" in str(error)
     else:
         raise AssertionError
 
@@ -105,29 +106,29 @@ def test_fillet_between_line_and_arc():
             assert tangent(elements[index], elements[index + 1]), index
 
 
-# ------------------------------------------------------------------ Programm
+# ------------------------------------------------------------------ program
 
 def tube_stock():
     return Stock({"D": 64, "d": 16, "L": 120})
 
 
 def all_ops():
-    """Jeder Zyklus einmal, passend zu einem Rohr Ø64/Ø16 (jeweils einzeln erzeugt)."""
+    """Every cycle once, matching a tube Ø64/Ø16 (each generated on its own)."""
     return [Facing({"d_start": 64}),
-            LongTurning({"d_start": 64, "d_end": 50, "start_kind": "Fase", "start_size": 1,
-                         "end_kind": "Radius", "end_size": 2}),
-            Taper({"mode": "Winkel", "d_start": 50, "d_end": 64, "angle": 15}),
+            LongTurning({"d_start": 64, "d_end": 50, "start_kind": "chamfer", "start_size": 1,
+                         "end_kind": "radius", "end_size": 2}),
+            Taper({"mode": "angle", "d_start": 50, "d_end": 64, "angle": 15}),
             Thread({"diameter": 64, "pitch": 2}),
-            EdgeBreak({"kind": "Radius", "diameter": 64}),
+            EdgeBreak({"kind": "radius", "diameter": 64}),
             Contour({"comp": "G42"}),
             Drill({"diameter": 10}),
-            Facing({"side": "Innen", "d_start": 30, "d_end": 16, "z_start": -10, "z_end": -12}),
-            LongTurning({"side": "Innen", "d_start": 16, "d_end": 20, "z_end": -8,
-                         "start_kind": "Fase", "start_size": 1}),
-            Taper({"side": "Innen", "d_start": 24, "d_end": 18, "z_end": -6}),
-            Thread({"side": "Innen", "diameter": 20, "pitch": 1.5, "z_end": -5}),
-            EdgeBreak({"side": "Innen", "diameter": 16, "size": 1, "angle": 30}),
-            Contour({"side": "Innen", "contour": "X40 Z0 C1\nX30 Z-5 R1\nZ-8\nX16"})]
+            Facing({"side": "inside", "d_start": 16, "d_end": 30, "z_start": 1, "z_end": -2}),
+            LongTurning({"side": "inside", "d_start": 16, "d_end": 20, "z_end": -8,
+                         "start_kind": "chamfer", "start_size": 1}),
+            Taper({"side": "inside", "d_start": 24, "d_end": 18, "z_end": -6}),
+            Thread({"side": "inside", "diameter": 20, "pitch": 1.5, "z_end": -5}),
+            EdgeBreak({"side": "inside", "diameter": 16, "size": 1, "angle": 30}),
+            Contour({"side": "inside", "contour": "X40 Z0 C1\nX30 Z-5 R1\nZ-8\nX16"})]
 
 
 def test_program_generates_all_cycles_inside_and_outside():
@@ -154,7 +155,7 @@ def test_same_tool_no_tool_change_and_m6():
     gcode = Program(machine, ops, stock=Stock({"L": 100})).generate().gcode
     assert gcode.count(" M6 G43") == 2
     assert gcode.count("G53 G0 Z250") == 3
-    assert "kein Werkzeugwechsel" in gcode and "Werkzeugwechselposition G53" in gcode
+    assert "no tool change" in gcode and "Tool change position G53" in gcode
 
 
 def test_machine_from_ini():
@@ -183,7 +184,7 @@ def test_speed_feed_limits_and_spindle_direction():
                       "f_finish": 100})
     result = Program(machine, [op]).generate()
     assert "G94" in result.gcode and "F500" in result.gcode and " M4" in result.gcode
-    assert any("auf 500 mm/min begrenzt" in warning for warning in result.warnings)
+    assert any("limited to 500 mm/min" in warning for warning in result.warnings)
 
 
 def test_speed_feed_switch_converts_values():
@@ -198,7 +199,7 @@ def test_speed_feed_switch_converts_values():
 
 
 def test_cycles_left_to_right():
-    stock = Stock({"D": 50, "L": 60, "zero": "Futter"})
+    stock = Stock({"D": 50, "L": 60, "zero": "chuck"})
     groove = LongTurning({"d_start": 50, "d_end": 30, "z_start": 50, "z_end": 5})
     facing = Facing({"d_start": 30, "d_end": 50, "z_start": 10, "z_end": 14, "ap": 1})
     assert facing.z_sign() == -1
@@ -217,7 +218,7 @@ def test_falling_taper_enters_obliquely():
     oblique = [segment for segment in result.path if segment.kind == "feed"
                and abs(segment.z1 - segment.z0) > 1e-3 and abs(segment.x1 - segment.x0) > 1e-3]
     assert len(oblique) >= 4
-    # Kein Vorschub fährt senkrecht unter die Kegelfläche
+    # no feed move goes vertically below the cone surface
     for segment in result.path:
         if segment.kind == "feed" and abs(segment.z1 - segment.z0) < 1e-6:
             cone_radius = 22 - (0 - segment.z0) * 7 / 25
@@ -269,13 +270,13 @@ def _check_no_gouge(op, stock, inside):
 
 
 def test_roughing_stays_outside_part():
-    _check_no_gouge(Contour({"corner_mode": "keine", "ap": 1,
+    _check_no_gouge(Contour({"corner_mode": "none", "ap": 1,
                              "contour": "X20 Z0\nZ-10\nX30 Z-15 R2\nX24 Z-20\nZ-25 R1\nX36 Z-30\n"
                                         "Z-40\nX40"}), Stock({"D": 40, "L": 90, "face": 0}), False)
 
 
 def test_inside_roughing_stays_in_bore():
-    _check_no_gouge(Contour({"side": "Innen", "ap": 1,
+    _check_no_gouge(Contour({"side": "inside", "ap": 1,
                              "contour": "X50 Z0 C2\nX40 Z-15 R3\nX30 Z-20 R2\nZ-35\nG2 X24 Z-38 R3\n"
                                         "X18"}), Stock({"D": 70, "d": 18, "L": 90, "face": 0}), True)
 
@@ -284,16 +285,16 @@ def test_rapid_collision_detected():
     stock = Stock({"D": 50, "L": 90, "face": 0})
     op = LongTurning({"d_start": 50, "d_end": 40, "z_start": -40, "z_end": -10})
     result = Program(Machine(), [op], stock=stock).generate()
-    assert any("Eilgang durch Material" in error for error in result.errors)
+    assert any("rapid move through material" in error for error in result.errors)
 
 
 def test_stock_and_chuck_check():
-    stock = Stock({"D": 50, "L": 40, "zero": "Vorderkante", "face": 1})
+    stock = Stock({"D": 50, "L": 40, "zero": "front", "face": 1})
     assert stock.z_front == 1 and stock.z_chuck == -39
     result = Program(Machine(), [LongTurning({"z_end": -45})], stock=stock).generate()
-    assert any("Kollision" in error for error in result.errors)
+    assert any("collision" in error for error in result.errors)
     result = Program(Machine(), [Drill({"z_end": -60})], stock=stock).generate()
-    assert not result.errors and any("Futterfläche" in warning for warning in result.warnings)
+    assert not result.errors and any("chuck face" in warning for warning in result.warnings)
 
 
 def test_gcode_step_between_cycles():
@@ -317,28 +318,28 @@ def test_material_simulation():
     assert material.inner[nearest(-5)] > 4.9
 
 
-# ------------------------------------------------------------------ Werkzeuge
+# ------------------------------------------------------------------ tools
 
 def test_tool_checks():
     table = tool_table()
-    # T1 C rechts außen, T2 C links, T7 V rechts, T10 Gewinde, T11 Bohrer
+    # T1 C right outside, T2 C left, T7 V right, T10 thread, T11 drill
     thread = Thread({"tool": 1})
     result = Program(Machine(), [thread], tools=table).generate()
-    assert any("kann kein Gewinde" in error for error in result.errors)
+    assert any("cannot cut a thread" in error for error in result.errors)
     thread.v["tool_ok"] = True
     result = Program(Machine(), [thread], tools=table).generate()
-    assert not result.errors and any("freigegeben" in warning for warning in result.warnings)
+    assert not result.errors and any("released" in warning for warning in result.warnings)
     left_tool = Program(Machine(), [LongTurning({"tool": 2})], tools=table).generate()
-    assert any("Schnittrichtung passt nicht" in error for error in left_tool.errors)
+    assert any("wrong cutting direction" in error for error in left_tool.errors)
     falling = Taper({"d_start": 44, "d_end": 30, "z_start": 0, "z_end": -10, "tool": 1})
     result = Program(Machine(), [falling], stock=Stock({"D": 44}), tools=table).generate()
-    assert any("Freiwinkel" in error for error in result.errors)
+    assert any("clearance angle" in error for error in result.errors)
     falling.v["tool"] = 7
     result = Program(Machine(), [falling], stock=Stock({"D": 44}), tools=table).generate()
     assert not result.errors, result.errors
-    inside = LongTurning({"side": "Innen", "d_start": 16, "d_end": 20, "z_end": -10, "tool": 1})
+    inside = LongTurning({"side": "inside", "d_start": 16, "d_end": 20, "z_end": -10, "tool": 1})
     result = Program(Machine(), [inside], stock=Stock({"d": 16}), tools=table).generate()
-    assert any("Innenwerkzeug" in error for error in result.errors)
+    assert any("inside tool" in error for error in result.errors)
 
 
 def test_tool_table_from_linuxcnc():
@@ -353,24 +354,24 @@ def test_tool_table_from_linuxcnc():
     table = ToolTable(machine, os.path.join(folder, "werkzeuge.json"))
     assert table.from_linuxcnc and not table.get(1).needs_input
     assert [tool.number for tool in table.pending()] == [3]
-    table.assign(table.get(3), "D", "rechts", "außen", 93.0, 0.4, 0.0, 0.0, "")
+    table.assign(table.get(3), "D", "right", "outside", 93.0, 0.4, 0.0, 0.0, "")
     reloaded = ToolTable(machine, os.path.join(folder, "werkzeuge.json"))
     assert not reloaded.get(3).needs_input and reloaded.get(3).kind == "D"
     with open(table_path, "w") as file:
         file.write("T1 P1 D0.8 I95 J155 Q2 ;a\nT3 P3 D0.8 I0 J0 Q0 ;b geändert\n")
     changed = ToolTable(machine, os.path.join(folder, "werkzeuge.json"))
-    assert changed.get(3).needs_input            # Werkzeug geändert -> neu abfragen
+    assert changed.get(3).needs_input            # tool changed -> ask again
 
 
 def test_presets_and_settings():
     kinds = [(tool.kind, tool.hand) for tool in preset_tools()]
     for kind in ("C", "D", "T", "V"):
-        assert (kind, "rechts") in kinds and (kind, "links") in kinds
+        assert (kind, "right") in kinds and (kind, "left") in kinds
     assert ("groove", "neutral") in kinds and ("thread", "neutral") in kinds
     folder = tempfile.mkdtemp()
     settings = Settings(os.path.join(folder, "settings.json"))
     names = [snippet["name"] for snippet in settings.snippets]
-    assert "Späne entfernen" in names and "Nachmessen" in names
+    assert "Remove chips" in names and "Measure" in names
     settings.add_snippet("Test", "M0")
     settings.remember_dir(os.path.join(folder, "teil.ngc"))
     again = Settings(os.path.join(folder, "settings.json"))
@@ -380,10 +381,235 @@ def test_presets_and_settings():
 def test_old_project_keys():
     old = LongTurning({"stock_d": 45, "target_d": 30, "chamfer": 1, "end_radius": 2,
                        "speed_mode": "G97"})
-    assert old.d_start == 45 and old.d_end == 30 and old.start_kind == "Fase"
+    assert old.d_start == 45 and old.d_end == 30 and old.start_kind == "chamfer"
     assert old.spindle_mode() == "G97"
     assert EdgeBreak({"edge_d": 33}).diameter == 33
     assert Drill({"drill_d": 8}).diameter == 8
+
+
+def test_facing_no_false_rapid_collision():
+    """A rapid right on the face that was just cut is no error (grid resolution)."""
+    cases = [(Facing({"d_start": 51, "d_end": -0.4, "z_start": 1, "z_end": 0}), {"D": 50}),
+             (Facing({"side": "inside", "d_start": 8, "d_end": 15, "z_start": 1, "z_end": -15}),
+              {"D": 50, "d": 10})]
+    for op, stock_values in cases:
+        for length in range(20, 200, 7):
+            stock = Stock(dict(stock_values, L=length))
+            before = simulate(stock, [], 0, extra=op)
+            result = Program(Machine(), [op], stock=stock).generate(start_material=before)
+            assert not result.errors, (length, result.errors)
+
+
+def test_inside_facing_outward_order():
+    """Inside outwards: to depth in the bore, cut outwards, lift, back."""
+    op = Facing({"side": "inside", "d_start": 8, "d_end": 15, "z_start": 1, "z_end": -15})
+    gcode = Program(Machine(), [op], stock=Stock({"D": 50, "d": 10})).generate().gcode
+    finish = gcode[gcode.index("(Finishing)"):].splitlines()
+    assert finish[1:5] == ["G0 Z-15", "G1 X15 F0.08", "G0 Z-14", "G0 X6"], finish
+
+
+def test_thread_exit_taper_in_preview():
+    op = Thread({"diameter": 20, "pitch": 2, "z_end": -25, "chamfer_l": 2, "chamfer_e": 5})
+    result = Program(Machine(), [op], stock=Stock({"D": 20})).generate()
+    threads = [segment for segment in result.path if segment.kind == "thread"]
+    tapered = [segment for segment in threads
+               if abs(segment.x1 - segment.x0) > 1e-6 and abs(segment.z1 - segment.z0) > 1e-6]
+    assert tapered and all(math.isclose(segment.z0, -20) and math.isclose(segment.z1, -25)
+                           and math.isclose(segment.x1, 20) for segment in tapered)
+    assert "E5 L2" in result.gcode
+
+
+def test_gcode_block_restarts_spindle_and_coolant():
+    ops = [Facing({"d_start": 51}), GCodeOp({"code": "M5 M9 M0"}),
+           Facing({"d_start": 51, "z_start": 0, "z_end": -1})]
+    gcode = Program(Machine(), ops, stock=Stock({"D": 50})).generate().gcode
+    after_block = gcode.split("(--- end of own G-code ---)")[1].splitlines()
+    assert after_block[2].endswith(" M3") and after_block[3] == "M8", after_block[:5]
+
+
+def test_cutting_data_is_remembered():
+    folder = tempfile.mkdtemp()
+    path = os.path.join(folder, "settings.json")
+    settings = Settings(path)
+    keys = LongTurning.cutting_keys()
+    assert "f_rough" in keys and "tool" in keys
+    assert "d_start" not in keys and "tool_ok" not in keys
+    settings.remember_cutting("long/inside", {"tool": 12, "f_rough": 0.15})
+    assert Settings(path).cutting["long/inside"] == {"tool": 12, "f_rough": 0.15}
+    # settings of version 0.4 (German keys and values) are migrated
+    with open(path, "w", encoding="utf-8") as file:
+        file.write('{"cutting": {"long/Innen": {"tool": 12, "comp": "aus"}}}')
+    assert Settings(path).cutting["long/inside"] == {"tool": 12, "comp": "off"}
+
+
+def test_ini_from_machine_tab_and_insert_kind():
+    """Without LinuxCNC: INI from machine.json (machine tab), tool.tbl relative to the INI."""
+    folder = tempfile.mkdtemp()
+    with open(os.path.join(folder, "lathe.ini"), "w", encoding="utf-8") as file:
+        file.write("[EMCIO]\n# tool table file\nTOOL_TABLE = lathe.tbl\n")
+    with open(os.path.join(folder, "lathe.tbl"), "w", encoding="utf-8") as file:
+        file.write("T1 P1 X-12.0 Z-25.0 D0.4 I26.0 J86.0 Q2.0 ;60 Grad vorn\n")
+    machine_json = os.path.join(folder, "machine.json")
+    Machine(ini_file=os.path.join(folder, "lathe.ini")).save(machine_json)
+    saved_environment = os.environ.pop("INI_FILE_NAME", None)
+    try:
+        machine = Machine.load(machine_json)
+    finally:
+        if saved_environment is not None:
+            os.environ["INI_FILE_NAME"] = saved_environment
+    assert machine.tool_table == os.path.join(folder, "lathe.tbl")
+    table = ToolTable(machine, os.path.join(folder, "werkzeuge.json"))
+    assert table.from_linuxcnc and table.get(1).kind == "T"     # 60° is T, not D (55°)
+    assert LongTurning().comp == "auto"
+
+
+def test_tool_table_change_is_detected():
+    folder = tempfile.mkdtemp()
+    table_path = os.path.join(folder, "lathe.tbl")
+    with open(table_path, "w", encoding="utf-8") as file:
+        file.write("T1 P1 D0.4 I26.0 J86.0 Q2.0 ;60 Grad vorn\n")
+    table = ToolTable(Machine(tool_table=table_path), os.path.join(folder, "werkzeuge.json"))
+    assert not table.changed_on_disk() and sorted(table.tools) == [1]
+    with open(table_path, "a", encoding="utf-8") as file:
+        file.write("T2 P2 D0.1 I50.0 J85.0 Q2.0 ;35 Grad vorn\n")
+    assert table.changed_on_disk()
+    table.load()
+    assert not table.changed_on_disk() and sorted(table.tools) == [1, 2]
+
+
+def test_thread_tool_55_degrees_from_table():
+    """A 55° tip (I117.5 J62.5) is a threading tool; changing the type keeps the angles."""
+    folder = tempfile.mkdtemp()
+    table_path = os.path.join(folder, "lathe.tbl")
+    with open(table_path, "w", encoding="utf-8") as file:
+        file.write("T7 P7 D0.1 I117.5 J62.5 Q6 ;Whitworth 55\n")
+    data_path = os.path.join(folder, "werkzeuge.json")
+    table = ToolTable(Machine(tool_table=table_path), data_path)
+    tool = table.get(7)
+    assert tool.kind == "thread" and math.isclose(tool.insert_angle, 55.0)
+    assert tool.label().startswith("T7  Threading tool 55°")
+    assert not Thread().tool_problems(tool)
+    table.assign(tool, "D", "right", "outside", 93.0, 0.0, 0.0, 0.0, "")
+    table.assign(tool, "thread", "right", "outside", 93.0, 0.0, 0.0, 0.0, "", 60.0)
+    reloaded = ToolTable(Machine(tool_table=table_path), data_path).get(7)
+    assert reloaded.kind == "thread" and reloaded.sector() == (62.5, 117.5)
+    assert math.isclose(reloaded.insert_angle, 55.0)          # not switched to 60°
+    preset = Tool(9, kind="thread", hand="neutral", tip_angle=55.0)
+    assert preset.sector() == (62.5, 117.5)
+
+
+def test_thread_from_table():
+    values = {"side": "outside", "norm": "M", "size_m": "M12"}
+    values.update(Thread.switch("norm", values))
+    outside = Thread(values)
+    assert outside.diameter == 12 and outside.pitch == 1.75
+    assert math.isclose(outside.eff_depth(), 0.6134 * 1.75)
+    assert "Pre-turn to Ø11.82" in outside.pre_turn_hint()
+    values["side"] = "inside"
+    values.update(Thread.switch("side", values))
+    inside = Thread(values)
+    assert math.isclose(inside.diameter, 10.106, abs_tol=1e-3)            # core Ø D1
+    assert math.isclose(inside.diameter + 2 * inside.eff_depth(), 12.0, abs_tol=1e-3)
+    values = {"side": "outside", "norm": "UNF", "size_unf": "1/4-28 UNF", "z_end": -10}
+    values.update(Thread.switch("norm", values))
+    unf = Thread(values)
+    assert math.isclose(unf.diameter, 6.35) and "G76 P0.907143 " in Program(
+        Machine(), [unf], stock=Stock({"D": 6.35})).generate().gcode
+    values = {"side": "outside", "norm": "BSW", "size_bsw": "1/2-12 BSW"}
+    values.update(Thread.switch("norm", values))
+    whitworth = Thread(values)
+    assert whitworth.infeed == 27.0 and math.isclose(whitworth.eff_depth(), 0.6403 * 25.4 / 12)
+    tool_60 = Tool(1, kind="thread", hand="neutral")
+    tool_55 = Tool(2, kind="thread", hand="neutral", tip_angle=55.0)
+    assert whitworth.tool_problems(tool_60) and not whitworth.tool_problems(tool_55)
+    assert unf.tool_problems(tool_55) and not unf.tool_problems(tool_60)
+
+
+def test_round_two_fixes():
+    """Inside facing with an outside tool, tool change X only, M5/M9 in a G-code block."""
+    tools = {tool.number: tool for tool in preset_tools()}
+    inside = Facing({"side": "inside", "d_start": -0.4, "d_end": 10, "z_start": 1, "z_end": 0})
+    assert inside.tool_problems(tools[7])
+    machine = Machine(tc_enabled=True, tc_x=200, tc_move_z=False)
+    gcode = Program(machine, [Facing({"d_start": 51})], stock=Stock({"D": 50})).generate().gcode
+    assert "G53 G0 X200" in gcode and "G53 G0 Z" not in gcode
+    ops = [Facing({"d_start": 51}), GCodeOp({"code": "M5\nM9\nM0", "restart": False}),
+           Facing({"d_start": 51, "z_start": 0, "z_end": -1})]
+    gcode = Program(Machine(), ops, stock=Stock({"D": 50})).generate().gcode
+    after = gcode.split("(--- end of own G-code ---)")[1]
+    assert " M3" in after.split("G0")[0] and "M8" in after.split("G0")[0]
+
+
+def test_orientation_angles_and_table_writing():
+    from drehzyklen.tools import table_angles, write_table_line
+    tool = tool_from_table(parse_tool_line("T9 X12 Z50 D0.8 I240 J300 Q7 ;Innengewinde"), False)
+    assert tool.shank_direction() == 0.0                        # Q7: shank towards +Z
+    assert table_angles(tool, False) == (240.0, 300.0, 7)
+    boring_bar = preset_tools()[11]
+    assert table_angles(boring_bar, False) == (273.0, 328.0, 3)  # written as positive angles
+    folder = tempfile.mkdtemp()
+    path = os.path.join(folder, "tool.tbl")
+    with open(path, "w", encoding="utf-8") as file:
+        file.write("T1 P1 X-12 Z-25 D0.4 I26 J86 Q2 ;alt\n")
+    write_table_line(path, Tool(1, 1, "C", "right", "outside", 0.8, 95.0, comment="new"), 5, 85, 2)
+    write_table_line(path, boring_bar, 273, 328, 3)
+    lines = open(path, encoding="utf-8").read().splitlines()
+    assert lines[0] == "T1 P1 X-12 Z-25 D1.6 I5 J85 Q2 ;new"
+    assert lines[1].startswith("T12 P12 X0 Z0 D0.8 I273 J328 Q3")
+
+
+def test_user_thread_file():
+    from drehzyklen import threads
+    folder = tempfile.mkdtemp()
+    path = os.path.join(folder, "threads.json")
+    try:
+        threads.load(path)                                       # creates the example file
+        assert os.path.isfile(path) and threads.find("Own", "M12x0.75 (example)")
+        with open(path, "w", encoding="utf-8") as file:
+            file.write('{"threads": [{"norm": "UNF", "name": "Sonder 7/16-28", '
+                       '"diameter_inch": 0.4375, "tpi": 28}]}')
+        threads.load(path)
+        spec = threads.find("UNF", "Sonder 7/16-28")
+        assert spec is not None and math.isclose(spec.pitch, 25.4 / 28)
+        assert any(param.key == "size_unf" and "Sonder 7/16-28" in param.choices
+                   for param in Thread.all_params())
+    finally:
+        threads.load()
+
+
+
+def test_opposite_radii_blend_tangentially():
+    """R2 inside and R5 outside on a 5 mm step: the radii run into each other."""
+    from drehzyklen.geometry import parse_rows, resolve_rows
+    text = "X0 Z0\nX50 Z0\nX50 Z-20 R2\nX60 Z-20 R5\nX60 Z-50"
+    elements = resolve_rows(parse_rows(text))
+    arcs = [element for element in elements if element.kind == "arc"]
+    assert [arc.radius for arc in arcs] == [2, 5]
+    for first, second in zip(elements, elements[1:]):
+        assert math.dist(first.end, second.start) < 1e-9
+        if first.kind != "arc" and second.kind != "arc":
+            continue                    # sharp corner at P2
+        tangent_out, tangent_in = first.tangent_end(), second.tangent_start()
+        assert tangent_out[0] * tangent_in[0] + tangent_out[1] * tangent_in[1] > 0.9999
+    # two radii in the same direction that do not fit are still an error
+    try:
+        resolve_rows(parse_rows("X0 Z0\nX50 Z0\nX50 Z-5\nX60 Z-5 R4\nX60 Z-8 R4\nX50 Z-8"))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("expected an error")
+
+
+def test_special_tool_from_front_and_back_angle():
+    from drehzyklen.tools import NEUTRAL, OUTSIDE, Tool, set_special_angles, table_angles
+    tool = Tool(20, kind="special")
+    set_special_angles(tool, 120, 70, 80, back_tool=False)
+    assert tool.table_sector == (70, 120) and tool.insert_angle == 50
+    assert tool.hand == NEUTRAL and tool.position == OUTSIDE
+    assert tool.shank_direction() == 80
+    set_special_angles(tool, 120, 70, None, back_tool=False)
+    assert tool.shank_direction() == 95
+    assert table_angles(tool, back_tool=False)[:2] == (70, 120)
 
 
 if __name__ == "__main__":

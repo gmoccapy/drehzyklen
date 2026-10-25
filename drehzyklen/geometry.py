@@ -1,4 +1,4 @@
-# Drehzyklen – Zyklenprogrammierung für LinuxCNC-Drehmaschinen (gmoccapy)
+# Drehzyklen - lathe cycle programming for LinuxCNC (gmoccapy)
 # Copyright (C) 2026  nieson@web.de
 #
 # This program is free software; you can redistribute it and/or modify it under the terms of
@@ -13,29 +13,29 @@
 # if not, see <https://www.gnu.org/licenses/>.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Geometrie für Drehteile: Konturbeschreibung, Kreisbögen, Eckenradien/-fasen, Schruppebenen.
+"""Geometry of turned parts: contour text, arcs, corner radii and chamfers, roughing helpers.
 
-Koordinaten:
-    x  = Durchmesser (wie im G-Code mit G7)
-    r  = Radius (intern für die Geometrie)
-    z  = Längsachse
-Die Drehrichtung von Bögen bezieht sich auf die Z/X-Ebene wie im G-Code (G18):
-G3 = gegen den Uhrzeigersinn, wenn Z nach rechts und X nach oben zeigt.
+Coordinates:
+    x  = diameter (as in G-code with G7)
+    r  = radius (used internally for the geometry)
+    z  = spindle axis
+Arc directions refer to the Z/X plane as in G-code (G18): G3 is counter-clockwise when Z points
+to the right and X points up.
 
-Konturtext – eine Zeile pro Element:
-    X.. Z..                 Gerade zu diesem Punkt (U/W inkremental möglich)
-    G2|G3 X.. Z.. R..       Bogen mit Radius (kurzer Bogen, < 180°)
-    G2|G3 X.. Z.. R.. LA    Bogen mit Radius, langer Bogen (> 180°)
-    G2|G3 X.. Z.. I.. K..   Bogen über Mittelpunkt (I radial, K axial, relativ zum Anfangspunkt)
-    G3 X.. Z.. TS           Bogen, tangential an das vorherige Element (Radius ergibt sich)
-    G3 X.. Z.. TE           Bogen, tangential in die folgende Gerade (Radius ergibt sich)
-Ecke am Endpunkt einer Zeile:
-    R5 (bei Geraden) bzw. RND5      Eckenradius
-    C2 bzw. CHR2                    Fase 45° (Schenkellänge 2)
-    C2 A30                          Fase: 2 mm auf der ankommenden Kante, 30° zur ankommenden Kante
-    C2 B30                          Fase: 2 mm auf der abgehenden Kante, 30° zur abgehenden Kante
-    R0 / RND0                       diese Ecke ohne Radius/Fase (überschreibt "Alle Ecken")
-Kommentare mit # oder ( ), Dezimalkomma erlaubt, mehrere Elemente pro Zeile mit ';'.
+Contour text - one element per line:
+    X.. Z..                 straight line to this point (U/W incremental)
+    G2|G3 X.. Z.. R..       arc with radius (short arc, < 180 degrees)
+    G2|G3 X.. Z.. R.. LA    arc with radius, long arc (> 180 degrees)
+    G2|G3 X.. Z.. I.. K..   arc by centre (I radial, K axial, relative to the start point)
+    G3 X.. Z.. TS           arc tangential to the previous element (radius follows)
+    G3 X.. Z.. TE           arc tangential into the following line (radius follows)
+Corner at the end point of a line:
+    R5 (lines) or RND5      corner radius
+    C2 or CHR2              chamfer 45 degrees (leg length 2)
+    C2 A30                  chamfer: 2 mm on the incoming edge, 30 degrees to the incoming edge
+    C2 B30                  chamfer: 2 mm on the outgoing edge, 30 degrees to the outgoing edge
+    R0 / RND0               no radius/chamfer at this corner (overrides "all corners")
+Comments with # or ( ), decimal comma allowed, several elements per line separated by ';'.
 """
 from __future__ import annotations
 
@@ -44,20 +44,22 @@ import re
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
+from .i18n import _
+
 EPS = 1e-7
 TWO_PI = 2 * math.pi
 
 
 class ContourError(ValueError):
-    """Fehler in der Konturbeschreibung (Meldung ist für den Bediener gedacht)."""
+    """Error in a contour or cycle definition (the message is meant for the operator)."""
 
 
-# =========================================================================== Vektorhilfen
+# =========================================================================== vector helpers
 
 def unit_vector(delta_z, delta_r):
     length = math.hypot(delta_z, delta_r)
     if length < 1e-12:
-        raise ContourError("Zwei aufeinanderfolgende Punkte sind identisch")
+        raise ContourError(_("Two consecutive points are identical"))
     return delta_z / length, delta_r / length
 
 
@@ -101,7 +103,7 @@ def format_number(value: float) -> str:
     return text
 
 
-# =========================================================================== Elemente
+# =========================================================================== elements
 
 @dataclass
 class Element:
@@ -112,8 +114,8 @@ class Element:
     r1: float
     radius: float = 0.0
     ccw: bool = False           # G3 (True) / G2 (False) in G18
-    cz: float = 0.0             # Mittelpunkt Z
-    cr: float = 0.0             # Mittelpunkt Radius
+    cz: float = 0.0             # centre Z
+    cr: float = 0.0             # centre radius
 
     @property
     def start(self):
@@ -152,7 +154,7 @@ class Element:
         return abs(self.sweep()) * self.radius
 
     def sample(self, step_deg: float = 2.0) -> List[Tuple[float, float]]:
-        """Punkte (z, r) entlang des Elements, inkl. Anfang und Ende."""
+        """Points (z, r) along the element including start and end."""
         if self.kind == "line":
             return [self.start, self.end]
         start_angle = math.atan2(self.r0 - self.cr, self.z0 - self.cz)
@@ -168,7 +170,7 @@ class Element:
         return points
 
     def transformed(self, radius_sign: int, z_sign: int) -> "Element":
-        """Gespiegelte Kopie: radius_sign=-1 spiegelt an der Drehachse, z_sign=-1 an Z=0."""
+        """Mirrored copy: radius_sign=-1 mirrors at the spindle axis, z_sign=-1 at Z=0."""
         counter_clockwise = self.ccw
         if radius_sign * z_sign < 0:
             counter_clockwise = not counter_clockwise
@@ -181,7 +183,7 @@ class Element:
                        self.radius, self.ccw, self.cz, self.cr)
 
     def param(self, point) -> float:
-        """Lage eines Punktes auf dem Element: 0 = Anfang, 1 = Ende."""
+        """Position of a point on the element: 0 = start, 1 = end."""
         if self.kind == "line":
             delta_z = self.z1 - self.z0
             delta_r = self.r1 - self.r0
@@ -199,13 +201,13 @@ class Element:
         return travelled / total
 
     def carrier(self):
-        """Trägerkurve: ("line", Punkt, Richtung) oder ("circle", Mittelpunkt, Radius)."""
+        """Carrier curve: ("line", point, direction) or ("circle", centre, radius)."""
         if self.kind == "line":
             return ("line", self.start, unit_vector(self.z1 - self.z0, self.r1 - self.r0))
         return ("circle", (self.cz, self.cr), self.radius)
 
     def foot(self, point):
-        """Nächster Punkt der (unendlichen) Trägerkurve zu point."""
+        """Nearest point of the (infinite) carrier curve to point."""
         if self.kind == "line":
             direction = unit_vector(self.z1 - self.z0, self.r1 - self.r0)
             along = (point[0] - self.z0) * direction[0] + (point[1] - self.r0) * direction[1]
@@ -215,7 +217,7 @@ class Element:
 
 
 def offset_carrier(element: Element, offset: float):
-    """Trägerkurve um offset nach links (in Fahrtrichtung) versetzt."""
+    """Carrier curve offset to the left (in travel direction) by offset."""
     kind, first, second = element.carrier()
     if kind == "line":
         normal = left_normal(second)
@@ -230,7 +232,7 @@ def offset_carrier(element: Element, offset: float):
 
 
 def intersect(first_curve, second_curve):
-    """Schnittpunkte zweier Trägerkurven (Gerade/Kreis)."""
+    """Intersection points of two carrier curves (line/circle)."""
     if first_curve is None or second_curve is None:
         return []
     if first_curve[0] == "circle" and second_curve[0] == "line":
@@ -281,21 +283,21 @@ def lies_on(element: Element, point, tolerance=1e-6) -> bool:
     return -tolerance <= position <= 1 + tolerance
 
 
-# =========================================================================== Konturzeilen
+# =========================================================================== contour rows
 
 @dataclass
 class Row:
-    kind: str = "L"                 # "L" Gerade, "G2", "G3"
-    x: float = 0.0                  # Durchmesser, absolut
+    kind: str = "L"                 # "L" line, "G2", "G3"
+    x: float = 0.0                  # diameter, absolute
     z: float = 0.0
-    corner: Optional[str] = None    # None = Vorgabe, "N" = keine, "R" Radius, "C" Fase
+    corner: Optional[str] = None    # None = default, "N" = none, "R" radius, "C" chamfer
     csize: float = 0.0
-    cangle: Optional[float] = None  # Fasenwinkel in Grad (None = 45°/gleiche Schenkel)
-    cref: str = "A"                 # "A" ankommende Kante, "B" abgehende Kante
-    arc: str = "R"                  # "R", "RL" (>180°), "TS", "TE", "IK"
-    ar: float = 0.0                 # Bogenradius
-    ai: float = 0.0                 # Mittelpunkt relativ, radial
-    ak: float = 0.0                 # Mittelpunkt relativ, axial
+    cangle: Optional[float] = None  # chamfer angle in degrees (None = 45 degrees/equal legs)
+    cref: str = "A"                 # "A" incoming edge, "B" outgoing edge
+    arc: str = "R"                  # "R", "RL" (>180 degrees), "TS", "TE", "IK"
+    ar: float = 0.0                 # arc radius
+    ai: float = 0.0                 # centre relative, radial
+    ak: float = 0.0                 # centre relative, axial
     line_no: int = 0
 
     @property
@@ -320,21 +322,23 @@ def _corner_from_words(values: dict, is_arc: bool, line_no: int):
     elif not is_arc and "R" in values:
         corner, size = "R", values["R"]
     if corner and size < 0:
-        raise ContourError(f"Zeile {line_no}: Eckengröße darf nicht negativ sein")
+        raise ContourError(_("Line {line}: corner size must not be negative").format(line=line_no))
     if corner and size <= EPS:
         corner = "N"
     angle = None
     reference = "A"
     if "A" in values or "B" in values:
         if corner != "C":
-            raise ContourError(f"Zeile {line_no}: Winkel A/B nur zusammen mit einer Fase C")
+            raise ContourError(_("Line {line}: angle A/B only together with a chamfer C").format(
+                line=line_no))
         if "A" in values:
             reference = "A"
         else:
             reference = "B"
         angle = values[reference]
         if not 0 < angle < 180:
-            raise ContourError(f"Zeile {line_no}: Fasenwinkel muss zwischen 0 und 180° liegen")
+            raise ContourError(_("Line {line}: chamfer angle must be between 0 and 180°").format(
+                line=line_no))
     return corner, size, angle, reference
 
 
@@ -358,20 +362,24 @@ def parse_rows(text: str) -> List[Row]:
                 continue
             rest = WORD_PATTERN.sub("", chunk).strip()
             if rest:
-                raise ContourError(f"Zeile {line_no}: unbekannter Text '{rest}'")
+                raise ContourError(_("Line {line}: unknown text '{text}'").format(line=line_no,
+                                                                                  text=rest))
             values = {}
             flags = set()
             for word, number in WORD_PATTERN.findall(chunk):
                 if word in FLAG_WORDS:
                     if number:
-                        raise ContourError(f"Zeile {line_no}: {word} hat keinen Zahlenwert")
+                        raise ContourError(_("Line {line}: {word} takes no number").format(
+                            line=line_no, word=word))
                     flags.add(word)
                 elif word in NUMBER_WORDS:
                     if not number:
-                        raise ContourError(f"Zeile {line_no}: {word} ohne Zahlenwert")
+                        raise ContourError(_("Line {line}: {word} without a number").format(
+                            line=line_no, word=word))
                     values[word] = float(number)
                 else:
-                    raise ContourError(f"Zeile {line_no}: unbekanntes Wort '{word}'")
+                    raise ContourError(_("Line {line}: unknown word '{word}'").format(
+                        line=line_no, word=word))
             kind = "L"
             if "G" in values:
                 g_number = int(round(values["G"]))
@@ -380,7 +388,8 @@ def parse_rows(text: str) -> List[Row]:
                 elif g_number in (2, 3):
                     kind = f"G{g_number}"
                 else:
-                    raise ContourError(f"Zeile {line_no}: nur G1, G2 und G3 sind erlaubt")
+                    raise ContourError(_("Line {line}: only G1, G2 and G3 are allowed").format(
+                        line=line_no))
             is_arc = kind != "L"
 
             new_x = current_x
@@ -389,32 +398,38 @@ def parse_rows(text: str) -> List[Row]:
                 new_x = values["X"]
             if "U" in values:
                 if current_x is None:
-                    raise ContourError(f"Zeile {line_no}: U ohne vorherigen X-Wert")
+                    raise ContourError(_("Line {line}: U without a previous X value").format(
+                        line=line_no))
                 new_x = current_x + values["U"]
             if "Z" in values:
                 new_z = values["Z"]
             if "W" in values:
                 if current_z is None:
-                    raise ContourError(f"Zeile {line_no}: W ohne vorherigen Z-Wert")
+                    raise ContourError(_("Line {line}: W without a previous Z value").format(
+                        line=line_no))
                 new_z = current_z + values["W"]
             has_coordinate = any(key in values for key in "XZUW")
             corner, size, angle, reference = _corner_from_words(values, is_arc, line_no)
 
             if not has_coordinate and not is_arc:
                 if not rows:
-                    raise ContourError(f"Zeile {line_no}: Der erste Punkt braucht X und Z")
+                    raise ContourError(_("Line {line}: the first point needs X and Z").format(
+                        line=line_no))
                 if corner:
                     _copy_corner(rows[-1], corner, size, angle, reference)
                 continue
             if new_x is None or new_z is None:
-                raise ContourError(f"Zeile {line_no}: Der erste Punkt braucht X und Z")
+                raise ContourError(_("Line {line}: the first point needs X and Z").format(
+                        line=line_no))
             if new_x < -EPS:
-                raise ContourError(f"Zeile {line_no}: negativer Durchmesser X{format_number(new_x)}")
+                raise ContourError(_("Line {line}: negative diameter X{value}").format(
+                    line=line_no, value=format_number(new_x)))
             row = Row(kind, new_x, new_z, line_no=line_no)
             _copy_corner(row, corner, size, angle, reference)
             if is_arc:
                 if not rows:
-                    raise ContourError(f"Zeile {line_no}: Die Kontur muss mit einem Punkt beginnen")
+                    raise ContourError(_("Line {line}: the contour must start with a point").format(
+                        line=line_no))
                 if "TS" in flags:
                     row.arc = "TS"
                 elif "TE" in flags:
@@ -425,16 +440,19 @@ def parse_rows(text: str) -> List[Row]:
                     row.ak = values.get("K", 0.0)
                 elif "R" in values:
                     if values["R"] <= 0:
-                        raise ContourError(f"Zeile {line_no}: Bogenradius muss positiv sein")
+                        raise ContourError(_("Line {line}: arc radius must be positive").format(
+                            line=line_no))
                     if "LA" in flags:
                         row.arc = "RL"
                     else:
                         row.arc = "R"
                     row.ar = values["R"]
                 else:
-                    raise ContourError(f"Zeile {line_no}: Bogen braucht R, I/K, TS oder TE")
+                    raise ContourError(_("Line {line}: an arc needs R, I/K, TS or TE").format(
+                        line=line_no))
             elif flags:
-                raise ContourError(f"Zeile {line_no}: {', '.join(sorted(flags))} nur bei G2/G3")
+                raise ContourError(_("Line {line}: {words} only with G2/G3").format(
+                    line=line_no, words=", ".join(sorted(flags))))
             same_point = (rows and abs(rows[-1].x - new_x) < EPS and abs(rows[-1].z - new_z) < EPS)
             if same_point and not is_arc:
                 if corner:
@@ -444,7 +462,7 @@ def parse_rows(text: str) -> List[Row]:
             current_z = new_z
             rows.append(row)
     if len(rows) < 2:
-        raise ContourError("Die Kontur braucht mindestens zwei Punkte")
+        raise ContourError(_("The contour needs at least two points"))
     return rows
 
 
@@ -487,20 +505,24 @@ def rows_to_text(rows: List[Row]) -> str:
     return "\n".join(lines)
 
 
-# =========================================================================== Elemente bauen
+# =========================================================================== building elements
 
 def _arc_element(start, end, row: Row, previous: Optional[Element], next_point,
                  point_number: int) -> Element:
     counter_clockwise = row.kind == "G3"
     if distance(start, end) < 1e-9:
-        raise ContourError(f"Punkt {point_number}: Bogen hat gleichen Anfangs- und Endpunkt")
+        raise ContourError(_("Point {point}: arc has the same start and end point").format(
+            point=point_number))
     if row.arc in ("R", "RL"):
         radius = row.ar
         chord = (end[0] - start[0], end[1] - start[1])
         chord_length = math.hypot(*chord)
         if radius < chord_length / 2 - 1e-6:
-            raise ContourError(f"Punkt {point_number}: Radius R{format_number(radius)} zu klein – "
-                               f"mindestens R{format_number(chord_length / 2 + 0.0005)}")
+            raise ContourError(_("Point {point}: radius R{radius} too small - at least "
+                                 "R{minimum}").format(point=point_number,
+                                                      radius=format_number(radius),
+                                                      minimum=format_number(chord_length / 2
+                                                                            + 0.0005)))
         height = math.sqrt(max(radius * radius - (chord_length / 2) ** 2, 0.0))
         normal = left_normal((chord[0] / chord_length, chord[1] / chord_length))
         if counter_clockwise:
@@ -517,31 +539,33 @@ def _arc_element(start, end, row: Row, previous: Optional[Element], next_point,
         center = (start[0] + row.ak, start[1] + row.ai)
         radius = distance(start, center)
         if radius < 1e-6:
-            raise ContourError(f"Punkt {point_number}: Mittelpunkt liegt auf dem Anfangspunkt")
+            raise ContourError(_("Point {point}: centre lies on the start point").format(
+                point=point_number))
         deviation = abs(distance(end, center) - radius)
         if deviation > 0.01:
-            raise ContourError(f"Punkt {point_number}: Endpunkt liegt nicht auf dem Kreis um den "
-                               f"Mittelpunkt (Abweichung {deviation:.3f} mm)")
+            raise ContourError(_("Point {point}: end point is not on the circle around the "
+                                 "centre (deviation {deviation:.3f} mm)").format(
+                point=point_number, deviation=deviation))
         return Element("arc", start[0], start[1], end[0], end[1], radius, counter_clockwise,
                        center[0], center[1])
     if row.arc == "TS":
         if previous is None:
-            raise ContourError(f"Punkt {point_number}: 'tangential am Anfang' braucht ein "
-                               f"vorheriges Element")
+            raise ContourError(_("Point {point}: 'tangential at start' needs a previous "
+                                 "element").format(point=point_number))
         tangent = previous.tangent_end()
         base_point, other_point = start, end
     else:
         if next_point is None:
-            raise ContourError(f"Punkt {point_number}: 'tangential am Ende' braucht eine "
-                               f"folgende Gerade")
+            raise ContourError(_("Point {point}: 'tangential at end' needs a following "
+                                 "line").format(point=point_number))
         tangent = unit_vector(next_point[0] - end[0], next_point[1] - end[1])
         base_point, other_point = end, start
     normal = left_normal(tangent)
     offset = (base_point[0] - other_point[0], base_point[1] - other_point[1])
     denominator = 2 * dot_product(offset, normal)
     if abs(denominator) < 1e-9:
-        raise ContourError(f"Punkt {point_number}: Endpunkt liegt auf der Tangente – hier passt "
-                           f"eine Gerade")
+        raise ContourError(_("Point {point}: end point lies on the tangent - use a line "
+                             "here").format(point=point_number))
     signed_radius = -dot_product(offset, offset) / denominator
     center = (base_point[0] + signed_radius * normal[0], base_point[1] + signed_radius * normal[1])
     return Element("arc", start[0], start[1], end[0], end[1], abs(signed_radius),
@@ -566,8 +590,8 @@ def _point_at(element: Element, length: float, from_end: bool, point_number: int
                                ("circle", (element.cz, element.cr), element.radius))
     valid = [point for point in candidates if lies_on(element, point)]
     if not valid:
-        raise ContourError(f"Punkt {point_number}: Fase {format_number(length)} ist länger als "
-                           f"das Element")
+        raise ContourError(_("Point {point}: chamfer {size} is longer than the "
+                             "element").format(point=point_number, size=format_number(length)))
     if from_end:
         return max(valid, key=element.param)
     return min(valid, key=element.param)
@@ -583,8 +607,8 @@ def _ray_hit(origin, direction, element: Element, point_number: int):
                 best_distance = along
                 best_point = point
     if best_point is None:
-        raise ContourError(f"Punkt {point_number}: Fase mit diesem Winkel trifft die Nachbarkante "
-                           f"nicht")
+        raise ContourError(_("Point {point}: a chamfer with this angle does not reach the "
+                             "neighbouring edge").format(point=point_number))
     return best_point
 
 
@@ -595,8 +619,9 @@ def _corner(first: Element, second: Element, kind: str, size: float, angle, refe
     turn = cross_product(tangent_in, tangent_out)
     if abs(turn) < 1e-9:
         if dot_product(tangent_in, tangent_out) > 0:
-            return None                       # tangentialer Übergang, keine Ecke
-        raise ContourError(f"Punkt {point_number}: Kontur kehrt um, Ecke nicht möglich")
+            return None                       # tangential transition, no corner
+        raise ContourError(_("Point {point}: the contour turns back, no corner possible").format(
+            point=point_number))
     if turn > 0:
         turn_sign = 1
     else:
@@ -614,13 +639,14 @@ def _corner(first: Element, second: Element, kind: str, size: float, angle, refe
                 if best is None or center_distance < best[0]:
                     best = (center_distance, center, touch_first, touch_second)
         if best is None:
-            raise ContourError(f"Punkt {point_number}: Radius R{format_number(size)} passt nicht "
-                               f"an diese Ecke (zu wenig Platz)")
+            raise ContourError(_("Point {point}: radius R{radius} does not fit this corner "
+                                 "(not enough room)").format(point=point_number,
+                                                             radius=format_number(size)))
         _distance, center, touch_first, touch_second = best
         fillet = Element("arc", touch_first[0], touch_first[1], touch_second[0], touch_second[1],
                          size, turn_sign > 0, center[0], center[1])
         return touch_first, touch_second, [fillet]
-    # Fase
+    # chamfer
     if angle is None:
         point_first = _point_at(first, size, True, point_number)
         point_second = _point_at(second, size, False, point_number)
@@ -636,16 +662,55 @@ def _corner(first: Element, second: Element, kind: str, size: float, angle, refe
     return point_first, point_second, [chamfer]
 
 
+def _blend_fillets(element: Element, before, after):
+    """Connect two radii of opposite direction that do not fit on the line between them.
+
+    Both fillet circles keep their centres; the line between them is replaced by the inner
+    common tangent of the two circles. Returns the shortened fillets or None if not possible.
+    """
+    if element.kind != "line" or not before or not after:
+        return None
+    first, second = before[-1], after[0]
+    if first.kind != "arc" or second.kind != "arc" or first.ccw == second.ccw:
+        return None
+    centre_first = (first.cz, first.cr)
+    centre_second = (second.cz, second.cr)
+    centre_distance = distance(centre_first, centre_second)
+    radius_sum = first.radius + second.radius
+    if centre_distance < radius_sum - 1e-9:
+        return None
+    axis = unit_vector(centre_second[0] - centre_first[0], centre_second[1] - centre_first[1])
+    spread = math.acos(min(1.0, radius_sum / centre_distance))
+    for angle in (spread, -spread):
+        normal = rotate(axis, angle)
+        touch_first = (centre_first[0] + first.radius * normal[0],
+                       centre_first[1] + first.radius * normal[1])
+        touch_second = (centre_second[0] - second.radius * normal[0],
+                        centre_second[1] - second.radius * normal[1])
+        new_first = first.with_ends(first.start, touch_first)
+        new_second = second.with_ends(touch_second, second.end)
+        travel = new_first.tangent_end()
+        gap = (touch_second[0] - touch_first[0], touch_second[1] - touch_first[1])
+        if dot_product(gap, travel) < -1e-9:
+            continue
+        if dot_product(new_second.tangent_start(), travel) < 0.999999:
+            continue
+        if abs(new_first.sweep()) >= math.pi or abs(new_second.sweep()) >= math.pi:
+            continue
+        return new_first, new_second
+    return None
+
+
 def resolve_rows(rows: List[Row], default_corner: Optional[str] = None,
                  default_size: float = 0.0) -> List[Element]:
-    """Wandelt Konturzeilen in Linien und Kreisbögen um (inkl. Eckenradien/-fasen)."""
+    """Convert contour rows into lines and arcs (including corner radii and chamfers)."""
     points = [(row.z, row.x / 2.0) for row in rows]
     count = len(rows)
     base: List[Element] = []
     for index in range(1, count):
         start, end = points[index - 1], points[index]
         if distance(start, end) < 1e-9:
-            raise ContourError(f"Punkt {index + 1}: gleicher Punkt wie davor")
+            raise ContourError(_("Point {point}: same point as before").format(point=index + 1))
         row = rows[index]
         if row.is_arc:
             if index + 1 < count and not rows[index + 1].is_arc:
@@ -663,7 +728,7 @@ def resolve_rows(rows: List[Row], default_corner: Optional[str] = None,
     starts = [element.start for element in base]
     ends = [element.end for element in base]
     inserted = {}
-    for vertex in range(1, count - 1):          # Ecke am Punkt vertex zwischen Element vertex-1 und vertex
+    for vertex in range(1, count - 1):          # corner between element vertex-1 and vertex
         row = rows[vertex]
         kind, size, angle, reference = row.corner, row.csize, row.cangle, row.cref
         if kind is None:
@@ -680,9 +745,23 @@ def resolve_rows(rows: List[Row], default_corner: Optional[str] = None,
         if index in inserted:
             elements.extend(inserted[index])
         new_start, new_end = starts[index], ends[index]
-        if element.param(new_start) > element.param(new_end) + 1e-7:
-            raise ContourError(f"Zwischen Punkt {index + 1} und {index + 2} ist zu wenig Platz für "
-                               f"die Radien/Fasen")
+        overflow = element.param(new_start) > element.param(new_end) + 1e-7
+        if overflow:
+            blend = _blend_fillets(element, inserted.get(index), inserted.get(index + 1))
+            if blend is not None:
+                # two opposite radii run tangentially into each other (S-shaped transition)
+                first_fillet, second_fillet = blend
+                elements[-1] = first_fillet
+                inserted[index + 1] = [second_fillet]
+                new_start, new_end = first_fillet.end, second_fillet.start
+                overflow = False
+                if distance(new_start, new_end) > 1e-6:
+                    elements.append(Element("line", new_start[0], new_start[1], new_end[0],
+                                            new_end[1]))
+                continue
+        if overflow:
+            raise ContourError(_("Not enough room for the radii/chamfers between point {first} "
+                                 "and {second}").format(first=index + 1, second=index + 2))
         if distance(new_start, new_end) > 1e-6:
             elements.append(element.with_ends(new_start, new_end))
     return elements
@@ -690,11 +769,11 @@ def resolve_rows(rows: List[Row], default_corner: Optional[str] = None,
 
 def clip_at_radius(elements: List[Element], limit_radius: float,
                    radius_sign: int = 1) -> List[Element]:
-    """Kontur am Rohteilradius abschneiden.
+    """Cut the contour at the stock radius.
 
-    Läuft die Kontur (radius_sign=+1 außen: nach außen, -1 innen: zur Mitte) über limit_radius
-    hinaus, endet sie am ersten Schnittpunkt. So darf z.B. ein Radius am Ende größer sein als der
-    Absatz zum Rohteil – der Bogen wird dann am Rohteil-Ø abgeschnitten.
+    If the contour (radius_sign=+1 outside: outwards, -1 inside: towards the axis) passes
+    limit_radius, it ends at the first crossing. A radius at the end may therefore be larger than
+    the step to the stock - the arc is cut at the stock diameter.
     """
     clipped: List[Element] = []
     for element in elements:
@@ -741,27 +820,27 @@ def polyline(elements: List[Element], step_deg: float = 2.0) -> List[Tuple[float
 
 
 def contour_warnings(elements: List[Element]) -> List[str]:
-    """Hinweise zur (bereits ins Arbeitssystem transformierten) Kontur."""
+    """Hints about a contour that is already transformed into the work frame."""
     warnings = []
     points = polyline(elements)
     for index in range(len(points) - 1):
         if points[index + 1][0] > points[index][0] + 1e-6:
-            warnings.append("Die Kontur läuft stellenweise gegen die Bearbeitungsrichtung zurück. "
-                            "Dort ist Schruppen nicht möglich.")
+            warnings.append(_("The contour runs back against the machining direction in places. "
+                              "Roughing is not possible there."))
             break
     for index in range(len(points) - 1):
         falling = points[index + 1][1] < points[index][1] - 1e-6
         advancing = points[index + 1][0] < points[index][0] - 1e-6
         if falling and advancing:
-            warnings.append("Die Kontur enthält einen Hinterschnitt – es wird schräg eingefahren.")
+            warnings.append(_("The contour contains an undercut - the tool enters at an angle."))
             break
     return warnings
 
 
-# =========================================================================== Schruppen
+# =========================================================================== roughing helpers
 #
-# Die folgenden Funktionen arbeiten im Arbeitssystem eines Zyklus: Bearbeitung in −Z, Material
-# oberhalb der (Aufmaß-)Kontur. Innen- und Rechtsbearbeitung werden vorher dorthin gespiegelt.
+# The following functions work in the work frame of a cycle: machining towards -Z, material
+# above the (allowance) contour. Inside and +Z machining are mirrored into this frame first.
 
 @dataclass
 class Crossing:
@@ -782,7 +861,7 @@ def _crossing(points, index, level) -> Crossing:
 
 
 def intervals_at(points, level):
-    """Abschnitte, in denen die Kontur <= level liegt: Liste (Anfang, Ende), None = offen."""
+    """Sections where the contour is <= level: list of (start, end), None = open end."""
     intervals = []
     below = points[0][1] <= level + EPS
     start: Optional[Crossing] = None
@@ -801,7 +880,7 @@ def intervals_at(points, level):
 
 
 def walk_up(points, crossing: Crossing, limit: float):
-    """Der Kontur ab crossing vorwärts folgen, solange r <= limit."""
+    """Follow the contour forwards from crossing while r <= limit."""
     path = []
     for index in range(crossing.segment + 1, len(points)):
         z, r = points[index]
@@ -814,7 +893,7 @@ def walk_up(points, crossing: Crossing, limit: float):
 
 
 def walk_back(points, crossing: Crossing, limit: float, floor: float):
-    """Der Kontur ab crossing rückwärts folgen, bis r > limit (schräger Einstieg)."""
+    """Follow the contour backwards from crossing until r > limit (oblique entry)."""
     path = [(crossing.z, crossing.r)]
     for index in range(crossing.segment, -1, -1):
         z, r = points[index]

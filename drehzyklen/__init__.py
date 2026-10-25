@@ -1,4 +1,4 @@
-# Drehzyklen – Zyklenprogrammierung für LinuxCNC-Drehmaschinen (gmoccapy)
+# Drehzyklen - lathe cycle programming for LinuxCNC (gmoccapy)
 # Copyright (C) 2026  nieson@web.de
 #
 # This program is free software; you can redistribute it and/or modify it under the terms of
@@ -13,5 +13,5 @@
 # if not, see <https://www.gnu.org/licenses/>.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Drehzyklen – Zyklenprogrammierung für LinuxCNC-Drehmaschinen (gmoccapy)."""
-__version__ = "0.4.0"
+"""Drehzyklen - lathe cycle programming for LinuxCNC (gmoccapy)."""
+__version__ = "0.5.0"

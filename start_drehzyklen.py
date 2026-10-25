@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Drehzyklen – Zyklenprogrammierung für LinuxCNC-Drehmaschinen (gmoccapy)
+# Drehzyklen - lathe cycle programming for LinuxCNC (gmoccapy)
 # Copyright (C) 2026  nieson@web.de
 #
 # This program is free software; you can redistribute it and/or modify it under the terms of
@@ -14,14 +14,16 @@
 # if not, see <https://www.gnu.org/licenses/>.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Drehzyklen – Startprogramm.
+"""Drehzyklen - start script.
 
-Eigenständig:              python3 start_drehzyklen.py [--ini meine_maschine.ini]
-Eingebettet in gmoccapy:   EMBED_TAB_COMMAND = python3 /pfad/start_drehzyklen.py --xid {XID}
-Ohne Oberfläche (Test):    python3 start_drehzyklen.py --gcode projekt.dzp > teil.ngc
-Maschinen-Reiter zeigen:   --machine-tab
+Stand-alone:               python3 start_drehzyklen.py [--ini my_machine.ini]
+Embedded in gmoccapy:      EMBED_TAB_COMMAND = python3 /path/start_drehzyklen.py --xid {XID}
+Without GUI (test):        python3 start_drehzyklen.py --gcode project.dzp > part.ngc
+Show the machine tab:      --machine-tab
+Language:                  --language de   (otherwise the language chosen in the program)
 
-Einstellungen (machine.json, settings.json, werkzeuge.json) liegen in ~/.config/drehzyklen.
+Settings (machine.json, settings.json, werkzeuge.json, threads.json) are kept in
+~/.config/drehzyklen.
 """
 import argparse
 import os
@@ -30,8 +32,10 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
+from drehzyklen import i18n, threads  # noqa: E402
 from drehzyklen.cycles import Program  # noqa: E402
 from drehzyklen.machine import Machine  # noqa: E402
+from drehzyklen.settings import Settings  # noqa: E402
 from drehzyklen.tools import ToolTable  # noqa: E402
 
 CONFIG_DIR = os.path.expanduser("~/.config/drehzyklen")
@@ -52,30 +56,36 @@ def window_id(text):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Drehzyklen für LinuxCNC / gmoccapy")
+    parser = argparse.ArgumentParser(description="Drehzyklen for LinuxCNC / gmoccapy")
     parser.add_argument("-x", "--xid", type=window_id,
-                        help="X-Window-ID zum Einbetten (gmoccapy setzt {XID})")
-    parser.add_argument("--ini", help="LinuxCNC-INI (Standard: $INI_FILE_NAME)")
-    parser.add_argument("--machine", default=default_machine_json(), help="Pfad zu machine.json")
-    parser.add_argument("--project", help="Projekt (.dzp) beim Start laden")
+                        help="X window id for embedding (gmoccapy sets {XID})")
+    parser.add_argument("--ini", help="LinuxCNC INI (default: $INI_FILE_NAME)")
+    parser.add_argument("--machine", default=default_machine_json(), help="path of machine.json")
+    parser.add_argument("--project", help="load a project (.dzp) at the start")
     parser.add_argument("--machine-tab", action="store_true",
-                        help="Reiter Maschine auch bei laufendem LinuxCNC einblenden")
-    parser.add_argument("--gcode", metavar="PROJEKT",
-                        help="Projekt ohne Oberfläche in G-Code umwandeln (Ausgabe auf stdout)")
+                        help="show the machine tab even while LinuxCNC is running")
+    parser.add_argument("--gcode", metavar="PROJECT",
+                        help="convert a project to G-code without GUI (output to stdout)")
+    parser.add_argument("--language", help="en, de or es (saved for the next start)")
     arguments = parser.parse_args()
+    config_dir = os.path.dirname(os.path.abspath(arguments.machine))
+    if arguments.language:
+        settings = Settings(os.path.join(config_dir, "settings.json"))
+        settings.set_language(arguments.language)
 
     machine = Machine.load(arguments.machine, arguments.ini)
 
     if arguments.gcode:
-        config_dir = os.path.dirname(os.path.abspath(arguments.machine))
+        i18n.set_language(Settings(os.path.join(config_dir, "settings.json")).language)
+        threads.load(os.path.join(config_dir, "threads.json"))
         tools = ToolTable(machine, os.path.join(config_dir, "werkzeuge.json"))
         with open(arguments.gcode, encoding="utf-8") as file:
             program = Program.from_json(file.read(), machine, tools)
         result = program.generate()
         for warning in result.warnings:
-            print("Hinweis:", warning, file=sys.stderr)
+            print(i18n._("Hint:"), warning, file=sys.stderr)
         for error in result.errors:
-            print("FEHLER:", error, file=sys.stderr)
+            print(i18n._("ERROR:"), error, file=sys.stderr)
         sys.stdout.write(result.gcode)
         if result.errors:
             sys.exit(1)

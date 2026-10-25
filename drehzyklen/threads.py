@@ -1,0 +1,207 @@
+# Drehzyklen - lathe cycle programming for LinuxCNC (gmoccapy)
+# Copyright (C) 2026  nieson@web.de
+#
+# This program is free software; you can redistribute it and/or modify it under the terms of
+# the GNU General Public License as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+# without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with this program;
+# if not, see <https://www.gnu.org/licenses/>.
+#
+# SPDX-License-Identifier: GPL-2.0-or-later
+"""Thread tables and the values the thread cycle derives from them.
+
+Norms: ISO metric thread (coarse and fine, 60°), UNC and UNF (60°), Whitworth BSW and pipe
+thread G/BSP (55°). The tables are in ``data/threads.json``; own threads are added in
+``~/.config/drehzyklen/threads.json`` (same format, created with an example on first start).
+
+Calculation (basic profile, without tolerance zone):
+  60°: thread depth outside h3 = 0.6134·P, inside H1 = 0.5413·P, minor Ø D1 = D - 1.0825·P
+  55°: thread depth outside and inside h = 0.6403·P, minor Ø D1 = D - 1.2806·P
+Pre-turning outside (rule of thumb): D - 0.1·P, about the middle of tolerance zone 6g.
+Pre-turning inside: D1 + 0.1·P (about the middle of tolerance zone 6H of the minor Ø).
+Infeed angle Q: half flank angle - 0.5° (29.5° or 27°) so that the second flank is shaved
+lightly.
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple
+
+from .i18n import N_, _
+
+INCH = 25.4
+
+# labels of the supplied norms (data/threads.json), listed here for the translation files
+BUILTIN_NORM_LABELS = [N_("free (own values)"), N_("Metric coarse thread"),
+                       N_("Metric fine thread"), N_("UNC (inch, coarse)"), N_("UNF (inch, fine)"),
+                       N_("Whitworth BSW (55°)"), N_("Pipe thread G / BSP (55°)")]
+
+
+@dataclass(frozen=True)
+class ThreadSpec:
+    name: str            # e.g. "M12", "M12x1", "1/4-28 UNF", "G1/2"
+    norm: str            # key in NORMS
+    diameter: float      # nominal (major) Ø in mm
+    pitch: float         # pitch in mm
+    angle: float         # flank angle in degrees
+
+    # ---------------------------------------------------------------- profile
+    def depth(self, inside: bool) -> float:
+        if self.angle < 57.5:
+            return 0.6403 * self.pitch
+        if inside:
+            return 0.5413 * self.pitch
+        return 0.6134 * self.pitch
+
+    def minor_diameter(self) -> float:
+        """Minor diameter of the nut D1 (basic profile)."""
+        if self.angle < 57.5:
+            return self.diameter - 1.2806 * self.pitch
+        return self.diameter - 1.0825 * self.pitch
+
+    def infeed(self) -> float:
+        return self.angle / 2 - 0.5
+
+    def pre_turn_diameter(self, inside: bool) -> float:
+        """Pre-turning Ø: outside D - 0.1·P, inside D1 + 0.1·P."""
+        if inside:
+            return self.minor_diameter() + 0.1 * self.pitch
+        return self.diameter - 0.1 * self.pitch
+
+    def cycle_diameter(self, inside: bool) -> float:
+        """Value for the field D of the thread cycle: outside nominal Ø, inside core hole Ø."""
+        if inside:
+            return self.minor_diameter()
+        return self.diameter
+
+    def pitch_text(self) -> str:
+        if self.norm in ("UNC", "UNF", "BSW", "G"):
+            threads_per_inch = INCH / self.pitch
+            return _("{tpi:g} tpi = P{pitch:.4g}").format(tpi=threads_per_inch, pitch=self.pitch)
+        return f"P{self.pitch:g}"
+
+
+# ------------------------------------------------------------------ tables
+
+DATA_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "threads.json")
+FREE = "free"
+
+# norms: key -> {"label": display text (English), "angle": flank angle}
+NORMS: Dict[str, Dict] = {}
+THREADS: List[ThreadSpec] = []
+SIZE_KEYS: Dict[str, str] = {}
+LOAD_MESSAGES: List[str] = []
+
+USER_TEMPLATE = {
+    "_info": "Own threads for Drehzyklen. See 'threads' for an example. Fields: norm (an "
+             "existing norm like M, MF, UNC, UNF, BSW, G or an own one from 'norms'), name, "
+             "diameter (mm) or diameter_inch, pitch (mm) or tpi, optional angle. The same name "
+             "in the same norm replaces the table entry.",
+    "norms": {"Own": {"label": "Own threads", "angle": 60}},
+    "threads": [{"norm": "Own", "name": "M12x0.75 (example)", "diameter": 12.0,
+                 "pitch": 0.75}],
+}
+
+
+def _spec_from_entry(entry: dict) -> ThreadSpec:
+    norm = str(entry["norm"])
+    if "diameter" in entry:
+        diameter = float(entry["diameter"])
+    else:
+        diameter = float(entry["diameter_inch"]) * INCH
+    if "pitch" in entry:
+        pitch = float(entry["pitch"])
+    else:
+        pitch = INCH / float(entry["tpi"])
+    if "angle" in entry:
+        angle = float(entry["angle"])
+    else:
+        angle = float(NORMS[norm].get("angle", 60.0))
+    if diameter <= 0 or pitch <= 0:
+        raise ValueError(_("Ø and pitch must be greater than 0"))
+    return ThreadSpec(str(entry["name"]), norm, diameter, pitch, angle)
+
+
+def _read(path: str, user_file: bool):
+    with open(path, encoding="utf-8") as file:
+        data = json.load(file)
+    for key, values in data.get("norms", {}).items():
+        NORMS[str(key)] = {"label": str(values.get("label", key)),
+                           "angle": float(values.get("angle", 60.0))}
+    for entry in data.get("threads", []):
+        try:
+            spec = _spec_from_entry(entry)
+        except (KeyError, TypeError, ValueError) as error:
+            LOAD_MESSAGES.append(_("{file}: entry {entry!r} skipped ({error})").format(
+                file=os.path.basename(path), entry=entry, error=error))
+            continue
+        for index, existing in enumerate(THREADS):
+            if existing.norm == spec.norm and existing.name == spec.name:
+                THREADS[index] = spec
+                break
+        else:
+            THREADS.append(spec)
+    if user_file:
+        LOAD_MESSAGES.append(_("Own threads from {path}").format(path=path))
+
+
+def load(user_path: Optional[str] = None):
+    """Load the tables: the supplied threads.json, then the user's own file.
+
+    If the user's file does not exist yet, it is created with an example.
+    """
+    NORMS.clear()
+    NORMS[FREE] = {"label": "free (own values)", "angle": 60.0}
+    THREADS.clear()
+    LOAD_MESSAGES.clear()
+    _read(DATA_FILE, False)
+    if user_path:
+        if not os.path.isfile(user_path):
+            try:
+                os.makedirs(os.path.dirname(user_path) or ".", exist_ok=True)
+                with open(user_path, "w", encoding="utf-8") as file:
+                    json.dump(USER_TEMPLATE, file, indent=2, ensure_ascii=False)
+            except OSError:
+                pass
+        if os.path.isfile(user_path):
+            try:
+                _read(user_path, True)
+            except (OSError, ValueError) as error:
+                LOAD_MESSAGES.append(_("{path} cannot be read: {error}").format(path=user_path,
+                                                                                error=error))
+    SIZE_KEYS.clear()
+    for norm in NORMS:
+        if norm != FREE and names_for(norm):
+            SIZE_KEYS[norm] = "size_" + re.sub(r"[^a-z0-9]", "_", norm.lower())
+
+
+def names_for(norm: str) -> Tuple[str, ...]:
+    return tuple(spec.name for spec in THREADS if spec.norm == norm)
+
+
+def find(norm: str, name: str) -> Optional[ThreadSpec]:
+    for spec in THREADS:
+        if spec.norm == norm and spec.name == name:
+            return spec
+    return None
+
+
+def norm_of_label(label: str) -> str:
+    """Norm key from a stored value: the key itself, its label or a label of version 0.4."""
+    from .cycles.params import LEGACY_VALUES
+    label = LEGACY_VALUES.get(label, label)
+    for key, values in NORMS.items():
+        if label in (key, values["label"]):
+            return key
+    return FREE
+
+
+load()

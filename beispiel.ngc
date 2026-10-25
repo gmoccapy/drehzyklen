@@ -1,12 +1,12 @@
 %
-(Beispielwelle - erzeugt mit Drehzyklen 2026-10-21)
-(Maschine: n 50–3000 1/min · vX 3000 / vZ 4000 mm/min · Ø max 200 · keine WZW-Position  [Standardwerte])
-(Rohteil Ø64, Z1…Futter Z-69)
+(Example shaft - generated with Drehzyklen 2026-10-25)
+(Machine: n 50–3000 1/min · vX 3000 / vZ 4000 mm/min · Ø max 200 · no tool change position  [machine.json])
+(Stock Ø64, Z1…chuck Z-69)
 G18 G7 G21 G90 G91.1 G40 G49 G80 G54
 G95 G64 P0.01
-(Rückzugsebene Z6, außen X66, innen X0)
+(Retract plane Z6, outside X66, inside X0)
 
-(--- 1: Plandrehen: außen Ø64→Ø-0.4 Z1→0 ---)
+(--- 1: Facing: outside Ø64→Ø-0.4 Z1→0 ---)
 G0 X66
 G0 Z6
 T1 M6 G43
@@ -21,7 +21,7 @@ G0 Z0.1
 G1 X-0.4
 G0 Z1.1
 G0 X66
-(Schlichten)
+(Finishing)
 G0 Z0
 G1 X-0.4 F0.08
 G0 Z1
@@ -29,14 +29,14 @@ G0 X66
 G0 Z2
 G0 Z6
 
-(--- 2: Kontur: außen 6 Punkte Z0…-50 ---)
+(--- 2: Contour: outside 6 points Z0…-50 ---)
 M9
 M5
 T7 M6 G43
 G96 D3000 S180 M3
 M8
 G0 Z1
-(Schruppen: 22 Ebenen)
+(Roughing: 22 levels)
 G0 X61
 G1 Z-49.9 F0.25
 G1 X64
@@ -110,10 +110,10 @@ G1 X51.4226 Z-19.9262
 G1 X51.7617 Z-19.9466
 G1 X52 Z-19.965
 G0 X66
-(Schlichten)
+(Finishing)
 G0 Z1
 G0 X0
-(Kontur mit Bögen im Radiusmodus G8: X = Radius, I/K = Mittelpunkt relativ)
+(Contour with arcs in radius mode G8: X = radius, I/K = centre relative)
 G8
 G1 Z0 F0.1
 G1 X23
@@ -127,14 +127,15 @@ G7
 G0 Z1
 G0 Z6
 
-(--- 3: G-Code ---)
-(--- eigener G-Code ---)
+(--- 3: G-code ---)
+(--- own G-code ---)
 M5
 M9
 M0 (Späne entfernen – weiter mit Zyklusstart)
-(--- Ende eigener G-Code ---)
+(--- end of own G-code ---)
+(Spindle/coolant are switched on by the next cycle after the tool change)
 
-(--- 4: Bohren: Ø10 Z0→-30 [Entspanen] ---)
+(--- 4: Drilling: Ø10 Z0→-30 [Peck drilling] ---)
 T11 M6 G43
 G97 S796 M3
 M8
@@ -153,7 +154,7 @@ G1 Z-30
 G0 Z1
 G0 Z6
 
-(--- 5: Längsdrehen: innen Ø10→Ø20 Z0…-12 C1 ---)
+(--- 5: Longitudinal turning: inside Ø10→Ø20 Z0…-12 C1 ---)
 M9
 M5
 G0 X66
@@ -162,7 +163,7 @@ G96 D3000 S180 M3
 M8
 G0 X8
 G0 Z1
-(Schruppen: 5 Ebenen)
+(Roughing: 5 levels)
 G0 X13
 G1 Z-11.9 F0.25
 G1 X10
@@ -177,7 +178,7 @@ G0 X19
 G1 Z-11.9
 G1 X16
 G0 X8
-(Schlichten)
+(Finishing)
 G0 Z1
 G0 X23
 G1 Z0 F0.1
@@ -190,7 +191,7 @@ G0 Z1
 G0 X0
 G0 Z6
 
-(--- 6: Gewinde [G76]: außen M60×1.5 Z-25…-45 ---)
+(--- 6: Thread [G76]: outside M60×1.5 Z-25…-45 ---)
 M9
 M5
 G0 X66
@@ -200,7 +201,7 @@ M8
 G0 X64
 G0 Z-21
 G0 X62
-(G76 im Radiusmodus G8 [I, J, K als Radiuswerte], danach zurück zu G7)
+(G76 in radius mode G8 [I, J, K as radius values], then back to G7)
 G8
 G76 P1.5 Z-45 I-1 J0.3 R1.5 K0.9201 Q29.5 H1
 G7
