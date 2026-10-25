@@ -13,7 +13,7 @@ entsprechen der deutschen Übersetzung. Wie das Programm intern arbeitet, beschr
 
 ![Oberfläche von Drehzyklen](docs/bilder/oberflaeche.png)
 
-*(Eigenen Screenshot als `docs/bilder/oberflaeche.png` speichern – er erscheint dann hier.)*
+
 
 - **Oben:** Knöpfe für Rohteil, die Zyklen, Werkzeuge und (ohne laufendes LinuxCNC) Maschine.
   Die Symbole richten sich nach der Werkzeuglage (vor oder hinter der Drehmitte).
