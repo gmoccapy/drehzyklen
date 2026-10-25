@@ -133,11 +133,20 @@ class NumEntry(Gtk.Entry):
 
 
 class RadioBar(Gtk.Box):
-    """Row of linked toggle buttons. items: [(key, text, icon_key|None, tooltip)]."""
+    """Row of toggle buttons of which one is active. items: [(key, text, icon, tooltip)].
 
-    def __init__(self, items, css_class, on_toggle, icon_size=0):
-        super().__init__(spacing=0)
-        self.get_style_context().add_class("linked")
+    icon is the key of a drawn icon (helpdraw.draw_icon), "theme:<name>" for an icon of the
+    icon theme or None. With buttons=True the row looks like the bottom button bar: separate
+    buttons, icon above the text; otherwise a compact linked row.
+    """
+
+    def __init__(self, items, css_class, on_toggle, icon_size=0, buttons=False, spacing=8):
+        if buttons:
+            super().__init__(spacing=spacing)
+            self.get_style_context().add_class("buttonbar")
+        else:
+            super().__init__(spacing=0)
+            self.get_style_context().add_class("linked")
         self.get_style_context().add_class(css_class)
         self.on_toggle = on_toggle
         self.buttons: Dict[str, Gtk.RadioButton] = {}
@@ -147,12 +156,20 @@ class RadioBar(Gtk.Box):
             if group is None:
                 group = button
             button.set_mode(False)
-            inner = Gtk.Box(spacing=4)
-            if icon and icon_size:
+            if buttons:
+                inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+            else:
+                inner = Gtk.Box(spacing=4)
+            if icon and icon.startswith("theme:"):
+                image = Gtk.Image.new_from_icon_name(icon[len("theme:"):],
+                                                     Gtk.IconSize.LARGE_TOOLBAR)
+                inner.pack_start(image, True, True, 0)
+            elif icon and icon_size:
                 area = Gtk.DrawingArea()
                 area.set_size_request(icon_size, icon_size)
+                area.set_halign(Gtk.Align.CENTER)
                 area.connect("draw", self.on_draw_icon, icon, icon_size)
-                inner.pack_start(area, False, False, 0)
+                inner.pack_start(area, True, False, 0)
                 button.icon_area = area
             label = Gtk.Label(label=text)
             inner.pack_start(label, False, False, 0)
@@ -161,7 +178,10 @@ class RadioBar(Gtk.Box):
             if tooltip:
                 button.set_tooltip_text(tooltip)
             button.connect("toggled", self.on_button_toggled, key)
-            self.pack_start(button, True, True, 0)
+            if buttons:
+                self.pack_start(button, False, False, 0)
+            else:
+                self.pack_start(button, True, True, 0)
             self.buttons[key] = button
 
     def on_button_toggled(self, button, key):
@@ -662,7 +682,7 @@ class ParamForm(Gtk.Grid):
             combo.connect("changed", self.on_widget_changed, param.key)
             return combo
         if param.kind == "bool":
-            switch = Gtk.Switch(halign=Gtk.Align.START)
+            switch = Gtk.Switch(halign=Gtk.Align.START, valign=Gtk.Align.CENTER)
             switch.set_active(bool(param.default))
             switch.connect("notify::active", self.on_switch_changed, param.key)
             return switch

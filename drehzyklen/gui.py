@@ -47,25 +47,24 @@ from .machine import MACHINE_FIELDS, Machine  # noqa: E402
 from .material import simulate  # noqa: E402
 from .settings import Settings  # noqa: E402
 from .tools import (HAND_LABELS, HANDS, KIND_LABELS, NEW_SOURCE, POSITION_LABELS,  # noqa: E402
-                    POSITIONS, RIGHT, Tool, ToolTable)
+                    NEUTRAL, POSITIONS, RIGHT, Tool, ToolTable, table_angles)
 from .widgets import (NumEntry, ParamForm, RadioBar, ViewArea, image_button,  # noqa: E402
                       message_area, message_markup)
 
 CSS = b"""
 .dz button { min-height: 30px; padding: 2px 8px; }
 .dz entry { min-height: 28px; }
-.dz .selbar button { padding: 2px 6px; min-height: 40px; }
-.dz .selbar button:checked { box-shadow: inset 0 -3px #e0a422; }
-.dz .bottombar button { min-height: 50px; min-width: 70px; padding: 2px 8px; }
+.dz .bottombar button, .dz .buttonbar button { min-height: 50px; min-width: 70px;
+                                                padding: 2px 8px; }
+.dz .buttonbar button:checked { box-shadow: inset 0 -3px #e0a422; }
 .dz .viewswitch button { min-height: 28px; padding: 0 8px; }
-.dz .sidesw button { min-height: 34px; }
 .dz .hint { opacity: 0.7; font-size: 90%; }
 .dz .msg { font-size: 92%; }
 .dz .numpad button { min-width: 54px; min-height: 46px; font-size: 16px; }
 .dz.compact button { min-height: 26px; padding: 1px 5px; }
 .dz.compact entry { min-height: 24px; }
-.dz.compact .selbar button { min-height: 34px; }
-.dz.compact .bottombar button { min-height: 40px; min-width: 56px; }
+.dz.compact .bottombar button, .dz.compact .buttonbar button { min-height: 40px;
+                                                              min-width: 56px; }
 .dz.compact { font-size: 92%; }
 """
 
@@ -112,7 +111,8 @@ class CyclePage(Gtk.Box):
         if cycle_class.HAS_SIDE:
             self.side_bar = RadioBar([(OUTSIDE, _("Outside"), "side_out", _("Outside machining")),
                                       (INSIDE, _("Inside"), "side_in", _("Inside machining"))],
-                                     "sidesw", self.set_side, icon_size=18)
+                                     "sidesw", self.set_side, icon_size=24, buttons=True,
+                                     spacing=BOTTOM_SPACING)
             self.pack_start(self.side_bar, False, False, 0)
         self.title = title_label(cycle_class.title())
         self.pack_start(self.title, False, False, 0)
@@ -465,12 +465,26 @@ class ToolPage(Gtk.Box):
         self.tip_entry = NumEntry(width=6)
         self.tip_entry.set_tooltip_text(_("Point angle of the threading insert, e.g. 60° "
                                           "metric/UNF, 55° Whitworth"))
+        self.front_entry = NumEntry(width=6)
+        self.back_entry = NumEntry(width=6)
+        self.axis_entry = NumEntry(allow_empty=True, width=6)
+        angle_help = _("Special shape: angles as in the tool.tbl (I, J), clockwise from Z+. "
+                       "Example I120 J70 gives a point angle of 50°")
+        self.front_entry.set_tooltip_text(angle_help)
+        self.back_entry.set_tooltip_text(angle_help)
+        self.axis_entry.set_tooltip_text(_("Direction of the tool axis (shank), same convention "
+                                           "as I/J. Empty = bisector of the insert. The insert "
+                                           "may sit asymmetrically, e.g. I120 J70 mounted at "
+                                           "80°"))
         self.comment_entry = Gtk.Entry()
         rows = [(_("Type"), self.kind_combo), (_("Hand"), self.hand_combo),
                 (_("Position"), self.position_combo), (_("Lead angle κ [°]"), self.lead_entry),
                 (_("Nose radius r"), self.radius_entry), (_("Grooving width b"), self.width_entry),
                 (_("Drill Ø"), self.diameter_entry),
                 (_("Thread point angle ε [°]"), self.tip_entry),
+                (_("Front angle I [°]"), self.front_entry),
+                (_("Back angle J [°]"), self.back_entry),
+                (_("Tool axis [°]"), self.axis_entry),
                 (_("Description"), self.comment_entry)]
         for row, (text, widget) in enumerate(rows):
             label = Gtk.Label(label=text, xalign=0)
@@ -578,6 +592,7 @@ class ToolPage(Gtk.Box):
         self.width_entry.set_value(tool.width)
         self.diameter_entry.set_value(tool.diameter)
         self.tip_entry.set_value(round(tool.insert_angle, 1))
+        self.show_angles(tool)
         self.comment_entry.set_text(tool.comment)
         # values from the tool.tbl (radius, comment) are maintained in LinuxCNC; newly created
         # tools are free until they are written to the tool.tbl
@@ -588,19 +603,53 @@ class ToolPage(Gtk.Box):
         self.loading = False
         self.on_kind_changed(self.kind_combo)
 
+    def show_angles(self, tool: Tool):
+        """Front/back angle and tool axis in tool.tbl convention (for information or input)."""
+        table = self.panel.tools
+        back_tool = self.panel.machine.back_tool
+        if tool.angles_from_table:
+            self.front_entry.set_value(tool.front_angle)
+            self.back_entry.set_value(tool.back_angle)
+        else:
+            angles = table_angles(tool, back_tool, table.mirror_table_angles)
+            if angles is None:
+                self.front_entry.set_text("")
+                self.back_entry.set_text("")
+            else:
+                # the values »Write to tool.tbl« would enter
+                self.front_entry.set_value(angles[0])
+                self.back_entry.set_value(angles[1])
+        axis = table.table_axis(tool)
+        if axis is None:
+            self.axis_entry.set_text("")
+        else:
+            self.axis_entry.set_value(axis)
+
+    def special_editable(self, kind, tool) -> bool:
+        """Can the insert of a special shape be entered with I/J (not fixed by the tool.tbl)?"""
+        if kind != "special":
+            return False
+        return tool is None or not tool.angles_from_table or tool.entered_angles
+
     def on_kind_changed(self, _combo):
         kind = self.kind_combo.get_active_id()
         tool = self.selected_tool()
         # position of the insert from I/J/Q of the tool.tbl: hand, position and angles are fixed,
         # only the type (the classification) can be changed
         geometry_free = tool is None or not tool.angles_from_table
+        special = self.special_editable(kind, tool)
+        if special:
+            # hand, position, lead and point angle follow from I/J
+            geometry_free = False
         self.hand_combo.set_sensitive(geometry_free)
         self.position_combo.set_sensitive(geometry_free)
         self.width_entry.set_sensitive(kind == "groove")
         self.diameter_entry.set_sensitive(kind == "drill")
-        self.lead_entry.set_sensitive(geometry_free
-                                      and kind in ("C", "D", "T", "V", "W", "special"))
+        self.lead_entry.set_sensitive(geometry_free and kind in ("C", "D", "T", "V", "W"))
         self.tip_entry.set_sensitive(geometry_free and kind == "thread")
+        self.front_entry.set_sensitive(special)
+        self.back_entry.set_sensitive(special)
+        self.axis_entry.set_sensitive(special)
 
     def on_apply(self, _button):
         tool = self.selected_tool()
@@ -618,6 +667,26 @@ class ToolPage(Gtk.Box):
         kind = self.kind_combo.get_active_id()
         hand = self.hand_combo.get_active_id()
         position = self.position_combo.get_active_id()
+        special_angles = None
+        if self.special_editable(kind, tool):
+            try:
+                front = self.front_entry.get_value()
+                back = self.back_entry.get_value()
+                axis = self.axis_entry.get_value()
+            except (ValueError, SyntaxError, ZeroDivisionError):
+                self.panel.message(_("Special shape: enter the front angle I and the back angle "
+                                     "J."), Gtk.MessageType.ERROR)
+                return
+            point_angle = abs(front - back) % 360.0
+            if point_angle > 180.0:
+                point_angle = 360.0 - point_angle
+            if point_angle < 1.0 or point_angle > 179.0:
+                self.panel.message(_("Special shape: I and J must enclose a point angle between "
+                                     "1° and 179°."), Gtk.MessageType.ERROR)
+                return
+            special_angles = (front, back, axis)
+            hand = hand or NEUTRAL
+            position = position or OUTSIDE
         if not kind or not hand or not position:
             self.panel.message(_("Choose type, hand and position."), Gtk.MessageType.ERROR)
             return
@@ -626,7 +695,7 @@ class ToolPage(Gtk.Box):
                                Gtk.MessageType.ERROR)
             return
         self.panel.tools.assign(tool, kind, hand, position, lead, radius, width, diameter,
-                                self.comment_entry.get_text(), tip_angle)
+                                self.comment_entry.get_text(), tip_angle, special_angles)
         self.panel.tools_changed(tool.number)
 
     def on_new(self, _button):
@@ -790,24 +859,31 @@ class ProgramColumn(Gtk.Box):
             return None
         return model.get_path(tree_iter).get_indices()[0]
 
+    def unselect(self):
+        self.tree.get_selection().unselect_all()
+
 
 # =========================================================================== right column
 
 class ViewColumn(Gtk.Box):
-    MODES = [("cycle", N_("Cycle"), N_("Preview of the current tab with stock and removal; the "
-                                       "mouse wheel zooms, the left mouse button pans, a double "
-                                       "click resets")),
-             ("help", N_("Picture"), N_("Parameter picture of the current tab")),
-             ("gcode", N_("G-code"), N_("Generated G-code, jumps to the marked program step")),
-             ("program", N_("Program"), N_("The whole program, the marked step highlighted"))]
+    MODES = [("cycle", N_("Cycle"), "theme:video-display",
+              N_("Preview of the current tab with stock and removal; the mouse wheel zooms, the "
+                 "left mouse button pans, a double click resets")),
+             ("help", N_("Picture"), "theme:image-x-generic",
+              N_("Parameter picture of the current tab")),
+             ("gcode", N_("G-code"), "theme:text-x-generic",
+              N_("Generated G-code, jumps to the marked program step")),
+             ("program", N_("Program"), "theme:x-office-document",
+              N_("The whole program, the marked step highlighted"))]
 
     def __init__(self, panel: "DrehzyklenPanel"):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=4, margin=4)
         self.panel = panel
         self.mode = "cycle"
         top = Gtk.Box(spacing=6)
-        items = [(key, _(text), None, _(tooltip)) for key, text, tooltip in self.MODES]
-        self.mode_bar = RadioBar(items, "viewswitch", self.on_mode)
+        items = [(key, _(text), icon, _(tooltip)) for key, text, icon, tooltip in self.MODES]
+        self.mode_bar = RadioBar(items, "viewbar", self.on_mode, buttons=True,
+                                 spacing=BOTTOM_SPACING)
         top.pack_start(self.mode_bar, False, False, 0)
         self.rapid_check = Gtk.CheckButton(label=_("Rapids"), active=True)
         self.rapid_check.connect("toggled", self.on_rapids_toggled)
@@ -889,6 +965,7 @@ class DrehzyklenPanel(Gtk.Box):
             program = Program(machine, name=DEFAULT_NAME, tools=self.tools)
         self.program = program
         self.current = "stock"
+        self.keep_selection = False
         self.refresh_timer = None
         self.watch_timer = None
         self.layout_state = None
@@ -905,7 +982,8 @@ class DrehzyklenPanel(Gtk.Box):
                           cycle_class.title()))
         items.append(("tools", _("Tools"), "tools", _("Tool table")))
         items.append(("machine", _("Machine"), "machine", _("Machine data")))
-        self.selector = RadioBar(items, "selbar", self.show_page, icon_size=22)
+        self.selector = RadioBar(items, "selbar", self.show_page, icon_size=24, buttons=True,
+                                 spacing=BOTTOM_SPACING)
         selector_scroller = Gtk.ScrolledWindow()
         selector_scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
         selector_scroller.set_propagate_natural_height(True)
@@ -993,7 +1071,7 @@ class DrehzyklenPanel(Gtk.Box):
         box.set_valign(Gtk.Align.CENTER)
         self.language_combo = Gtk.ComboBoxText()
         for code in i18n.available_languages():
-            self.language_combo.append(code, i18n.LANGUAGE_NAMES.get(code, code))
+            self.language_combo.append(code, i18n.language_name(code))
         self.language_combo.set_active_id(i18n.language())
         self.language_combo.set_tooltip_text(_("Language of the user interface and of the "
                                                "G-code comments"))
@@ -1045,8 +1123,12 @@ class DrehzyklenPanel(Gtk.Box):
         self.refresh_list(state.get("selected"))
         current = state.get("current", "stock")
         if current in self.selector.buttons:
-            self.selector.buttons[current].set_active(True)
-            self.show_page(current)
+            self.keep_selection = True
+            try:
+                self.selector.buttons[current].set_active(True)
+                self.show_page(current)
+            finally:
+                self.keep_selection = False
         self.view_column.set_mode(state.get("view_mode", "cycle"))
 
     # ---------------------------------------------------------------- layout
@@ -1073,7 +1155,12 @@ class DrehzyklenPanel(Gtk.Box):
             context.add_class("compact")
         else:
             context.remove_class("compact")
-        for button in list(self.selector.buttons.values()) + self.bottom_buttons:
+        bars = (self.selector, self.view_column.mode_bar)
+        buttons = [button for bar in bars for button in bar.buttons.values()]
+        for page in self.pages.values():
+            if page.cycle_class.HAS_SIDE:
+                buttons.extend(page.side_bar.buttons.values())
+        for button in buttons + self.bottom_buttons:
             button.text_label.set_visible(not narrow)
         return False
 
@@ -1102,6 +1189,13 @@ class DrehzyklenPanel(Gtk.Box):
         self.stack.set_visible_child_name(key)
         self.view_column.view.reset_view()
         page = self.pages.get(key)
+        selected = self.program_column.selected()
+        if (page is not None and selected is not None and page.edit_index != selected
+                and not self.keep_selection):
+            # a new cycle is chosen - the marked program step is not edited here, so the
+            # marking would only suggest that »Apply« changes it
+            self.clear_edit()
+            self.program_column.unselect()
         if page is not None:
             page.update()
         else:
@@ -1287,7 +1381,11 @@ class DrehzyklenPanel(Gtk.Box):
         op = self.program.ops[index]
         self.clear_edit()
         page = self.pages[op.KEY]
-        self.selector.buttons[op.KEY].set_active(True)
+        self.keep_selection = True
+        try:
+            self.selector.buttons[op.KEY].set_active(True)
+        finally:
+            self.keep_selection = False
         page.load(op, index)
         if self.view_column.mode in ("program", "gcode"):
             self.view_column.set_mode("cycle")

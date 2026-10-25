@@ -17,7 +17,11 @@
 
 The source text is English. Translations live in ``drehzyklen/locale/<code>.po`` (standard
 gettext PO files, editable with Poedit or any text editor). They are read directly, so no
-compiled ``.mo`` files are needed.
+compiled ``.mo`` files are needed. Own translations can also be put into
+``~/.config/drehzyklen/locale/<code>.po``; every PO file found there appears in the language
+selection automatically (a file there wins over one with the same name in the program folder).
+The name shown in the selection comes from the header field ``X-Language-Name`` of the PO
+file, otherwise from a list of common languages, otherwise the code itself is shown.
 
 Usage::
 
@@ -37,7 +41,14 @@ from typing import Callable, Dict, List
 
 LOCALE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "locale")
 DEFAULT_LANGUAGE = "en"
-LANGUAGE_NAMES = {"en": "English", "de": "Deutsch", "es": "Español"}
+USER_LOCALE_DIR = os.path.expanduser("~/.config/drehzyklen/locale")
+LANGUAGE_NAMES = {"en": "English", "de": "Deutsch", "es": "Español", "fr": "Français",
+                  "it": "Italiano", "nl": "Nederlands", "pt": "Português", "pl": "Polski",
+                  "cs": "Čeština", "sk": "Slovenčina", "sl": "Slovenščina", "hr": "Hrvatski",
+                  "hu": "Magyar", "ro": "Română", "da": "Dansk", "sv": "Svenska",
+                  "nb": "Norsk bokmål", "fi": "Suomi", "tr": "Türkçe", "ru": "Русский",
+                  "uk": "Українська", "el": "Ελληνικά", "ja": "日本語", "zh": "中文",
+                  "ko": "한국어"}
 
 _catalog: Dict[str, str] = {}
 _language = DEFAULT_LANGUAGE
@@ -63,26 +74,61 @@ def language() -> str:
     return _language
 
 
-def available_languages() -> List[str]:
-    codes = [DEFAULT_LANGUAGE]
-    if os.path.isdir(LOCALE_DIR):
-        for name in sorted(os.listdir(LOCALE_DIR)):
+def locale_dirs() -> List[str]:
+    """Folders with PO files; later folders win (the user's own translations)."""
+    return [LOCALE_DIR, USER_LOCALE_DIR]
+
+
+def po_files() -> Dict[str, str]:
+    """Language code -> path of its PO file."""
+    files: Dict[str, str] = {}
+    for folder in locale_dirs():
+        if not os.path.isdir(folder):
+            continue
+        for name in sorted(os.listdir(folder)):
             if name.endswith(".po"):
-                codes.append(name[:-3])
-    return codes
+                files[name[:-3]] = os.path.join(folder, name)
+    return files
+
+
+def available_languages() -> List[str]:
+    """English first, then all languages with a PO file, sorted by their shown name."""
+    files = po_files()
+    codes = [code for code in files if code != DEFAULT_LANGUAGE]
+    codes.sort(key=lambda code: language_name(code).lower())
+    return [DEFAULT_LANGUAGE] + codes
+
+
+def language_name(code: str) -> str:
+    """Name for the language selection."""
+    path = po_files().get(code)
+    if path is not None:
+        name = po_header(path).get("X-Language-Name", "").strip()
+        if name:
+            return name
+    if code in LANGUAGE_NAMES:
+        return LANGUAGE_NAMES[code]
+    base = code.split("_")[0].split("-")[0]
+    if base in LANGUAGE_NAMES:
+        return f"{LANGUAGE_NAMES[base]} ({code})"
+    return code
 
 
 def set_language(code: str) -> bool:
-    """Activate a language; returns False (and keeps English) if no catalog exists."""
+    """Activate a language; returns False (and keeps the old language) if no catalog exists."""
     global _language
-    code = (code or DEFAULT_LANGUAGE).split("_")[0].split(".")[0].lower()
+    code = (code or DEFAULT_LANGUAGE).split(".")[0]
+    files = po_files()
+    if code not in files:
+        # e.g. "de_DE" from the system locale -> "de"
+        code = code.split("_")[0].split("-")[0].lower()
     if code == DEFAULT_LANGUAGE:
         _catalog.clear()
         _language = DEFAULT_LANGUAGE
         _notify()
         return True
-    path = os.path.join(LOCALE_DIR, f"{code}.po")
-    if not os.path.isfile(path):
+    path = files.get(code)
+    if path is None:
         return False
     catalog = read_po(path)
     _catalog.clear()
@@ -152,3 +198,32 @@ def read_po(path: str) -> Dict[str, str]:
         if target == "msgstr":
             store()
     return catalog
+
+
+def po_header(path: str) -> Dict[str, str]:
+    """Fields of the PO header (the entry with the empty msgid)."""
+    header_text = []
+    target = None
+    try:
+        with open(path, encoding="utf-8") as file:
+            for raw_line in file:
+                line = raw_line.strip()
+                if line.startswith("msgid "):
+                    if target is not None or _unquote(line[6:]):
+                        break               # the header is the first entry
+                    target = "msgid"
+                elif line.startswith("msgstr ") and target == "msgid":
+                    header_text.append(_unquote(line[7:]))
+                    target = "msgstr"
+                elif line.startswith('"') and target == "msgstr":
+                    header_text.append(_unquote(line))
+                elif line and not line.startswith("#") and target == "msgstr":
+                    break
+    except (OSError, ValueError, SyntaxError):
+        return {}
+    fields: Dict[str, str] = {}
+    for header_line in "".join(header_text).splitlines():
+        key, separator, value = header_line.partition(":")
+        if separator:
+            fields[key.strip()] = value.strip()
+    return fields

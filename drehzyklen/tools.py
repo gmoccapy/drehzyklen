@@ -147,6 +147,7 @@ class Tool:
     fingerprint: str = ""
     tip_angle: float = 0.0            # point angle of a threading tool (0 = 60°)
     shank_angle: Optional[float] = None  # shank direction in the model from Q of the tool.tbl
+    entered_angles: bool = False      # special shape: I/J entered in the tools tab
 
     @property
     def angles_from_table(self) -> bool:
@@ -418,35 +419,9 @@ def tool_from_table(entry: dict, back_tool: bool, mirror_z: bool = False) -> Too
     if entry["orientation"] in (0, 9) or (front == 0 and back == 0) or front == back:
         tool.needs_input = True
         return tool
-    if back_tool:
-        edge_one, edge_two = -front, -back
-    else:
-        edge_one, edge_two = front, back
-    if mirror_z:
-        # operator option in case the angles of the own tool.tbl are meant the other way round
-        edge_one, edge_two = 180.0 - edge_one, 180.0 - edge_two
-    difference = (edge_two - edge_one) % 360.0
-    if difference <= 180.0:
-        low = edge_one
-        width = difference
-    else:
-        low = edge_two
-        width = 360.0 - difference
-    low = normalize_angle(low)
-    tool.table_sector = (low, low + width)
-    bisector = math.radians(low + width / 2)
-    if math.sin(bisector) >= 0:
-        tool.position = OUTSIDE
-        bisector_outside = bisector
-    else:
-        tool.position = INSIDE
-        bisector_outside = -bisector
-    if math.cos(bisector_outside) > 0.17:
-        tool.hand = RIGHT
-    elif math.cos(bisector_outside) < -0.17:
-        tool.hand = LEFT
-    else:
-        tool.hand = NEUTRAL
+    tool.table_sector = sector_from_table_angles(front, back, back_tool, mirror_z)
+    derive_hand_position(tool)
+    width = tool.table_sector[1] - tool.table_sector[0]
     tool.kind = "special"
     if tool.hand == NEUTRAL and (abs(width - 60.0) < 3.0 or abs(width - 55.0) < 3.0):
         # symmetric tip with 55° (Whitworth) or 60° (metric, UNC/UNF)
@@ -462,6 +437,51 @@ def tool_from_table(entry: dict, back_tool: bool, mirror_z: bool = False) -> Too
             if difference < best_difference:
                 best_difference = difference
                 tool.kind = kind
+    derive_lead_angle(tool)
+    return tool
+
+
+def sector_from_table_angles(front: float, back: float, back_tool: bool,
+                             mirror_z: bool = False) -> Tuple[float, float]:
+    """Insert sector in the model frame from front angle I and back angle J of the tool.tbl."""
+    if back_tool:
+        edge_one, edge_two = -front, -back
+    else:
+        edge_one, edge_two = front, back
+    if mirror_z:
+        # operator option in case the angles of the own tool.tbl are meant the other way round
+        edge_one, edge_two = 180.0 - edge_one, 180.0 - edge_two
+    difference = (edge_two - edge_one) % 360.0
+    if difference <= 180.0:
+        low = edge_one
+        width = difference
+    else:
+        low = edge_two
+        width = 360.0 - difference
+    low = normalize_angle(low)
+    return low, low + width
+
+
+def derive_hand_position(tool: Tool):
+    """Hand and position (outside/inside) from the insert sector of the tool."""
+    low, high = tool.table_sector
+    bisector = math.radians((low + high) / 2)
+    if math.sin(bisector) >= 0:
+        tool.position = OUTSIDE
+        bisector_outside = bisector
+    else:
+        tool.position = INSIDE
+        bisector_outside = -bisector
+    if math.cos(bisector_outside) > 0.17:
+        tool.hand = RIGHT
+    elif math.cos(bisector_outside) < -0.17:
+        tool.hand = LEFT
+    else:
+        tool.hand = NEUTRAL
+
+
+def derive_lead_angle(tool: Tool):
+    """Lead angle κ from the insert sector (main edge = edge on the cutting side)."""
     if tool.position == OUTSIDE:
         outside_low, outside_high = tool.table_sector
     else:
@@ -470,7 +490,48 @@ def tool_from_table(entry: dict, back_tool: bool, mirror_z: bool = False) -> Too
         tool.lead_angle = round(outside_low, 1)
     else:
         tool.lead_angle = round(180.0 - outside_high, 1)
-    return tool
+
+
+def nearest_orientation(model_shank: float, back_tool: bool, mirror_z: bool = False) -> int:
+    """Orientation Q of the tool.tbl whose direction comes closest to the tool axis."""
+    table_shank = model_angle(model_shank, back_tool, mirror_z)
+    best_orientation = 6
+    best_difference = None
+    for orientation, angle in ORIENTATION_ANGLES.items():
+        difference = abs(normalize_angle(table_shank - angle))
+        if best_difference is None or difference < best_difference:
+            best_difference = difference
+            best_orientation = orientation
+    return best_orientation
+
+
+def set_special_angles(tool: Tool, front: float, back: float, axis: Optional[float],
+                       back_tool: bool, mirror_z: bool = False):
+    """Special shape: insert from front angle I and back angle J (tool.tbl convention).
+
+    axis is the direction of the tool axis (shank) in the same convention; None = bisector.
+    The insert may sit asymmetrically to the axis, e.g. I120 J70 (ε 50°) mounted at 80°.
+    """
+    tool.table_sector = sector_from_table_angles(front, back, back_tool, mirror_z)
+    tool.entered_angles = True
+    tool.front_angle = front
+    tool.back_angle = back
+    derive_hand_position(tool)
+    derive_lead_angle(tool)
+    if axis is None:
+        tool.shank_angle = None
+        model_shank = (tool.table_sector[0] + tool.table_sector[1]) / 2
+    else:
+        tool.shank_angle = normalize_angle(model_angle(axis, back_tool, mirror_z))
+        model_shank = tool.shank_angle
+    tool.orientation = nearest_orientation(model_shank, back_tool, mirror_z)
+
+
+def clear_special_angles(tool: Tool):
+    if tool.entered_angles:
+        tool.table_sector = None
+        tool.entered_angles = False
+        tool.shank_angle = None
 
 
 class ToolTable:
@@ -565,8 +626,14 @@ class ToolTable:
             numbers = ", ".join(f"T{tool.number}" for tool in pending)
             self.message += " - " + _("input missing for {numbers}").format(numbers=numbers)
 
-    @staticmethod
-    def _apply_assignment(tool: Tool, stored: dict):
+    def table_axis(self, tool: Tool) -> Optional[float]:
+        """Tool axis of an entered special shape in tool.tbl convention (None = bisector)."""
+        if tool.shank_angle is None:
+            return None
+        return round(normalize_angle(model_angle(tool.shank_angle, self.machine.back_tool,
+                                                 self.mirror_table_angles)), 3)
+
+    def _apply_assignment(self, tool: Tool, stored: dict):
         migrated = {}
         for key, value in stored.items():
             if isinstance(value, str):
@@ -578,10 +645,17 @@ class ToolTable:
         tool.width = float(stored.get("width", tool.width))
         tool.diameter = float(stored.get("diameter", tool.diameter))
         tool.tip_angle = float(stored.get("tip_angle", tool.tip_angle))
-        if not tool.angles_from_table:
+        special_angles = stored.get("special_angles")
+        if tool.kind == "special" and special_angles and not tool.angles_from_table:
+            front, back, axis = special_angles
+            set_special_angles(tool, front, back, axis, self.machine.back_tool,
+                               self.mirror_table_angles)
+        elif not tool.angles_from_table:
             tool.hand = stored.get("hand", tool.hand)
             tool.position = stored.get("position", tool.position)
             tool.lead_angle = float(stored.get("lead_angle", tool.lead_angle))
+        if tool.kind == "special" and stored.get("shank_angle") is not None:
+            tool.shank_angle = float(stored["shank_angle"])
         tool.needs_input = False
         tool.source = SOURCE_ENTRY
 
@@ -598,6 +672,11 @@ class ToolTable:
                         "position": tool.position, "lead_angle": tool.lead_angle,
                         "width": tool.width, "diameter": tool.diameter,
                         "tip_angle": tool.tip_angle}
+                    if tool.entered_angles:
+                        assignments[str(tool.number)]["special_angles"] = [
+                            tool.front_angle, tool.back_angle, self.table_axis(tool)]
+                    elif tool.kind == "special" and tool.shank_angle is not None:
+                        assignments[str(tool.number)]["shank_angle"] = tool.shank_angle
             data["assignments"] = assignments
         else:
             data["tools"] = [tool.to_dict() for tool in sorted(self.tools.values(),
@@ -624,7 +703,7 @@ class ToolTable:
 
     def assign(self, tool: Tool, kind: str, hand: str, position: str, lead_angle: float,
                nose_radius: float, width: float, diameter: float, comment: str,
-               tip_angle: float = 0.0):
+               tip_angle: float = 0.0, special_angles=None):
         """Take over the operator's entry.
 
         With a tool.tbl only type, hand, position and angles. If the table gives the position of
@@ -632,7 +711,14 @@ class ToolTable:
         as threading tool instead of ISO D.
         """
         tool.kind = kind
-        if not tool.angles_from_table:
+        if kind != "special":
+            clear_special_angles(tool)
+        geometry_free = not tool.angles_from_table or tool.entered_angles
+        if kind == "special" and special_angles is not None and geometry_free:
+            front, back, axis = special_angles
+            set_special_angles(tool, front, back, axis, self.machine.back_tool,
+                               self.mirror_table_angles)
+        elif not tool.angles_from_table:
             tool.hand = hand
             tool.position = position
             tool.lead_angle = lead_angle
@@ -662,7 +748,11 @@ class ToolTable:
             return _("T{number}: type, hand and position are missing - nothing written").format(
                 number=tool.number)
         front, back, orientation = angles
+        if tool.entered_angles:
+            # special shape: write I and J exactly as entered
+            front, back = tool.front_angle, tool.back_angle
         kind, width, diameter, tip_angle = tool.kind, tool.width, tool.diameter, tool.tip_angle
+        shank_angle = tool.shank_angle
         try:
             write_table_line(table_path, tool, front, back, orientation)
         except OSError as error:
@@ -670,12 +760,16 @@ class ToolTable:
         notice = reload_linuxcnc_tool_table()
         self.load()
         written = self.tools.get(tool.number)
-        if written is not None and (written.kind != kind or kind in ("groove", "thread")):
+        if written is not None and (written.kind != kind or kind in ("groove", "thread",
+                                                                     "special")):
             # keep the classification (e.g. grooving width), the angles are now in the table
             written.kind = kind
             written.width = width
             written.diameter = diameter
             written.tip_angle = tip_angle
+            if kind == "special" and shank_angle is not None:
+                # LinuxCNC only knows Q in steps of 45° - keep the exact tool axis
+                written.shank_angle = shank_angle
             written.needs_input = False
             written.source = SOURCE_ENTRY
             self.save()

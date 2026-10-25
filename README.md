@@ -11,23 +11,23 @@ entsprechen der deutschen Übersetzung. Wie das Programm intern arbeitet, beschr
 
 ## Oberfläche
 
-```
-┌ Rohteil │ Werkzeuge │ Plan │ Längs │ Konus │ Gewinde │ Fase/R │ Kontur │ Bohren │ G-Code │ (Maschine) ┐
-├─────────────┬╫┬──────────────────┬╫┬───────────────────────────────────────────────────────────────┤
-│ Programm    │ │ Parameter        │ │ [Zyklus | Bild | G-Code | Programm]                           │
-│ 1 Plandrehen│ │ Außen | Innen    │ │                                                               │
-│ 2 Kontur    │ │ D  Ø Start   64  │ │   Vorschau mit Rohteil, Futter und Abtrag (orange)            │
-│ 3 G-Code    │ │ …                │ │   Mausrad: Zoom · linke Maustaste: verschieben ·              │
-│ ▲ ▼ ✎ ⧉ ✖  │ │ ＋ Zum Programm  │ │   Doppelklick: zurücksetzen                                   │
-├─────────────┴─┴──────────────────┴─┴───────────────────────────────────────────────────────────────┤
-│ Neu   Öffnen   Speichern   G-Code                                    [Deutsch ▾]  Maschine   Laden  │
-└──────────────────────────────────────────────────────────────────────────────────────────────────────┘
-```
-- **Spalten:** Programm- und Parameterspalte sind schmal, ihre Breite stellst du mit den Griffen (╫)
-  ein. Den Rest bekommt die Vorschau.
-- **Ansicht G-Code:** springt zum Code des links markierten Programmschritts.
-- **Symbole** der Auswahlleiste richten sich nach der Werkzeuglage (vor oder hinter der Drehmitte).
-- **„＋ Zum Programm“** ist nach dem Anfügen gesperrt, bis du einen Parameter änderst.
+![Oberfläche von Drehzyklen](docs/bilder/oberflaeche.png)
+
+*(Eigenen Screenshot als `docs/bilder/oberflaeche.png` speichern – er erscheint dann hier.)*
+
+- **Oben:** Knöpfe für Rohteil, die Zyklen, Werkzeuge und (ohne laufendes LinuxCNC) Maschine.
+  Die Symbole richten sich nach der Werkzeuglage (vor oder hinter der Drehmitte).
+- **Links – Programm:** die Schritte des Programms; ▲ ▼ verschieben, ✎ (oder Doppelklick)
+  bearbeiten, ⧉ duplizieren, ✖ löschen. Wählst du oben einen anderen Zyklus, wird die Markierung
+  in der Liste aufgehoben – „✔ Übernehmen“ gilt nur für den gerade bearbeiteten Schritt.
+- **Mitte – Parameter:** Knöpfe **Außen | Innen**, die Eingabefelder und „＋ Zum Programm“. Der
+  Knopf ist nach dem Anfügen gesperrt, bis du einen Parameter änderst.
+- **Rechts – Ansicht:** Knöpfe **Zyklus | Bild | G-Code | Programm**. Die Vorschau zeigt Rohteil,
+  Futter und Abtrag (orange); Mausrad: Zoom, linke Maustaste: verschieben, Doppelklick:
+  zurücksetzen. „G-Code“ springt zum Code des links markierten Programmschritts.
+- **Spalten:** Programm- und Parameterspalte sind schmal, ihre Breite stellst du mit den Griffen
+  zwischen den Spalten ein. Den Rest bekommt die Vorschau.
+- **Unten:** Neu, Öffnen, Speichern, G-Code, Sprache, Maschine, Laden.
 
 ## Einheitliche Bezeichnungen
 
@@ -55,7 +55,7 @@ Alle Zyklen außer Bohren und G-Code haben den Schalter **Außen | Innen**.
 | Konus | „Angabe über Enddurchmesser“ (D, d, Z1, Z2) oder „Winkel“ (D, d, Z1, α/2). Umschalten berechnet den fehlenden Wert. Ein fallender Konus (z.B. D44 → d30) wird je Ebene schräg am Kegel angefahren |
 | Gewinde | G76 außen/innen, Z1 Gewindeanfang, Z2 Gewindeende, Zs Startpunkt. Abfrage von L vor E. Gewinde aus Tabelle: metrisch Regel/Fein, UNC, UNF, Whitworth BSW, Rohrgewinde G |
 | Fase/R | Fase L × α (Winkel zur Z-Achse) oder Radius an Vorder- oder Rückkante. **Negativer Winkel = Fase an der Rückkante**; sie wird schräg angefahren |
-| Kontur | freie Kontur, Ecken je Punkt, Bögen; Richtung = erster → letzter Punkt |
+| Kontur | freie Kontur, Ecken je Punkt, Bögen; Richtung = erster → letzter Punkt. Passen zwei gegenläufige Radien (z.B. R2 innen, R5 außen an einem kurzen Absatz) nicht auf die Strecke dazwischen, gehen sie tangential ineinander über |
 | Bohren | durchgehend, Spanbruch oder Entspanen; Tiefe auf Spitze oder vollen Ø |
 | G-Code | eigener Code zwischen zwei Zyklen, mit **Textbausteinen** |
 
@@ -125,6 +125,12 @@ Daraus folgt:
   tool.tbl ein (X, Z und übrige Werte bleiben). Ein laufendes LinuxCNC lädt die Tabelle neu.
   Mit **＋ Neu** angelegte Werkzeuge stehen bis dahin nur in Drehzyklen. Winkel werden möglichst
   positiv geschrieben (0…360°); überstreicht die Platte Z+, wird der kleinere Winkel negativ.
+- **Sonderform:** Typ „Sonderform“ wählen und Frontwinkel I und Rückwinkel J wie in der tool.tbl
+  eingeben (im Uhrzeigersinn ab Z+), z.B. I120 J70 → Spitzenwinkel ε 50°. Hand und Lage ergeben
+  sich daraus. „Werkzeugachse“ gibt an, in welchem Winkel der Halter eingebaut ist (leer =
+  Winkelhalbierende, hier 95°); die Schneiden dürfen unsymmetrisch zur Achse stehen, z.B. 80°.
+  Beim Schreiben in die tool.tbl wird Q auf die nächste der acht Richtungen gesetzt, die genaue
+  Achse merkt sich Drehzyklen.
 - Die Grafik zeigt jedes Werkzeug mit Schneidplatte, Halter, κ, ε und Schnittrichtung.
 - Wenn ein bekanntes rechtes Werkzeug als linkes erscheint, schalte „Winkel I/J der tool.tbl in Z
   spiegeln“ um. Die Winkelkonvention der LinuxCNC-Doku („im Uhrzeigersinn ab Z+“) ist nicht
@@ -253,8 +259,14 @@ Welche Datei benutzt wurde, steht unten im Reiter Maschine.
   zur Laufzeit gelesen, ein Übersetzen mit `msgfmt` ist nicht nötig. Nach Textänderungen im
   Quellcode sammelt `python3 scripts/update_translations.py` alle `_("…")`/`N_("…")`-Texte in
   `drehzyklen.pot` und ergänzt fehlende Einträge in allen `.po`-Dateien (meldet „x von y
-  übersetzt“). Eine weitere Sprache: `drehzyklen.pot` nach `<code>.po` kopieren, übersetzen und den
-  Namen in `LANGUAGE_NAMES` (`drehzyklen/i18n.py`) eintragen.
+  übersetzt“).
+- **Eigene Sprache:** `drehzyklen/locale/drehzyklen.pot` nach `fr.po` kopieren (in
+  `drehzyklen/locale/` oder `~/.config/drehzyklen/locale/`) und übersetzen. Jede `.po`-Datei
+  erscheint beim nächsten Start bzw. Sprachwechsel automatisch in der Auswahl. Der angezeigte
+  Name kommt aus der Kopfzeile `"X-Language-Name: Français\n"`, sonst aus einer Liste
+  gängiger Sprachen. Eigene Dateien bringt
+  `python3 scripts/update_translations.py ~/.config/drehzyklen/locale/fr.po` auf den neuen
+  Stand.
 
 ## Wichtig vor dem ersten Span
 

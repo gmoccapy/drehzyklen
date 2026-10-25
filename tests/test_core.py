@@ -577,6 +577,41 @@ def test_user_thread_file():
         threads.load()
 
 
+
+def test_opposite_radii_blend_tangentially():
+    """R2 inside and R5 outside on a 5 mm step: the radii run into each other."""
+    from drehzyklen.geometry import parse_rows, resolve_rows
+    text = "X0 Z0\nX50 Z0\nX50 Z-20 R2\nX60 Z-20 R5\nX60 Z-50"
+    elements = resolve_rows(parse_rows(text))
+    arcs = [element for element in elements if element.kind == "arc"]
+    assert [arc.radius for arc in arcs] == [2, 5]
+    for first, second in zip(elements, elements[1:]):
+        assert math.dist(first.end, second.start) < 1e-9
+        if first.kind != "arc" and second.kind != "arc":
+            continue                    # sharp corner at P2
+        tangent_out, tangent_in = first.tangent_end(), second.tangent_start()
+        assert tangent_out[0] * tangent_in[0] + tangent_out[1] * tangent_in[1] > 0.9999
+    # two radii in the same direction that do not fit are still an error
+    try:
+        resolve_rows(parse_rows("X0 Z0\nX50 Z0\nX50 Z-5\nX60 Z-5 R4\nX60 Z-8 R4\nX50 Z-8"))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("expected an error")
+
+
+def test_special_tool_from_front_and_back_angle():
+    from drehzyklen.tools import NEUTRAL, OUTSIDE, Tool, set_special_angles, table_angles
+    tool = Tool(20, kind="special")
+    set_special_angles(tool, 120, 70, 80, back_tool=False)
+    assert tool.table_sector == (70, 120) and tool.insert_angle == 50
+    assert tool.hand == NEUTRAL and tool.position == OUTSIDE
+    assert tool.shank_direction() == 80
+    set_special_angles(tool, 120, 70, None, back_tool=False)
+    assert tool.shank_direction() == 95
+    assert table_angles(tool, back_tool=False)[:2] == (70, 120)
+
+
 if __name__ == "__main__":
     for name, function in list(globals().items()):
         if name.startswith("test_"):

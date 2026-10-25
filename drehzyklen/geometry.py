@@ -662,6 +662,45 @@ def _corner(first: Element, second: Element, kind: str, size: float, angle, refe
     return point_first, point_second, [chamfer]
 
 
+def _blend_fillets(element: Element, before, after):
+    """Connect two radii of opposite direction that do not fit on the line between them.
+
+    Both fillet circles keep their centres; the line between them is replaced by the inner
+    common tangent of the two circles. Returns the shortened fillets or None if not possible.
+    """
+    if element.kind != "line" or not before or not after:
+        return None
+    first, second = before[-1], after[0]
+    if first.kind != "arc" or second.kind != "arc" or first.ccw == second.ccw:
+        return None
+    centre_first = (first.cz, first.cr)
+    centre_second = (second.cz, second.cr)
+    centre_distance = distance(centre_first, centre_second)
+    radius_sum = first.radius + second.radius
+    if centre_distance < radius_sum - 1e-9:
+        return None
+    axis = unit_vector(centre_second[0] - centre_first[0], centre_second[1] - centre_first[1])
+    spread = math.acos(min(1.0, radius_sum / centre_distance))
+    for angle in (spread, -spread):
+        normal = rotate(axis, angle)
+        touch_first = (centre_first[0] + first.radius * normal[0],
+                       centre_first[1] + first.radius * normal[1])
+        touch_second = (centre_second[0] - second.radius * normal[0],
+                        centre_second[1] - second.radius * normal[1])
+        new_first = first.with_ends(first.start, touch_first)
+        new_second = second.with_ends(touch_second, second.end)
+        travel = new_first.tangent_end()
+        gap = (touch_second[0] - touch_first[0], touch_second[1] - touch_first[1])
+        if dot_product(gap, travel) < -1e-9:
+            continue
+        if dot_product(new_second.tangent_start(), travel) < 0.999999:
+            continue
+        if abs(new_first.sweep()) >= math.pi or abs(new_second.sweep()) >= math.pi:
+            continue
+        return new_first, new_second
+    return None
+
+
 def resolve_rows(rows: List[Row], default_corner: Optional[str] = None,
                  default_size: float = 0.0) -> List[Element]:
     """Convert contour rows into lines and arcs (including corner radii and chamfers)."""
@@ -706,7 +745,21 @@ def resolve_rows(rows: List[Row], default_corner: Optional[str] = None,
         if index in inserted:
             elements.extend(inserted[index])
         new_start, new_end = starts[index], ends[index]
-        if element.param(new_start) > element.param(new_end) + 1e-7:
+        overflow = element.param(new_start) > element.param(new_end) + 1e-7
+        if overflow:
+            blend = _blend_fillets(element, inserted.get(index), inserted.get(index + 1))
+            if blend is not None:
+                # two opposite radii run tangentially into each other (S-shaped transition)
+                first_fillet, second_fillet = blend
+                elements[-1] = first_fillet
+                inserted[index + 1] = [second_fillet]
+                new_start, new_end = first_fillet.end, second_fillet.start
+                overflow = False
+                if distance(new_start, new_end) > 1e-6:
+                    elements.append(Element("line", new_start[0], new_start[1], new_end[0],
+                                            new_end[1]))
+                continue
+        if overflow:
             raise ContourError(_("Not enough room for the radii/chamfers between point {first} "
                                  "and {second}").format(first=index + 1, second=index + 2))
         if distance(new_start, new_end) > 1e-6:

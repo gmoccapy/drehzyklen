@@ -23,7 +23,14 @@
    new texts are added with an empty translation, texts no longer used are dropped.
 
 Then translate the empty entries (Poedit or a text editor). A new language is added by copying
-drehzyklen.pot to <code>.po; it appears in the language selection automatically.
+drehzyklen.pot to <code>.po (in drehzyklen/locale/ or in ~/.config/drehzyklen/locale/); it
+appears in the language selection automatically. The shown name can be set in the header with
+"X-Language-Name: Français\n".
+
+Further PO files (e.g. an own translation in ~/.config/drehzyklen/locale) can be given as
+arguments; they are merged as well and created from the template if they do not exist:
+
+    python3 scripts/update_translations.py ~/.config/drehzyklen/locale/fr.po
 """
 import ast
 import os
@@ -32,7 +39,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from drehzyklen.i18n import read_po  # noqa: E402
+from drehzyklen.i18n import LANGUAGE_NAMES, po_header, read_po  # noqa: E402
 
 PACKAGE = os.path.join(ROOT, "drehzyklen")
 LOCALE = os.path.join(PACKAGE, "locale")
@@ -90,38 +97,56 @@ def entry(msgid, msgstr, places):
     return "\n".join(lines)
 
 
-def header(language):
+def header(language, language_name=""):
+    name_line = ""
+    if language_name:
+        name_line = f'"X-Language-Name: {language_name}\\n"\n'
     return (f'# Drehzyklen translation ({language})\n'
             '# SPDX-License-Identifier: GPL-2.0-or-later\n'
             'msgid ""\n'
             'msgstr ""\n'
             '"Project-Id-Version: Drehzyklen\\n"\n'
-            f'"Language: {language}\\n"\n'
+            f'"Language: {language}\\n"\n' + name_line +
             '"MIME-Version: 1.0\\n"\n'
             '"Content-Type: text/plain; charset=UTF-8\\n"\n'
             '"Content-Transfer-Encoding: 8bit\\n"\n')
 
 
-def write(path, language, messages, translations):
-    parts = [header(language)]
+def write(path, language, messages, translations, language_name=""):
+    parts = [header(language, language_name)]
     for msgid, places in messages.items():
         parts.append(entry(msgid, translations.get(msgid, ""), places))
     with open(path, "w", encoding="utf-8") as file:
         file.write("\n\n".join(parts) + "\n")
 
 
+def merge(path, messages):
+    """Bring one PO file up to date with the collected texts (created if missing)."""
+    code = os.path.basename(path)[:-3]
+    translations = {}
+    language_name = LANGUAGE_NAMES.get(code, "")
+    if os.path.isfile(path):
+        translations = read_po(path)
+        language_name = po_header(path).get("X-Language-Name", "") or language_name
+    write(path, code, messages, translations, language_name)
+    missing = [msgid for msgid in messages if not translations.get(msgid)]
+    print(f"{path}: {len(messages) - len(missing)} of {len(messages)} translated")
+
+
 def main():
     messages = collect()
     os.makedirs(LOCALE, exist_ok=True)
     write(os.path.join(LOCALE, "drehzyklen.pot"), "", messages, {})
-    for name in sorted(os.listdir(LOCALE)):
-        if not name.endswith(".po"):
-            continue
-        path = os.path.join(LOCALE, name)
-        translations = read_po(path)
-        write(path, name[:-3], messages, translations)
-        missing = [msgid for msgid in messages if not translations.get(msgid)]
-        print(f"{name}: {len(messages) - len(missing)} of {len(messages)} translated")
+    paths = [os.path.join(LOCALE, name) for name in sorted(os.listdir(LOCALE))
+             if name.endswith(".po")]
+    for argument in sys.argv[1:]:
+        path = os.path.abspath(os.path.expanduser(argument))
+        if not path.endswith(".po"):
+            sys.exit(f"not a .po file: {argument}")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        paths.append(path)
+    for path in paths:
+        merge(path, messages)
     print(f"{len(messages)} texts in drehzyklen.pot")
 
 
