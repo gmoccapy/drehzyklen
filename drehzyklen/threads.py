@@ -28,6 +28,9 @@ leicht nachschabt.
 """
 from __future__ import annotations
 
+import json
+import os
+import re
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
@@ -80,88 +83,99 @@ class ThreadSpec:
 
 # ------------------------------------------------------------------ Tabellen
 
-NORMS: Dict[str, str] = {
-    "frei": "frei (eigene Werte)",
-    "M": "Metrisch Regelgewinde",
-    "MF": "Metrisch Feingewinde",
-    "UNC": "UNC (Zoll, grob)",
-    "UNF": "UNF (Zoll, fein)",
-    "BSW": "Whitworth BSW (55°)",
-    "G": "Rohrgewinde G / BSP (55°)",
+DATA_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "threads.json")
+FREE = "frei"
+
+# Normen: Schlüssel -> {"label": Beschriftung, "angle": Flankenwinkel}
+NORMS: Dict[str, Dict] = {}
+THREADS: List[ThreadSpec] = []
+SIZE_KEYS: Dict[str, str] = {}
+LOAD_MESSAGES: List[str] = []
+
+USER_TEMPLATE = {
+    "_info": "Eigene Gewinde für Drehzyklen. Beispiel siehe 'threads'. Felder: norm (vorhandene "
+             "Norm wie M, MF, UNC, UNF, BSW, G oder eine eigene aus 'norms'), name, diameter (mm) "
+             "oder diameter_inch, pitch (mm) oder tpi, optional angle. Gleicher Name in gleicher "
+             "Norm ersetzt den Tabelleneintrag.",
+    "norms": {"Eigene": {"label": "Eigene Gewinde", "angle": 60}},
+    "threads": [{"norm": "Eigene", "name": "M12x0,75 (Beispiel)", "diameter": 12.0,
+                 "pitch": 0.75}],
 }
 
-_METRIC_COARSE = [(3, 0.5), (4, 0.7), (5, 0.8), (6, 1.0), (8, 1.25), (10, 1.5), (12, 1.75),
-                  (14, 2.0), (16, 2.0), (18, 2.5), (20, 2.5), (22, 2.5), (24, 3.0), (27, 3.0),
-                  (30, 3.5), (33, 3.5), (36, 4.0), (39, 4.0), (42, 4.5), (45, 4.5), (48, 5.0),
-                  (52, 5.0), (56, 5.5), (60, 5.5), (64, 6.0)]
 
-_METRIC_FINE = [(6, 0.75), (8, 0.75), (8, 1.0), (10, 0.75), (10, 1.0), (10, 1.25), (12, 1.0),
-                (12, 1.25), (12, 1.5), (14, 1.0), (14, 1.25), (14, 1.5), (16, 1.0), (16, 1.5),
-                (18, 1.0), (18, 1.5), (18, 2.0), (20, 1.0), (20, 1.5), (20, 2.0), (22, 1.0),
-                (22, 1.5), (22, 2.0), (24, 1.0), (24, 1.5), (24, 2.0), (27, 1.5), (27, 2.0),
-                (30, 1.5), (30, 2.0), (33, 1.5), (33, 2.0), (36, 1.5), (36, 2.0), (36, 3.0),
-                (39, 1.5), (39, 2.0), (39, 3.0), (42, 1.5), (42, 2.0), (42, 3.0), (45, 1.5),
-                (45, 2.0), (45, 3.0), (48, 1.5), (48, 2.0), (48, 3.0), (52, 1.5), (52, 2.0),
-                (52, 3.0), (56, 2.0), (56, 3.0), (56, 4.0), (60, 2.0), (60, 3.0), (60, 4.0),
-                (64, 2.0), (64, 3.0), (64, 4.0)]
-
-# Zollgewinde: (Name, Nenn-Ø in Zoll, Gänge je Zoll)
-_UNC = [("#4-40", 0.112, 40), ("#5-40", 0.125, 40), ("#6-32", 0.138, 32), ("#8-32", 0.164, 32),
-        ("#10-24", 0.190, 24), ("#12-24", 0.216, 24), ("1/4-20", 0.25, 20),
-        ("5/16-18", 0.3125, 18), ("3/8-16", 0.375, 16), ("7/16-14", 0.4375, 14),
-        ("1/2-13", 0.5, 13), ("9/16-12", 0.5625, 12), ("5/8-11", 0.625, 11), ("3/4-10", 0.75, 10),
-        ("7/8-9", 0.875, 9), ("1-8", 1.0, 8), ("1 1/8-7", 1.125, 7), ("1 1/4-7", 1.25, 7),
-        ("1 3/8-6", 1.375, 6), ("1 1/2-6", 1.5, 6), ("1 3/4-5", 1.75, 5),
-        ("2-4 1/2", 2.0, 4.5)]
-
-_UNF = [("#4-48", 0.112, 48), ("#5-44", 0.125, 44), ("#6-40", 0.138, 40), ("#8-36", 0.164, 36),
-        ("#10-32", 0.190, 32), ("#12-28", 0.216, 28), ("1/4-28", 0.25, 28),
-        ("5/16-24", 0.3125, 24), ("3/8-24", 0.375, 24), ("7/16-20", 0.4375, 20),
-        ("1/2-20", 0.5, 20), ("9/16-18", 0.5625, 18), ("5/8-18", 0.625, 18), ("3/4-16", 0.75, 16),
-        ("7/8-14", 0.875, 14), ("1-12", 1.0, 12), ("1 1/8-12", 1.125, 12),
-        ("1 1/4-12", 1.25, 12), ("1 3/8-12", 1.375, 12), ("1 1/2-12", 1.5, 12)]
-
-_BSW = [("1/8-40", 0.125, 40), ("3/16-24", 0.1875, 24), ("1/4-20", 0.25, 20),
-        ("5/16-18", 0.3125, 18), ("3/8-16", 0.375, 16), ("7/16-14", 0.4375, 14),
-        ("1/2-12", 0.5, 12), ("5/8-11", 0.625, 11), ("3/4-10", 0.75, 10), ("7/8-9", 0.875, 9),
-        ("1-8", 1.0, 8), ("1 1/8-7", 1.125, 7), ("1 1/4-7", 1.25, 7), ("1 1/2-6", 1.5, 6),
-        ("1 3/4-5", 1.75, 5), ("2-4 1/2", 2.0, 4.5)]
-
-# Rohrgewinde G (ISO 228) / BSP: (Name, Außen-Ø in mm, Gänge je Zoll)
-_PIPE = [("G1/16", 7.723, 28), ("G1/8", 9.728, 28), ("G1/4", 13.157, 19), ("G3/8", 16.662, 19),
-         ("G1/2", 20.955, 14), ("G5/8", 22.911, 14), ("G3/4", 26.441, 14), ("G7/8", 30.201, 14),
-         ("G1", 33.249, 11), ("G1 1/8", 37.897, 11), ("G1 1/4", 41.910, 11),
-         ("G1 1/2", 47.803, 11), ("G1 3/4", 53.746, 11), ("G2", 59.614, 11),
-         ("G2 1/2", 75.184, 11), ("G3", 87.884, 11)]
+def _spec_from_entry(entry: dict) -> ThreadSpec:
+    norm = str(entry["norm"])
+    if "diameter" in entry:
+        diameter = float(entry["diameter"])
+    else:
+        diameter = float(entry["diameter_inch"]) * INCH
+    if "pitch" in entry:
+        pitch = float(entry["pitch"])
+    else:
+        pitch = INCH / float(entry["tpi"])
+    if "angle" in entry:
+        angle = float(entry["angle"])
+    else:
+        angle = float(NORMS[norm].get("angle", 60.0))
+    if diameter <= 0 or pitch <= 0:
+        raise ValueError("Ø und Steigung müssen größer 0 sein")
+    return ThreadSpec(str(entry["name"]), norm, diameter, pitch, angle)
 
 
-def _number_text(value: float) -> str:
-    return f"{value:g}".replace(".", ",")
+def _read(path: str, user_file: bool):
+    with open(path, encoding="utf-8") as file:
+        data = json.load(file)
+    for key, values in data.get("norms", {}).items():
+        NORMS[str(key)] = {"label": str(values.get("label", key)),
+                           "angle": float(values.get("angle", 60.0))}
+    for entry in data.get("threads", []):
+        try:
+            spec = _spec_from_entry(entry)
+        except (KeyError, TypeError, ValueError) as error:
+            LOAD_MESSAGES.append(f"{os.path.basename(path)}: Eintrag {entry!r} übersprungen "
+                                 f"({error})")
+            continue
+        for index, existing in enumerate(THREADS):
+            if existing.norm == spec.norm and existing.name == spec.name:
+                THREADS[index] = spec
+                break
+        else:
+            THREADS.append(spec)
+    if user_file:
+        LOAD_MESSAGES.append(f"Eigene Gewinde aus {path}")
 
 
-def _build() -> List[ThreadSpec]:
-    specs = []
-    for diameter, pitch in _METRIC_COARSE:
-        specs.append(ThreadSpec(f"M{diameter}", "M", float(diameter), pitch, 60.0))
-    for diameter, pitch in _METRIC_FINE:
-        specs.append(ThreadSpec(f"M{diameter}x{_number_text(pitch)}", "MF", float(diameter),
-                                pitch, 60.0))
-    for name, inch, threads_per_inch in _UNC:
-        specs.append(ThreadSpec(f"{name} UNC", "UNC", inch * INCH, INCH / threads_per_inch, 60.0))
-    for name, inch, threads_per_inch in _UNF:
-        specs.append(ThreadSpec(f"{name} UNF", "UNF", inch * INCH, INCH / threads_per_inch, 60.0))
-    for name, inch, threads_per_inch in _BSW:
-        specs.append(ThreadSpec(f"{name} BSW", "BSW", inch * INCH, INCH / threads_per_inch, 55.0))
-    for name, diameter, threads_per_inch in _PIPE:
-        specs.append(ThreadSpec(name, "G", diameter, INCH / threads_per_inch, 55.0))
-    return specs
+def load(user_path: Optional[str] = None):
+    """Tabellen laden: mitgelieferte threads.json, danach die eigene Datei des Benutzers.
+
+    Gibt es die eigene Datei noch nicht, wird sie mit einem Beispiel angelegt.
+    """
+    NORMS.clear()
+    NORMS[FREE] = {"label": "frei (eigene Werte)", "angle": 60.0}
+    THREADS.clear()
+    LOAD_MESSAGES.clear()
+    _read(DATA_FILE, False)
+    if user_path:
+        if not os.path.isfile(user_path):
+            try:
+                os.makedirs(os.path.dirname(user_path) or ".", exist_ok=True)
+                with open(user_path, "w", encoding="utf-8") as file:
+                    json.dump(USER_TEMPLATE, file, indent=2, ensure_ascii=False)
+            except OSError:
+                pass
+        if os.path.isfile(user_path):
+            try:
+                _read(user_path, True)
+            except (OSError, ValueError) as error:
+                LOAD_MESSAGES.append(f"{user_path} nicht lesbar: {error}")
+    SIZE_KEYS.clear()
+    for norm in NORMS:
+        if norm != FREE and names_for(norm):
+            SIZE_KEYS[norm] = "size_" + re.sub(r"[^a-z0-9]", "_", norm.lower())
 
 
-THREADS: List[ThreadSpec] = _build()
-
-# Auswahl je Norm (für die Formularfelder)
-SIZE_KEYS = {"M": "size_m", "MF": "size_mf", "UNC": "size_unc", "UNF": "size_unf",
-             "BSW": "size_bsw", "G": "size_g"}
+def norm_labels() -> Tuple[str, ...]:
+    return tuple(NORMS[norm]["label"] for norm in [FREE] + list(SIZE_KEYS))
 
 
 def names_for(norm: str) -> Tuple[str, ...]:
@@ -177,7 +191,10 @@ def find(norm: str, name: str) -> Optional[ThreadSpec]:
 
 def norm_of_label(label: str) -> str:
     """Normschlüssel aus der Beschriftung der Auswahl (oder dem Schlüssel selbst)."""
-    for key, text in NORMS.items():
-        if label in (key, text):
+    for key, values in NORMS.items():
+        if label in (key, values["label"]):
             return key
-    return "frei"
+    return FREE
+
+
+load()

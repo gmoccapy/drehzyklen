@@ -60,6 +60,7 @@ class Machine:
     tc_enabled: bool = False         # Werkzeugwechselposition mit G53 anfahren
     tc_x: float = 0.0                # G53-Position X (Radiuswert wie in der INI)
     tc_z: float = 0.0                # G53-Position Z
+    tc_move_z: bool = True           # aus: nur X anfahren, Z bleibt stehen
     clearance: float = 1.0           # Sicherheitsabstand mm
     retract: float = 5.0             # Rückzugsebene: Abstand vor der vordersten Werkstückkante
     thread_speed_factor: float = 0.8  # Anteil der Z-Geschwindigkeit beim Gewinden
@@ -200,10 +201,15 @@ class Machine:
         # Werkzeugwechselposition: gmoccapy [CHANGE_POSITION], sonst [EMCIO] TOOL_CHANGE_POSITION
         change_x = get_number("CHANGE_POSITION", "X")
         change_z = get_number("CHANGE_POSITION", "Z")
-        if change_x is not None and change_z is not None:
+        if change_x is not None:
+            # [CHANGE_POSITION] nur mit X: Z bleibt beim Wechsel stehen
             self.tc_enabled = True
             self.tc_x = change_x * factor
-            self.tc_z = change_z * factor
+            if change_z is not None:
+                self.tc_z = change_z * factor
+                self.tc_move_z = True
+            else:
+                self.tc_move_z = False
             self.tc_source = "INI [CHANGE_POSITION]"
         else:
             text = get_text("EMCIO", "TOOL_CHANGE_POSITION")
@@ -233,8 +239,10 @@ class Machine:
         return "M3"
 
     def summary(self) -> str:
-        if self.tc_enabled:
+        if self.tc_enabled and self.tc_move_z:
             tool_change = f"WZW G53 X{self.tc_x:g} Z{self.tc_z:g}"
+        elif self.tc_enabled:
+            tool_change = f"WZW G53 X{self.tc_x:g} (Z bleibt)"
         else:
             tool_change = "keine WZW-Position"
         return (f"n {self.min_rpm:.0f}–{self.max_rpm:.0f} 1/min · "
@@ -252,6 +260,7 @@ MACHINE_FIELDS = [
     ("max_diameter", "Max. Drehdurchmesser [mm]"),
     ("tc_enabled", "Werkzeugwechselposition G53 anfahren"),
     ("tc_x", "Werkzeugwechsel G53 X (Radius wie INI)"),
+    ("tc_move_z", "Werkzeugwechsel: auch Z anfahren (aus = nur X)"),
     ("tc_z", "Werkzeugwechsel G53 Z"),
     ("clearance", "Sicherheitsabstand [mm]"),
     ("retract", "Rückzugsebene vor Werkstück [mm]"),

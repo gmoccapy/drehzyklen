@@ -29,6 +29,8 @@ from __future__ import annotations
 
 import math
 
+from .drawtext import show_text, text_width
+
 BACKGROUND = (0.11, 0.12, 0.14)
 COLORS = {"rapid": (0.95, 0.35, 0.3), "feed": (0.35, 0.7, 1.0),
           "arc": (0.4, 0.95, 0.5), "thread": (0.95, 0.45, 0.95)}
@@ -149,7 +151,7 @@ def draw_preview(cr, width, height, path=(), outlines=(), back_tool=False, show_
     if not points:
         cr.set_source_rgb(*text_color)
         cr.move_to(12, 12 + font)
-        cr.show_text("Keine Vorschau")
+        show_text(cr, "Keine Vorschau")
         return
     z_min = min(point[0] for point in points)
     z_max = max(point[0] for point in points)
@@ -259,18 +261,18 @@ def draw_preview(cr, width, height, path=(), outlines=(), back_tool=False, show_
     zoom_text = ""
     if view is not None and abs(view[0] - 1.0) > 1e-3:
         zoom_text = f"   Zoom {view[0]:.1f}×"
-    cr.show_text(f"Z {z_min:.1f} … {z_max:.1f}   Ø max {2 * r_max:.1f}{zoom_text}")
+    show_text(cr, f"Z {z_min:.1f} … {z_max:.1f}   Ø max {2 * r_max:.1f}{zoom_text}")
     x = width - 8
     items = [("thread", "Gewinde"), ("arc", "Bogen"), ("feed", "Vorschub"), ("rapid", "Eilgang")]
     if before is not None and after is not None:
         items.append(("remove", "Abtrag"))
     for name, label in items:
-        label_width = cr.text_extents(label)[4]
+        label_width = text_width(cr, label)
         x -= label_width
         if name == "remove":
             cr.set_source_rgb(*removed_color[:3])
         else:
             cr.set_source_rgb(*COLORS[name])
         cr.move_to(x, height - 6)
-        cr.show_text(label)
+        show_text(cr, label)
         x -= 12

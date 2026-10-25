@@ -24,7 +24,8 @@ from __future__ import annotations
 import math
 from typing import Dict, List
 
-from .geometry import Row, polyline, resolve_rows
+from .drawtext import show_text, text_width
+from .geometry import ContourError, Row, parse_rows, polyline, resolve_rows, row_to_text
 
 BACKGROUND = (0.11, 0.12, 0.14)
 MATERIAL = (0.44, 0.47, 0.52)
@@ -147,6 +148,16 @@ class Sketch:
         if both:
             self._arrow_head(start_screen, end_screen, color)
 
+    def origin_cross(self, point, length=6.0, color=(1.0, 0.85, 0.2)):
+        """Koordinatenkreuz am Werkstücknullpunkt: Z+ nach rechts, X+ nach außen."""
+        z, r = point
+        self.arrow((z, r), (z + length, r), color, 1.6)
+        self.arrow((z, r), (z, r + length), color, 1.6)
+        self.dot((z, r), color, 4)
+        self.label((z + length, r), "Z", None, anchor="l", dx=4, color=color)
+        self.label((z, r + length), "X", None, anchor="c", dy=-self.font * 0.9 * self.sign,
+                   color=color)
+
     def dot(self, point, color=DIMENSION, radius=3.5):
         set_color(self.cr, color)
         x, y = self.to_screen(*point)
@@ -159,14 +170,14 @@ class Sketch:
         cr = self.cr
         cr.set_font_size(self.font)
         cr.select_font_face("Sans", 0, 1)
-        symbol_width = cr.text_extents(symbol)[4]
+        symbol_width = text_width(cr, symbol)
         if value is None:
             value_part = ""
         else:
             value_part = f" = {value}"
         cr.select_font_face("Sans", 0, 0)
         if value_part:
-            value_width = cr.text_extents(value_part)[4]
+            value_width = text_width(cr, value_part)
         else:
             value_width = 0
         total_width = symbol_width + value_width
@@ -186,12 +197,12 @@ class Sketch:
         cr.select_font_face("Sans", 0, 1)
         set_color(cr, color)
         cr.move_to(left, y + height * 0.36)
-        cr.show_text(symbol)
+        show_text(cr, symbol)
         if value_part:
             cr.select_font_face("Sans", 0, 0)
             cr.set_source_rgb(*TEXT)
             cr.move_to(left + symbol_width, y + height * 0.36)
-            cr.show_text(value_part)
+            show_text(cr, value_part)
         cr.select_font_face("Sans", 0, 0)
 
     def legend(self, x, y, lines: List[str], size=None):
@@ -201,7 +212,7 @@ class Sketch:
         cr.set_font_size(size)
         widest = 0
         for text in lines:
-            widest = max(widest, cr.text_extents(text)[4])
+            widest = max(widest, text_width(cr, text))
         cr.set_source_rgba(*BACKGROUND, 0.85)
         cr.rectangle(x - 4, y - size, widest + 8, len(lines) * (size + 3) + 4)
         cr.fill()
@@ -212,16 +223,16 @@ class Sketch:
                 cr.select_font_face("Sans", 0, 1)
                 cr.set_source_rgb(*DIMENSION)
                 cr.move_to(x, baseline)
-                cr.show_text(key + ":")
-                key_width = cr.text_extents(key + ":")[4]
+                show_text(cr, key + ":")
+                key_width = text_width(cr, key + ":")
                 cr.select_font_face("Sans", 0, 0)
                 cr.set_source_rgb(*HINT)
                 cr.move_to(x + key_width, baseline)
-                cr.show_text(rest)
+                show_text(cr, rest)
             else:
                 cr.set_source_rgb(*HINT)
                 cr.move_to(x, baseline)
-                cr.show_text(text)
+                show_text(cr, text)
 
     # ---------------------------------------------------------------- Bemaßung
     def dim_z(self, z_from, z_to, r, symbol, value=None, extension_from=None, label_position=0.5,
@@ -787,6 +798,66 @@ def draw_contour_example(sketch: Sketch, values, inside):
     sketch.label((-62, -2.6), "ap", value_text(values["ap"]) + " (Zustellung radial)", anchor="l")
 
 
+def contour_geometry(values, inside):
+    """Eigene Kontur für das Parameterbild: (Zeilen, Punkte, Grenzen) oder None bei Fehlern."""
+    try:
+        rows = parse_rows(str(values.get("contour", "")))
+        if len(rows) < 2:
+            return None
+        corner_mode = values.get("corner_mode")
+        if corner_mode == "Radius":
+            default = "R"
+        elif corner_mode == "Fase":
+            default = "C"
+        else:
+            default = None
+        points = polyline(resolve_rows(rows, default, float(values.get("corner_size") or 0)))
+    except (ContourError, ValueError, TypeError, ZeroDivisionError):
+        return None
+    z_values = [z for z, _r in points]
+    r_values = [r for _z, r in points]
+    z_min, z_max = min(z_values), max(z_values)
+    r_min, r_max = min(0.0, min(r_values)), max(r_values)
+    span = max(z_max - z_min, r_max - r_min, 1.0)
+    if inside:
+        r_max += 0.15 * span
+    bounds = (z_min - 0.2 * span, z_max + 0.45 * span, r_min - 0.08 * span,
+              r_max + 0.12 * span)
+    return rows, points, bounds
+
+
+def draw_contour(sketch: Sketch, values, inside, rows, points):
+    """Die eingegebene Kontur mit den Punkten P1…Pn und ihren Werten."""
+    z_first = points[0][0]
+    z_end, r_end = points[-1]
+    span = max(abs(z_end - z_first), 1.0)
+    if z_end < z_first:
+        z_last = z_end - 0.08 * span
+    else:
+        z_last = z_end + 0.08 * span
+    outline = points + [(z_last, r_end)]          # Material geht hinter dem letzten Punkt weiter
+    if inside:
+        top = max(r for _z, r in points) * 1.12 + 1.0
+        sketch.polygon(outline + [(z_last, top), (z_first, top)], fill=MATERIAL, stroke=EDGE)
+    else:
+        sketch.polygon(outline + [(z_last, 0.0), (z_first, 0.0)], fill=MATERIAL, stroke=EDGE)
+    z_low = min(z for z, _r in points)
+    z_high = max(z for z, _r in points)
+    sketch.axis(min(z_low, z_last) - 3, max(z_high, z_last) + 3)
+    font = sketch.font
+    sign = sketch.sign
+    for index, row in enumerate(rows):
+        point = (row.z, row.x / 2.0)
+        sketch.dot(point, DIMENSION, 3.2)
+        if index % 2:
+            offset = font * 1.0 * sign
+        else:
+            offset = -font * 1.0 * sign
+        sketch.label(point, f"P{index + 1}", row_to_text(row, index == 0), "l", dx=6, dy=offset)
+    sketch.label((z_low, 0.0), "ap", value_text(values["ap"]) + " (Zustellung radial)",
+                 anchor="l", dy=font * 1.4 * sign)
+
+
 def draw_stock(sketch: Sketch, values):
     radius = 14.0
     if (values.get("d") or 0) > 0:
@@ -825,17 +896,16 @@ def draw_stock(sketch: Sketch, values):
                  extension_from=(0, 0), anchor="l", label_position=1.0, label_dy=0)
     if front_zero:
         zero_z = z_finished
-        sketch.dot((zero_z, 0), (1, 0.85, 0.2), 5)
-        sketch.label((zero_z, 0), "Z0", "Vorderkante", anchor="r", dx=-8,
-                     dy=-sketch.font * 1.3 * sketch.sign)
+        zero_text = "Vorderkante"
+    else:
+        zero_z = z_chuck
+        zero_text = "Futter"
+    sketch.origin_cross((zero_z, 0))
+    sketch.label((zero_z, -4.5), "Z0", zero_text, anchor="r", dx=-8, color=(1, 0.85, 0.2))
+    if front_zero:
         sketch.dim_z(z_finished, z_finished + allowance, radius + 1.5, "a",
                      value_text(values.get("face")), extension_from=(radius, radius), anchor="l",
                      label_position=1.0, label_dy=0)
-    else:
-        zero_z = z_chuck
-        sketch.dot((zero_z, 0), (1, 0.85, 0.2), 5)
-        sketch.label((zero_z, 0), "Z0", "Futter", anchor="l", dx=8,
-                     dy=-sketch.font * 1.3 * sketch.sign)
     sketch.legend(8, sketch.font + 6, ["L: Ausspannlänge Futter bis Rohteil-Vorderkante",
                                        "s: Sicherheitsabstand – Fahrten dahinter sind Fehler,",
                                        "    Bohren/Innen dahinter nur Warnung"], sketch.font * 0.85)
@@ -953,12 +1023,18 @@ def draw_help(cr, width, height, key: str, values: Dict, inside=False, flip=Fals
             drawing_width, drawing_height = width * 0.6, height
         else:
             drawing_width, drawing_height = width, height * 0.58
-        if inside:
-            bounds = (-62, 30, -4, 42)
+        geometry = contour_geometry(values, inside)
+        if geometry is not None:
+            rows, points, bounds = geometry
+            sketch = Sketch(cr, 0, 0, drawing_width, drawing_height, bounds, flip, font * 0.9)
+            draw_contour(sketch, values, inside, rows, points)
         else:
-            bounds = (-64, 34, -4, 38)
-        sketch = Sketch(cr, 0, 0, drawing_width, drawing_height, bounds, flip, font * 0.9)
-        draw_contour_example(sketch, values, inside)
+            if inside:
+                bounds = (-62, 30, -4, 42)
+            else:
+                bounds = (-64, 34, -4, 38)
+            sketch = Sketch(cr, 0, 0, drawing_width, drawing_height, bounds, flip, font * 0.9)
+            draw_contour_example(sketch, values, inside)
         count = len(CONTOUR_LEGEND)
         if wide:
             size = max(7.5, min(font * 0.9, (width - drawing_width) / 22,
@@ -979,7 +1055,7 @@ def draw_help(cr, width, height, key: str, values: Dict, inside=False, flip=Fals
         cr.set_source_rgb(*HINT)
         cr.set_font_size(font)
         cr.move_to(10, 10 + font)
-        cr.show_text("Kein Parameterbild")
+        show_text(cr, "Kein Parameterbild")
 
 
 # =========================================================================== Symbole
@@ -1081,10 +1157,10 @@ def draw_icon(cr, key: str, size: float, color=(0.9, 0.9, 0.9), accent=(1.0, 0.6
         cr.set_font_size(11 * scale)
         cr.select_font_face("Sans", 0, 1)
         cr.move_to(1 * scale, 16 * scale)
-        cr.show_text("G")
+        show_text(cr, "G")
         cr.set_source_rgb(*accent)
         cr.move_to(11 * scale, 16 * scale)
-        cr.show_text("M")
+        show_text(cr, "M")
         cr.select_font_face("Sans", 0, 0)
     elif key == "side_out":
         shape([(2, 8), (22, 8), (22, 16), (2, 16)], True)

@@ -114,6 +114,12 @@ Daraus folgt:
 - Ändert LinuxCNC die tool.tbl (z.B. neues Werkzeug im Werkzeugeditor), liest **⟳ Einlesen** im
   Reiter Werkzeuge sie neu ein. Mit dem Schalter „Werkzeugtabelle bei Änderung automatisch
   einlesen“ im Reiter Maschine geschieht das nach spätestens 2 Sekunden von selbst (Standard: aus).
+- Die Orientierung Q bestimmt die Richtung des Halters in der Grafik (Q7: Schaft nach +Z, wie in
+  der LinuxCNC-Doku). Front- und Rückwinkel I/J werden mit Bogen ab Z+ eingezeichnet.
+- **→ In tool.tbl schreiben** trägt das gewählte Werkzeug mit D, I, J, Q und Kommentar in die
+  tool.tbl ein (X, Z und übrige Werte bleiben). Ein laufendes LinuxCNC lädt die Tabelle neu.
+  Mit **＋ Neu** angelegte Werkzeuge stehen bis dahin nur in Drehzyklen. Winkel werden möglichst
+  positiv geschrieben (0…360°); überstreicht die Platte Z+, wird der kleinere Winkel negativ.
 - Die Grafik zeigt jedes Werkzeug mit Schneidplatte, Halter, κ, ε und Schnittrichtung.
 - Wenn ein bekanntes rechtes Werkzeug als linkes erscheint, schalte „Winkel I/J der tool.tbl in Z
   spiegeln“ um. Die Winkelkonvention der LinuxCNC-Doku („im Uhrzeigersinn ab Z+“) ist nicht
@@ -138,7 +144,8 @@ Rund- oder Sondergewinde. Dann bleibt eine deutliche Warnung.
 - **Werkzeugwechsel** immer mit `T… M6 G43`, nur bei neuer T-Nummer.
 - **Wechselposition `G53`** aus `[CHANGE_POSITION]`, sonst `[EMCIO] TOOL_CHANGE_POSITION`, sonst
   Reiter Maschine. Angefahren wird im Radiusmodus G8, damit X dem INI-Wert entspricht; erst X,
-  dann Z.
+  dann Z. Soll Z stehen bleiben (nur X anfahren), den Schalter „Werkzeugwechsel: auch Z anfahren“
+  im Reiter Maschine ausschalten oder in `[CHANGE_POSITION]` nur `X` eintragen.
 - **Zwischen den Zyklen** auf eine Rückzugsebene vor dem Werkstück:
   - außen: erst X nach außen
   - innen: erst X zur Mitte, dann Z heraus
@@ -157,6 +164,19 @@ aus dem Grundprofil). Alle Werte lassen sich danach von Hand ändern.
 | Kern-Ø D1 (Feld D bei innen) | D − 1,0825·P | D − 1,2806·P |
 | Vordrehen außen | D − 0,1·P | D − 0,1·P |
 | Bohrung vordrehen innen | D1 + 0,1·P | D1 + 0,1·P |
+
+Die Tabellen stehen in `drehzyklen/data/threads.json`. Eigene Gewinde trägst du in
+`~/.config/drehzyklen/threads.json` ein (wird beim ersten Start mit einem Beispiel angelegt):
+
+```json
+{"norms": {"Eigene": {"label": "Eigene Gewinde", "angle": 60}},
+ "threads": [{"norm": "Eigene", "name": "M12x0,75", "diameter": 12.0, "pitch": 0.75},
+             {"norm": "UNF", "name": "7/16-28 Sonder", "diameter_inch": 0.4375, "tpi": 28}]}
+```
+
+`diameter` (mm) oder `diameter_inch`, `pitch` (mm) oder `tpi`, optional `angle`. Gleicher Name in
+gleicher Norm ersetzt den mitgelieferten Eintrag. Die Werte werden wie bei den Normgewinden
+berechnet; ein ganz eigenes Gewinde gibst du wie bisher mit „frei“ ein.
 
 Der Vordreh-Ø erscheint als Hinweis unter der Vorschau. Die Werte sind Faustformeln, sie liegen etwa
 in der Mitte der Toleranzfelder 6g (Bolzen) und 6H (Mutter). Passt der Spitzenwinkel des Werkzeugs

@@ -66,6 +66,14 @@ HAND_TEXT = {"rechts": "rechts (schneidet nach −Z)", "links": "links (schneide
              "neutral": "neutral"}
 
 ANGLE_TOLERANCE = 0.5
+NEW_SOURCE = "neu"                    # im Reiter Werkzeuge angelegt, noch nicht in der tool.tbl
+
+# LinuxCNC-Orientierung Q: Richtung der Werkzeugmittellinie (Schaft), im Uhrzeigersinn ab Z+
+# wie in der LinuxCNC-Doku „Lathe Tool Orientation“ (Q9 = Mitte, kein Schaft)
+ORIENTATION_ANGLES = {7: 0.0, 2: 45.0, 6: 90.0, 1: 135.0, 5: 180.0, 4: 225.0, 8: 270.0,
+                      3: 315.0}
+STANDARD_ORIENTATION = {("rechts", "außen"): 2, ("links", "außen"): 1, ("rechts", "innen"): 3,
+                        ("links", "innen"): 4, ("neutral", "außen"): 6, ("neutral", "innen"): 8}
 
 
 def normalize_angle(angle: float) -> float:
@@ -115,6 +123,7 @@ class Tool:
     needs_input: bool = False
     fingerprint: str = ""
     tip_angle: float = 0.0            # Spitzenwinkel Gewindewerkzeug (0 = 60°)
+    shank_angle: Optional[float] = None  # Schaftrichtung im Modell aus Q der tool.tbl
 
     @property
     def angles_from_table(self) -> bool:
@@ -147,6 +156,8 @@ class Tool:
             text += f" r{self.nose_radius:g}"
         if self.needs_input:
             text += "  ⚠ Angabe fehlt"
+        if self.source == NEW_SOURCE:
+            text += "  (noch nicht in tool.tbl)"
         return text
 
     # ---------------------------------------------------------------- Geometrie
@@ -171,6 +182,15 @@ class Tool:
         if self.position == "innen":
             low, high = -high, -low
         return low, high
+
+    def shank_direction(self) -> Optional[float]:
+        """Richtung des Halters im Modellsystem (Grad): aus Q, sonst Winkelhalbierende."""
+        if self.shank_angle is not None:
+            return self.shank_angle
+        sector = self.sector()
+        if sector is None:
+            return None
+        return (sector[0] + sector[1]) / 2
 
     def sector_for(self, inside: bool, z_mirrored: bool) -> Optional[Tuple[float, float]]:
         base = self.sector()
@@ -247,12 +267,116 @@ def parse_tool_line(line: str) -> Optional[dict]:
             "comment": comment.strip()}
 
 
+def model_angle(table_angle: float, back_tool: bool, mirror_z: bool = False) -> float:
+    """Winkel der tool.tbl (im Uhrzeigersinn ab Z+, LinuxCNC-Ansicht) -> Modellwinkel."""
+    if back_tool:
+        angle = -table_angle
+    else:
+        angle = table_angle
+    if mirror_z:
+        angle = 180.0 - angle
+    return angle
+
+
+def table_angles(tool: Tool, back_tool: bool, mirror_z: bool = False):
+    """Frontwinkel I, Rückwinkel J und Orientierung Q für die tool.tbl.
+
+    Die Winkel werden möglichst positiv (0…360°) geschrieben. Überstreicht die Platte die
+    Richtung Z+ (0°), wird der kleinere Winkel negativ (wie Q7 in der LinuxCNC-Doku), denn
+    LinuxCNC zeichnet die Platte vom kleineren zum größeren Winkel.
+    """
+    sector = tool.sector()
+    if sector is None:
+        return None
+    # Modell -> Tabelle ist dieselbe (selbstinverse) Abbildung wie Tabelle -> Modell
+    first = model_angle(sector[0], back_tool, mirror_z)
+    second = model_angle(sector[1], back_tool, mirror_z)
+    low, high = min(first, second), max(first, second)
+    while low < 0:
+        low += 360.0
+        high += 360.0
+    while low >= 360.0:
+        low -= 360.0
+        high -= 360.0
+    if high > 360.0:
+        low -= 360.0
+        high -= 360.0
+    if tool.orientation in ORIENTATION_ANGLES and tool.angles_from_table:
+        orientation = tool.orientation
+    else:
+        # Lage des Bezugspunkts wie in der LinuxCNC-Doku: rechts außen 2, links außen 1,
+        # rechts innen 3, links innen 4, neutral außen 6, neutral innen 8
+        orientation = STANDARD_ORIENTATION.get((tool.hand, tool.position), 6)
+    return round(low, 3), round(high, 3), orientation
+
+
+def write_table_line(path: str, tool: Tool, front: float, back: float, orientation: int):
+    """Werkzeug in der tool.tbl eintragen oder die vorhandene Zeile ändern.
+
+    Geändert werden nur D, I, J, Q und der Kommentar – X, Z und alle übrigen Werte bleiben.
+    """
+    with open(path, encoding="utf-8", errors="replace") as file:
+        lines = file.read().splitlines()
+    words = {"D": format_table_number(2 * tool.nose_radius), "I": format_table_number(front),
+             "J": format_table_number(back), "Q": str(int(orientation))}
+    comment = tool.comment.strip() or tool.kind_text()
+    for index, line in enumerate(lines):
+        entry = parse_tool_line(line)
+        if entry is None or entry["number"] != tool.number:
+            continue
+        text = line.partition(";")[0]
+        tokens = text.split()
+        present = set()
+        for token_index, token in enumerate(tokens):
+            letter = token[0].upper()
+            if letter in words:
+                tokens[token_index] = letter + words[letter]
+                present.add(letter)
+        for letter in ("D", "I", "J", "Q"):
+            if letter not in present:
+                tokens.append(letter + words[letter])
+        lines[index] = " ".join(tokens) + " ;" + comment
+        break
+    else:
+        pocket = tool.pocket or tool.number
+        lines.append(f"T{tool.number} P{pocket} X0 Z0 D{words['D']} I{words['I']} "
+                     f"J{words['J']} Q{words['Q']} ;{comment}")
+    with open(path, "w", encoding="utf-8") as file:
+        file.write("\n".join(lines) + "\n")
+
+
+def reload_linuxcnc_tool_table() -> str:
+    """Laufendes LinuxCNC die geänderte tool.tbl neu laden lassen."""
+    try:
+        import linuxcnc
+    except ImportError:
+        return ""
+    try:
+        status = linuxcnc.stat()
+        status.poll()
+        linuxcnc.command().load_tool_table()
+    except Exception as error:  # noqa: BLE001 – LinuxCNC läuft nicht oder lehnt ab
+        return f"tool.tbl geschrieben, LinuxCNC hat sie nicht neu geladen ({error})"
+    return ""
+
+
+def format_table_number(value: float) -> str:
+    text = f"{value:.4f}".rstrip("0").rstrip(".")
+    if text in ("-0", ""):
+        return "0"
+    return text
+
+
 def tool_from_table(entry: dict, back_tool: bool, mirror_z: bool = False) -> Tool:
     """Werkzeug aus einer tool.tbl-Zeile ableiten."""
     tool = Tool(entry["number"], entry["pocket"], "unknown", "neutral", "außen",
                 entry["diameter"] / 2, 90.0, comment=entry["comment"], source="tool.tbl",
                 front_angle=entry["front"], back_angle=entry["back"],
                 orientation=entry["orientation"])
+    orientation = entry["orientation"]
+    if orientation in ORIENTATION_ANGLES:
+        shank = model_angle(ORIENTATION_ANGLES[orientation], back_tool, mirror_z)
+        tool.shank_angle = normalize_angle(shank)
     tool.fingerprint = (f"T{entry['number']} D{entry['diameter']:g} I{entry['front']:g} "
                         f"J{entry['back']:g} Q{entry['orientation']} {entry['comment']}")
     front, back = entry["front"], entry["back"]
@@ -474,13 +598,45 @@ class ToolTable:
         tool.width = width
         tool.diameter = diameter
         tool.needs_input = False
-        if self.from_linuxcnc:
+        if self.from_linuxcnc and tool.source != NEW_SOURCE:
             tool.source = "tool.tbl + Angabe"
         else:
             tool.nose_radius = nose_radius
             tool.comment = comment
-            tool.source = "Benutzer"
+            if not self.from_linuxcnc:
+                tool.source = "Benutzer"
         self.save()
+
+    def write_to_table(self, tool: Tool) -> str:
+        """Werkzeug in die tool.tbl schreiben, LinuxCNC benachrichtigen, Tabelle neu lesen.
+
+        Gibt eine Meldung zurück (leer = alles in Ordnung).
+        """
+        table_path = self.table_path()
+        if not table_path or not os.path.isfile(table_path):
+            return "Keine tool.tbl aus der LinuxCNC-INI bekannt"
+        angles = table_angles(tool, self.machine.back_tool, self.mirror_table_angles)
+        if angles is None:
+            return f"T{tool.number}: Typ, Hand und Lage fehlen – nichts geschrieben"
+        front, back, orientation = angles
+        kind, width, diameter, tip_angle = tool.kind, tool.width, tool.diameter, tool.tip_angle
+        try:
+            write_table_line(table_path, tool, front, back, orientation)
+        except OSError as error:
+            return f"tool.tbl nicht schreibbar: {error}"
+        notice = reload_linuxcnc_tool_table()
+        self.load()
+        written = self.tools.get(tool.number)
+        if written is not None and (written.kind != kind or kind in ("groove", "thread")):
+            # Einordnung (z.B. Einstechbreite) behalten, die Winkel stehen jetzt in der Tabelle
+            written.kind = kind
+            written.width = width
+            written.diameter = diameter
+            written.tip_angle = tip_angle
+            written.needs_input = False
+            written.source = "tool.tbl + Angabe"
+            self.save()
+        return notice
 
     def add(self, tool: Tool):
         self.tools[tool.number] = tool

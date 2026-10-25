@@ -496,7 +496,7 @@ def test_thread_tool_55_degrees_from_table():
 
 def test_thread_from_table():
     from drehzyklen.threads import NORMS
-    values = {"side": "Außen", "norm": NORMS["M"], "size_m": "M12"}
+    values = {"side": "Außen", "norm": NORMS["M"]["label"], "size_m": "M12"}
     values.update(Thread.switch("norm", values))
     outside = Thread(values)
     assert outside.diameter == 12 and outside.pitch == 1.75
@@ -507,12 +507,12 @@ def test_thread_from_table():
     inside = Thread(values)
     assert math.isclose(inside.diameter, 10.106, abs_tol=1e-3)            # Kern-Ø D1
     assert math.isclose(inside.diameter + 2 * inside.eff_depth(), 12.0, abs_tol=1e-3)
-    values = {"side": "Außen", "norm": NORMS["UNF"], "size_unf": "1/4-28 UNF", "z_end": -10}
+    values = {"side": "Außen", "norm": NORMS["UNF"]["label"], "size_unf": "1/4-28 UNF", "z_end": -10}
     values.update(Thread.switch("norm", values))
     unf = Thread(values)
     assert math.isclose(unf.diameter, 6.35) and "G76 P0.907143 " in Program(
         Machine(), [unf], stock=Stock({"D": 6.35})).generate().gcode
-    values = {"side": "Außen", "norm": NORMS["BSW"], "size_bsw": "1/2-12 BSW"}
+    values = {"side": "Außen", "norm": NORMS["BSW"]["label"], "size_bsw": "1/2-12 BSW"}
     values.update(Thread.switch("norm", values))
     whitworth = Thread(values)
     assert whitworth.infeed == 27.0 and math.isclose(whitworth.eff_depth(), 0.6403 * 25.4 / 12)
@@ -520,6 +520,58 @@ def test_thread_from_table():
     tool_55 = Tool(2, kind="thread", hand="neutral", tip_angle=55.0)
     assert whitworth.tool_problems(tool_60) and not whitworth.tool_problems(tool_55)
     assert unf.tool_problems(tool_55) and not unf.tool_problems(tool_60)
+
+
+def test_round_two_fixes():
+    """Innen-Plandrehen mit Außenwerkzeug, Werkzeugwechsel nur X, M5/M9 im G-Code-Baustein."""
+    tools = {tool.number: tool for tool in preset_tools()}
+    inside = Facing({"side": "Innen", "d_start": -0.4, "d_end": 10, "z_start": 1, "z_end": 0})
+    assert inside.tool_problems(tools[7])
+    machine = Machine(tc_enabled=True, tc_x=200, tc_move_z=False)
+    gcode = Program(machine, [Facing({"d_start": 51})], stock=Stock({"D": 50})).generate().gcode
+    assert "G53 G0 X200" in gcode and "G53 G0 Z" not in gcode
+    ops = [Facing({"d_start": 51}), GCodeOp({"code": "M5\nM9\nM0", "restart": False}),
+           Facing({"d_start": 51, "z_start": 0, "z_end": -1})]
+    gcode = Program(Machine(), ops, stock=Stock({"D": 50})).generate().gcode
+    after = gcode.split("(--- Ende eigener G-Code ---)")[1]
+    assert " M3" in after.split("G0")[0] and "M8" in after.split("G0")[0]
+
+
+def test_orientation_angles_and_table_writing():
+    from drehzyklen.tools import table_angles, write_table_line
+    tool = tool_from_table(parse_tool_line("T9 X12 Z50 D0.8 I240 J300 Q7 ;Innengewinde"), False)
+    assert tool.shank_direction() == 0.0                        # Q7: Schaft nach +Z
+    assert table_angles(tool, False) == (240.0, 300.0, 7)
+    boring_bar = preset_tools()[11]
+    assert table_angles(boring_bar, False) == (273.0, 328.0, 3)  # positiv geschrieben
+    folder = tempfile.mkdtemp()
+    path = os.path.join(folder, "tool.tbl")
+    with open(path, "w", encoding="utf-8") as file:
+        file.write("T1 P1 X-12 Z-25 D0.4 I26 J86 Q2 ;alt\n")
+    write_table_line(path, Tool(1, 1, "C", "rechts", "außen", 0.8, 95.0, comment="neu"), 5, 85, 2)
+    write_table_line(path, boring_bar, 273, 328, 3)
+    lines = open(path, encoding="utf-8").read().splitlines()
+    assert lines[0] == "T1 P1 X-12 Z-25 D1.6 I5 J85 Q2 ;neu"
+    assert lines[1].startswith("T12 P12 X0 Z0 D0.8 I273 J328 Q3")
+
+
+def test_user_thread_file():
+    from drehzyklen import threads
+    folder = tempfile.mkdtemp()
+    path = os.path.join(folder, "threads.json")
+    try:
+        threads.load(path)                                       # legt Beispieldatei an
+        assert os.path.isfile(path) and threads.find("Eigene", "M12x0,75 (Beispiel)")
+        with open(path, "w", encoding="utf-8") as file:
+            file.write('{"threads": [{"norm": "UNF", "name": "Sonder 7/16-28", '
+                       '"diameter_inch": 0.4375, "tpi": 28}]}')
+        threads.load(path)
+        spec = threads.find("UNF", "Sonder 7/16-28")
+        assert spec is not None and math.isclose(spec.pitch, 25.4 / 28)
+        assert any(param.key == "size_unf" and "Sonder 7/16-28" in param.choices
+                   for param in Thread.all_params())
+    finally:
+        threads.load()
 
 
 if __name__ == "__main__":

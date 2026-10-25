@@ -35,12 +35,12 @@ gi.require_version("Gdk", "3.0")
 gi.require_version("Pango", "1.0")
 from gi.repository import Gdk, GLib, Gtk, Pango  # noqa: E402
 
-from . import widgets  # noqa: E402
+from . import threads, widgets  # noqa: E402
 from .cycles import CYCLES, STOCK_PARAMS, Cycle, P, Program, Stock, cycle_from_dict  # noqa: E402
 from .machine import MACHINE_FIELDS, Machine  # noqa: E402
 from .material import simulate  # noqa: E402
 from .settings import Settings  # noqa: E402
-from .tools import HANDS, KIND_LABELS, POSITIONS, Tool, ToolTable  # noqa: E402
+from .tools import HANDS, KIND_LABELS, NEW_SOURCE, POSITIONS, Tool, ToolTable  # noqa: E402
 from .widgets import (NumEntry, ParamForm, RadioBar, ViewArea, image_button,  # noqa: E402
                       message_area, message_markup)
 
@@ -466,6 +466,12 @@ class ToolPage(Gtk.Box):
                        self.reload_button):
             buttons.pack_start(button, True, True, 0)
         self.pack_start(buttons, False, False, 0)
+        self.write_button = Gtk.Button(label="→ In tool.tbl schreiben")
+        self.write_button.set_tooltip_text("Gewähltes Werkzeug mit D, I, J, Q in die tool.tbl "
+                                           "eintragen (X, Z und übrige Werte bleiben); LinuxCNC "
+                                           "lädt die Tabelle neu")
+        self.write_button.connect("clicked", self.on_write_table)
+        self.pack_start(self.write_button, False, False, 0)
         self.mirror_check = Gtk.CheckButton(label="Winkel I/J der tool.tbl in Z spiegeln")
         self.mirror_check.set_tooltip_text("Falls die Grafik ein rechtes Werkzeug als linkes "
                                            "zeigt: einmal umschalten und mit einem bekannten "
@@ -481,8 +487,8 @@ class ToolPage(Gtk.Box):
         self.mirror_check.set_active(table.mirror_table_angles)
         self.loading = False
         self.mirror_check.set_visible(table.from_linuxcnc)
-        self.new_button.set_sensitive(not table.from_linuxcnc)
-        self.delete_button.set_sensitive(not table.from_linuxcnc)
+        self.write_button.set_visible(table.from_linuxcnc)
+        self.write_button.set_no_show_all(not table.from_linuxcnc)
         self.source_label.set_text(table.message)
         if select_number is None:
             select_number = self.selected_number()
@@ -545,9 +551,12 @@ class ToolPage(Gtk.Box):
         self.diameter_entry.set_value(tool.diameter)
         self.tip_entry.set_value(round(tool.insert_angle, 1))
         self.comment_entry.set_text(tool.comment)
-        from_table = self.panel.tools.from_linuxcnc
-        self.radius_entry.set_sensitive(not from_table)
-        self.comment_entry.set_sensitive(not from_table)
+        # Werte aus der tool.tbl (Radius, Kommentar) werden in LinuxCNC gepflegt;
+        # neu angelegte Werkzeuge sind frei, bis sie in die tool.tbl geschrieben sind
+        editable = not self.panel.tools.from_linuxcnc or tool.source == NEW_SOURCE
+        self.radius_entry.set_sensitive(editable)
+        self.comment_entry.set_sensitive(editable)
+        self.delete_button.set_sensitive(editable)
         self.loading = False
         self.on_kind_changed(self.kind_combo)
 
@@ -595,8 +604,27 @@ class ToolPage(Gtk.Box):
     def on_new(self, _button):
         table = self.panel.tools
         number = table.next_number()
-        table.add(Tool(number, number, "C", "rechts", "außen", 0.4, 95.0, comment="neu"))
+        tool = Tool(number, number, "C", "rechts", "außen", 0.4, 95.0, comment="neu")
+        if table.from_linuxcnc:
+            tool.source = NEW_SOURCE        # erst mit »In tool.tbl schreiben« dauerhaft
+        table.add(tool)
         self.panel.tools_changed(number)
+
+    def on_write_table(self, _button):
+        tool = self.selected_tool()
+        if tool is None:
+            return
+        if tool.needs_input:
+            self.panel.message("Erst Typ, Hand und Lage angeben und übernehmen.",
+                               Gtk.MessageType.WARNING)
+            return
+        if not self.panel.confirm(f"T{tool.number} in die tool.tbl schreiben?\n"
+                                  f"D, I, J, Q und Kommentar werden gesetzt, X/Z bleiben."):
+            return
+        notice = self.panel.tools.write_to_table(tool)
+        if notice:
+            self.panel.message(notice, Gtk.MessageType.WARNING)
+        self.panel.tools_changed(tool.number)
 
     def on_reload(self, _button):
         self.panel.reload_tools()
@@ -816,6 +844,7 @@ class DrehzyklenPanel(Gtk.Box):
         self.embedded = embedded
         config_dir = os.path.dirname(os.path.abspath(machine_json))
         self.settings = Settings(os.path.join(config_dir, "settings.json"))
+        threads.load(os.path.join(config_dir, "threads.json"))      # eigene Gewinde
         self.tools = ToolTable(machine, os.path.join(config_dir, "werkzeuge.json"))
         widgets.ICON_STATE["flipped"] = self.icons_flipped
         self.program = Program(machine, tools=self.tools)
@@ -1534,9 +1563,23 @@ def install_css():
                                                  Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
 
+ICON_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+
+
+def set_default_icon():
+    """Programmsymbol (kleine Drehbank) für Hauptfenster und Dialoge."""
+    for name in ("drehzyklen.svg", "drehzyklen.png"):
+        try:
+            Gtk.Window.set_default_icon_from_file(os.path.join(ICON_DIR, name))
+            return
+        except GLib.Error:
+            continue
+
+
 def run(machine: Machine, machine_json: str, ini_path: Optional[str], xid: Optional[int],
         project: Optional[str] = None, machine_tab: bool = False):
     install_css()
+    set_default_icon()
     panel = DrehzyklenPanel(machine, machine_json, ini_path, embedded=xid is not None)
     if project:
         try:

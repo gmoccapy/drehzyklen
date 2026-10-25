@@ -30,6 +30,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
+from drehzyklen import threads  # noqa: E402
 from drehzyklen.cycles import Program  # noqa: E402
 from drehzyklen.machine import Machine  # noqa: E402
 from drehzyklen.tools import ToolTable  # noqa: E402
@@ -68,6 +69,7 @@ def main():
 
     if arguments.gcode:
         config_dir = os.path.dirname(os.path.abspath(arguments.machine))
+        threads.load(os.path.join(config_dir, "threads.json"))
         tools = ToolTable(machine, os.path.join(config_dir, "werkzeuge.json"))
         with open(arguments.gcode, encoding="utf-8") as file:
             program = Program.from_json(file.read(), machine, tools)

@@ -33,6 +33,7 @@ from __future__ import annotations
 import datetime
 import json
 import math
+import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -42,7 +43,8 @@ from .geometry import (EPS, ContourError, Element, Row, clip_at_radius, contour_
                        walk_back, walk_up)
 from .machine import Machine
 from .material import Material, bounds
-from .threads import NORMS, SIZE_KEYS, ThreadSpec, find, names_for, norm_of_label
+from .threads import (FREE, NORMS, SIZE_KEYS, ThreadSpec, find, names_for, norm_labels,
+                      norm_of_label)
 from .tools import KIND_LABELS, normalize_angle, sector_inside
 
 
@@ -783,6 +785,11 @@ class Facing(Cycle):
         name = _tool_name(tool)
         if tool.kind in ("thread", "drill"):
             return [f"{name}: für Plandrehen nicht geeignet"]
+        if self.inside and tool.position == "außen":
+            return [f"{name}: Außenwerkzeug – für Innen-Plandrehen ein Innenwerkzeug "
+                    f"(Bohrstange) wählen"]
+        if not self.inside and tool.position == "innen":
+            return [f"{name}: Innenwerkzeug – für Außen-Plandrehen ein Außenwerkzeug wählen"]
         sector = tool.sector()
         if sector is None:
             return []
@@ -1198,14 +1205,6 @@ class Thread(Cycle):
     TECH_PARAMS = TECH_THREAD
     FORCE_G97 = True
     PARAMS = [
-        P("norm", "Gewinde aus Tabelle", NORMS["frei"], "choice", tuple(NORMS.values()),
-          help="Norm und Größe wählen: Ø, Steigung, Tiefe und Zustellwinkel werden eingetragen "
-               "(danach von Hand änderbar)"),
-    ]
-    for _norm, _key in SIZE_KEYS.items():
-        PARAMS.append(P(_key, "Größe", names_for(_norm)[0], "choice", names_for(_norm),
-                        when=("norm", (NORMS[_norm],))))
-    PARAMS += [
         P("diameter", "Nenn-Ø", 20.0, unit="mm", min=0.5, sym="D", label_in="Kernloch-Ø"),
         P("pitch", "Steigung", 2.5, unit="mm", min=0.05, sym="P"),
         P("z_begin", "Z Gewindeanfang", 0.0, unit="mm", sym="Z1"),
@@ -1230,10 +1229,27 @@ class Thread(Cycle):
         return -1
 
     @staticmethod
+    def table_params() -> List[P]:
+        """Auswahl Norm/Größe – aus den geladenen Gewindetabellen (auch eigene Gewinde)."""
+        params = [P("norm", "Gewinde aus Tabelle", NORMS[FREE]["label"], "choice", norm_labels(),
+                    help="Norm und Größe wählen: Ø, Steigung, Tiefe und Zustellwinkel werden "
+                         "eingetragen (danach von Hand änderbar)")]
+        for norm, key in SIZE_KEYS.items():
+            names = names_for(norm)
+            params.append(P(key, "Größe", names[0], "choice", names,
+                            when=("norm", (NORMS[norm]["label"],))))
+        return params
+
+    @classmethod
+    def all_params(cls) -> List[P]:
+        params = [SIDE] + list(cls.TECH_PARAMS) + cls.table_params() + list(cls.PARAMS)
+        return params
+
+    @staticmethod
     def spec_from(values: Dict[str, Any]) -> Optional[ThreadSpec]:
         """Gewinde aus der Tabelle (None bei „frei“)."""
-        norm = norm_of_label(str(values.get("norm", "frei")))
-        if norm == "frei":
+        norm = norm_of_label(str(values.get("norm", FREE)))
+        if norm == FREE or norm not in SIZE_KEYS:
             return None
         return find(norm, str(values.get(SIZE_KEYS[norm], "")))
 
@@ -1553,6 +1569,15 @@ class GCodeOp(Cycle):
     def tool(self):
         return None
 
+    def m_codes(self) -> set:
+        """M-Nummern im Baustein (ohne Kommentare), z.B. {5, 9, 0}."""
+        text = re.sub(r"\([^)]*\)", " ", str(self.code))
+        lines = [line.split(";")[0] for line in text.splitlines()]
+        numbers = set()
+        for match in re.finditer(r"[Mm]\s*(\d+)", " ".join(lines)):
+            numbers.add(int(match.group(1)))
+        return numbers
+
     @property
     def coolant(self):
         return False
@@ -1681,9 +1706,14 @@ class Program:
             emitter.comment(f"Werkzeugwechselposition G53 ({source})")
             emitter.set_radius_mode(True)
             emitter.emit(f"G53 G0 X{fmt(machine.tc_x)}")
-            emitter.emit(f"G53 G0 Z{fmt(machine.tc_z)}")
-            emitter.set_radius_mode(False)
-            emitter.set_pos(None, None)
+            if machine.tc_move_z:
+                emitter.emit(f"G53 G0 Z{fmt(machine.tc_z)}")
+                emitter.set_radius_mode(False)
+                emitter.set_pos(None, None)
+            else:
+                # nur X anfahren, Z bleibt stehen
+                emitter.set_radius_mode(False)
+                emitter.set_pos(None, emitter.z)
         else:
             emitter.rapid(x=x_out)
             emitter.rapid(z=z_safe)
@@ -1837,6 +1867,9 @@ class Program:
                             break
                     if next_tool != last_tool:
                         # Werkzeugwechsel folgt: der nächste Zyklus schaltet Spindel/Kühlung ein
+                        if next_tool is not None and (spindle or coolant):
+                            emitter.comment("Spindel/Kühlung schaltet der nächste Zyklus nach dem "
+                                            "Werkzeugwechsel ein")
                         spindle = None
                         coolant = False
                         continue
@@ -1847,6 +1880,14 @@ class Program:
                         emitter.emit(spindle)
                     if coolant:
                         emitter.emit("M8")
+                else:
+                    # Ohne Wiedereinschalten: was der Baustein ausschaltet, schaltet der
+                    # nächste Zyklus wieder ein (sonst liefe er mit stehender Spindel)
+                    m_codes = op.m_codes()
+                    if m_codes & {5, 2, 30}:
+                        spindle = None
+                    if m_codes & {9, 2, 30}:
+                        coolant = False
                 continue
             mark = (len(emitter.lines), len(emitter.path), len(warnings), emitter.x, emitter.z,
                     emitter.feed_value, emitter.radius_mode, emitter.feed_mode, spindle, coolant)

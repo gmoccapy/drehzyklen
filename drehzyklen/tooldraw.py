@@ -18,9 +18,10 @@ from __future__ import annotations
 
 import math
 
+from .drawtext import show_text
 from .helpdraw import (BACKGROUND, DIMENSION, EDGE, HINT, MATERIAL, PATH, TEXT, Sketch,
                        value_text)
-from .tools import HAND_TEXT
+from .tools import HAND_TEXT, table_angles
 
 INSERT_COLOR = (0.95, 0.78, 0.30)
 HOLDER_COLOR = (0.48, 0.50, 0.56)
@@ -45,7 +46,7 @@ def draw_tool(cr, width, height, tool, flip=False, font=None):
         cr.set_source_rgb(*HINT)
         cr.set_font_size(font)
         cr.move_to(10, 10 + font)
-        cr.show_text("Kein Werkzeug gewählt")
+        show_text(cr, "Kein Werkzeug gewählt")
         return
     sketch = Sketch(cr, 0, font * 4, width, height - font * 4, (-26, 26, -16, 26), flip, font)
     length = 10.0
@@ -108,13 +109,15 @@ def draw_tool(cr, width, height, tool, flip=False, font=None):
         sketch.angle(tip, math.radians(low), math.radians(high), 34, "ε",
                      value_text(high - low, 1) + "°", label_distance=8)
 
-    # Halter entlang der Winkelhalbierenden
-    shank_end = _add(holder_start, bisector, 12.0)
-    normal = (-bisector[1], bisector[0])
-    shank = [_add(holder_start, normal, 3.0), _add(holder_start, normal, -3.0),
-             _add(shank_end, normal, -3.0), _add(shank_end, normal, 3.0)]
-    sketch.polygon(shank, fill=HOLDER_COLOR, stroke=HINT, line_width=0.8)
+    # Halter: Richtung aus der Orientierung Q der tool.tbl, sonst entlang der Winkelhalbierenden
+    shank = _direction(tool.shank_direction())
+    shank_end = _add(holder_start, shank, 12.0)
+    normal = (-shank[1], shank[0])
+    holder = [_add(holder_start, normal, 3.0), _add(holder_start, normal, -3.0),
+              _add(shank_end, normal, -3.0), _add(shank_end, normal, 3.0)]
+    sketch.polygon(holder, fill=HOLDER_COLOR, stroke=HINT, line_width=0.8)
     sketch.dot(tip, (1, 0.3, 0.3), 3.5)
+    angles_text = _draw_table_angles(sketch, tool, tip, flip)
 
     # Hauptschnittrichtung
     if tool.hand == "rechts":
@@ -129,7 +132,29 @@ def draw_tool(cr, width, height, tool, flip=False, font=None):
         sketch.label((-22, 22), "b", value_text(tool.width), anchor="l")
     sketch.label((-22, 18), "r", value_text(tool.nose_radius), anchor="l")
     _header(cr, font, tool, f"{HAND_TEXT.get(tool.hand, tool.hand)}, {tool.position} · "
-                            f"Plattensektor {low:.0f}°…{high:.0f}° · Quelle: {tool.source}")
+                            f"{angles_text} · Quelle: {tool.source}")
+
+
+def _draw_table_angles(sketch, tool, tip, flip):
+    """Front- und Rückwinkel wie in der tool.tbl: im Uhrzeigersinn ab Z+ (LinuxCNC-Ansicht)."""
+    back_tool = not flip
+    if tool.angles_from_table:
+        front, back, orientation = tool.front_angle, tool.back_angle, tool.orientation
+    else:
+        angles = table_angles(tool, back_tool)
+        if angles is None:
+            return ""
+        front, back, orientation = angles
+    sketch.line(tip, (24.0, 0.0), DIMENSION, 0.8, [4, 3])
+    sketch.label((24.0, 0.0), "Z+", None, anchor="r", dy=-sketch.font * 0.9 * sketch.sign)
+    for value, symbol, radius in ((front, "I", 58), (back, "J", 76)):
+        if back_tool:
+            model = -value
+        else:
+            model = value
+        sketch.angle(tip, 0.0, math.radians(model), radius, symbol, value_text(value, 1) + "°",
+                     label_distance=10)
+    return f"I {value_text(front, 1)}°  J {value_text(back, 1)}°  Q{orientation}"
 
 
 def _header(cr, font, tool, detail):
@@ -137,13 +162,13 @@ def _header(cr, font, tool, detail):
     cr.select_font_face("Sans", 0, 1)
     cr.set_source_rgb(*DIMENSION)
     cr.move_to(10, font * 1.5)
-    cr.show_text(f"T{tool.number}  {tool.kind_text()}")
+    show_text(cr, f"T{tool.number}  {tool.kind_text()}")
     cr.select_font_face("Sans", 0, 0)
     cr.set_font_size(font * 0.9)
     cr.set_source_rgb(*TEXT)
     cr.move_to(10, font * 2.9)
-    cr.show_text(detail)
+    show_text(cr, detail)
     if tool.comment:
         cr.set_source_rgb(*HINT)
         cr.move_to(10, font * 4.1)
-        cr.show_text(tool.comment)
+        show_text(cr, tool.comment)
