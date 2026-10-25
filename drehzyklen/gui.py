@@ -43,13 +43,13 @@ from .cycles import (CYCLES, INSIDE, OUTSIDE, STOCK_PARAMS, Cycle, P, Program, S
                      cycle_from_dict)
 from .cycles.program import NO_TOOL_CHANGE_WARNING  # noqa: E402
 from .i18n import N_, _  # noqa: E402
-from .machine import MACHINE_FIELDS, Machine  # noqa: E402
+from .machine import MACHINE_FIELDS, MACHINE_HELP, Machine  # noqa: E402
 from .material import simulate  # noqa: E402
 from .settings import Settings  # noqa: E402
 from .tools import (HAND_LABELS, HANDS, KIND_LABELS, NEW_SOURCE, POSITION_LABELS,  # noqa: E402
                     NEUTRAL, POSITIONS, RIGHT, Tool, ToolTable, table_angles)
 from .widgets import (NumEntry, ParamForm, RadioBar, ViewArea, image_button,  # noqa: E402
-                      message_area, message_markup)
+                      message_area, message_markup, short_combo)
 
 CSS = b"""
 .dz button { min-height: 30px; padding: 2px 8px; }
@@ -57,8 +57,12 @@ CSS = b"""
 .dz .bottombar button, .dz .buttonbar button { min-height: 50px; min-width: 70px;
                                                 padding: 2px 8px; }
 .dz .buttonbar button:checked { box-shadow: inset 0 -3px #e0a422; }
+.dz .sidesw button, .dz .viewbar button { min-width: 56px; padding: 2px 4px; }
+.dz .selbar button { min-width: 64px; padding: 2px 6px; }
 .dz .viewswitch button { min-height: 28px; padding: 0 8px; }
 .dz .hint { opacity: 0.7; font-size: 90%; }
+.dz frame.column > border { border-radius: 6px; }
+.dz frame.column { margin: 2px; }
 .dz .msg { font-size: 92%; }
 .dz .numpad button { min-width: 54px; min-height: 46px; font-size: 16px; }
 .dz.compact button { min-height: 26px; padding: 1px 5px; }
@@ -69,6 +73,7 @@ CSS = b"""
 """
 
 BOTTOM_SPACING = 8
+COLUMN_SPACING = 4          # button bars inside the columns (outside/inside, views)
 DEFAULT_NAME = "Part"
 
 
@@ -85,6 +90,14 @@ def title_label(text):
     label = Gtk.Label(xalign=0)
     label.set_markup(f"<b>{GLib.markup_escape_text(text)}</b>")
     return label
+
+
+def column_frame(child):
+    frame = Gtk.Frame()
+    frame.set_shadow_type(Gtk.ShadowType.IN)
+    frame.get_style_context().add_class("column")
+    frame.add(child)
+    return frame
 
 
 def scrolled(child):
@@ -112,7 +125,7 @@ class CyclePage(Gtk.Box):
             self.side_bar = RadioBar([(OUTSIDE, _("Outside"), "side_out", _("Outside machining")),
                                       (INSIDE, _("Inside"), "side_in", _("Inside machining"))],
                                      "sidesw", self.set_side, icon_size=24, buttons=True,
-                                     spacing=BOTTOM_SPACING)
+                                     spacing=COLUMN_SPACING)
             self.pack_start(self.side_bar, False, False, 0)
         self.title = title_label(cycle_class.title())
         self.pack_start(self.title, False, False, 0)
@@ -137,8 +150,7 @@ class CyclePage(Gtk.Box):
     # ---- snippets (G-code tab only)
     def _snippet_bar(self):
         box = Gtk.Grid(row_spacing=4, column_spacing=4)
-        self.snippet_combo = Gtk.ComboBoxText()
-        self.snippet_combo.set_hexpand(True)
+        self.snippet_combo = short_combo()
         self.snippet_combo.set_tooltip_text(_("Choose a snippet - replaces the content of the "
                                               "code field"))
         self.snippet_filling = False
@@ -156,9 +168,11 @@ class CyclePage(Gtk.Box):
         delete_button = Gtk.Button(label=_("Delete"))
         delete_button.set_tooltip_text(_("Delete the chosen snippet"))
         delete_button.connect("clicked", self.on_delete_snippet)
-        buttons = Gtk.Box(spacing=4, homogeneous=True)
-        for button in (insert_button, clear_button, save_button, delete_button):
-            buttons.pack_start(button, True, True, 0)
+        buttons = Gtk.Grid(row_spacing=4, column_spacing=4, column_homogeneous=True)
+        for index, button in enumerate((insert_button, clear_button, save_button,
+                                        delete_button)):
+            button.set_hexpand(True)
+            buttons.attach(button, index % 2, index // 2, 1, 1)
         box.attach(Gtk.Label(label=_("Snippet"), xalign=0), 0, 0, 1, 1)
         box.attach(self.snippet_combo, 1, 0, 1, 1)
         box.attach(buttons, 0, 1, 2, 1)
@@ -443,19 +457,19 @@ class ToolPage(Gtk.Box):
         self.tree.get_selection().connect("changed", self.on_selection_changed)
         list_scroller = Gtk.ScrolledWindow()
         list_scroller.set_shadow_type(Gtk.ShadowType.IN)
-        list_scroller.set_min_content_height(150)
+        list_scroller.set_min_content_height(120)
         list_scroller.add(self.tree)
         self.pack_start(list_scroller, True, True, 0)
 
         grid = Gtk.Grid(row_spacing=4, column_spacing=6)
-        self.kind_combo = Gtk.ComboBoxText()
+        self.kind_combo = short_combo()
         for key in KIND_KEYS:
             self.kind_combo.append(key, _(KIND_LABELS[key]))
         self.kind_combo.connect("changed", self.on_kind_changed)
-        self.hand_combo = Gtk.ComboBoxText()
+        self.hand_combo = short_combo()
         for hand in HANDS:
             self.hand_combo.append(hand, _(HAND_LABELS[hand]))
-        self.position_combo = Gtk.ComboBoxText()
+        self.position_combo = short_combo()
         for position in POSITIONS:
             self.position_combo.append(position, _(POSITION_LABELS[position]))
         self.lead_entry = NumEntry(width=6)
@@ -488,12 +502,13 @@ class ToolPage(Gtk.Box):
                 (_("Description"), self.comment_entry)]
         for row, (text, widget) in enumerate(rows):
             label = Gtk.Label(label=text, xalign=0)
+            label.set_line_wrap(True)
+            label.set_max_width_chars(16)
             widget.set_hexpand(True)
             grid.attach(label, 0, row, 1, 1)
             grid.attach(widget, 1, row, 1, 1)
         self.pack_start(grid, False, False, 0)
 
-        buttons = Gtk.Box(spacing=4)
         self.apply_button = Gtk.Button(label=_("✔ Apply"))
         self.apply_button.connect("clicked", self.on_apply)
         self.new_button = Gtk.Button(label=_("＋ New"))
@@ -504,9 +519,11 @@ class ToolPage(Gtk.Box):
         self.reload_button.set_tooltip_text(_("Read the tool table again (automatically: switch "
                                               "in the machine tab)"))
         self.reload_button.connect("clicked", self.on_reload)
-        for button in (self.apply_button, self.new_button, self.delete_button,
-                       self.reload_button):
-            buttons.pack_start(button, True, True, 0)
+        buttons = Gtk.Grid(row_spacing=4, column_spacing=4, column_homogeneous=True)
+        for index, button in enumerate((self.apply_button, self.new_button, self.delete_button,
+                                        self.reload_button)):
+            button.set_hexpand(True)
+            buttons.attach(button, index % 2, index // 2, 1, 1)
         self.pack_start(buttons, False, False, 0)
         self.write_button = Gtk.Button(label=_("→ Write to tool.tbl"))
         self.write_button.set_tooltip_text(_("Enter the selected tool with D, I, J, Q into the "
@@ -518,6 +535,7 @@ class ToolPage(Gtk.Box):
         self.mirror_check.set_tooltip_text(_("If the picture shows a right-hand tool as a "
                                              "left-hand one: switch once and check with a known "
                                              "tool"))
+        self.mirror_check.get_child().set_line_wrap(True)
         self.mirror_check.connect("toggled", self.on_mirror_toggled)
         self.pack_start(self.mirror_check, False, False, 0)
         self.refresh()
@@ -757,7 +775,7 @@ class MachinePage(Gtk.Box):
                 kind = "float"
             else:
                 kind = "str"
-            params.append(P(key, label, value, kind))
+            params.append(P(key, label, value, kind, help=MACHINE_HELP.get(key, "")))
         self.form = ParamForm(params)
         self.pack_start(scrolled(self.form), True, True, 0)
         self.info = Gtk.Label(xalign=0)
@@ -883,12 +901,12 @@ class ViewColumn(Gtk.Box):
         top = Gtk.Box(spacing=6)
         items = [(key, _(text), icon, _(tooltip)) for key, text, icon, tooltip in self.MODES]
         self.mode_bar = RadioBar(items, "viewbar", self.on_mode, buttons=True,
-                                 spacing=BOTTOM_SPACING)
+                                 spacing=COLUMN_SPACING)
         top.pack_start(self.mode_bar, False, False, 0)
+        self.pack_start(top, False, False, 0)
+        # below the picture, so that the button bar keeps the column narrow
         self.rapid_check = Gtk.CheckButton(label=_("Rapids"), active=True)
         self.rapid_check.connect("toggled", self.on_rapids_toggled)
-        top.pack_end(self.rapid_check, False, False, 0)
-        self.pack_start(top, False, False, 0)
         self.stack = Gtk.Stack()
         self.view = ViewArea(panel.machine)
         self.stack.add_named(self.view, "view")
@@ -899,6 +917,7 @@ class ViewColumn(Gtk.Box):
         self.gcode_scroller.add(self.gcode_view)
         self.stack.add_named(self.gcode_scroller, "gcode")
         self.pack_start(self.stack, True, True, 0)
+        self.pack_start(self.rapid_check, False, False, 0)
         message_scroller, self.message_label = message_area()
         self.pack_start(message_scroller, False, True, 0)
 
@@ -983,7 +1002,7 @@ class DrehzyklenPanel(Gtk.Box):
         items.append(("tools", _("Tools"), "tools", _("Tool table")))
         items.append(("machine", _("Machine"), "machine", _("Machine data")))
         self.selector = RadioBar(items, "selbar", self.show_page, icon_size=24, buttons=True,
-                                 spacing=BOTTOM_SPACING)
+                                 spacing=6)
         selector_scroller = Gtk.ScrolledWindow()
         selector_scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
         selector_scroller.set_propagate_natural_height(True)
@@ -997,7 +1016,8 @@ class DrehzyklenPanel(Gtk.Box):
         self.stock_page = StockPage(self)
         self.stack.add_named(self.stock_page, "stock")
         self.tool_page = ToolPage(self)
-        self.stack.add_named(self.tool_page, "tools")
+        # the tools tab has many fields - it scrolls so that the panel stays low (1024×768)
+        self.stack.add_named(scrolled(self.tool_page), "tools")
         self.pages: Dict[str, CyclePage] = {}
         for cycle_class in CYCLES:
             page = CyclePage(self, cycle_class)
@@ -1013,8 +1033,10 @@ class DrehzyklenPanel(Gtk.Box):
         self.inner_paned.set_wide_handle(True)
         self.outer_paned.pack1(self.program_column, False, False)
         self.outer_paned.pack2(self.inner_paned, True, False)
-        self.inner_paned.pack1(self.stack, False, False)
-        self.inner_paned.pack2(self.view_column, True, False)
+        # frames around the parameter column and the view column: their button bars
+        # (outside/inside, the four views) visibly belong to them
+        self.inner_paned.pack1(column_frame(self.stack), False, False)
+        self.inner_paned.pack2(column_frame(self.view_column), True, False)
         self.pack_start(self.outer_paned, True, True, 0)
 
         # ---- bottom button bar
@@ -1133,7 +1155,9 @@ class DrehzyklenPanel(Gtk.Box):
 
     # ---------------------------------------------------------------- layout
     def on_size_allocate(self, _widget, allocation):
-        layout = (allocation.width < 760, allocation.width < 920 or allocation.height < 560)
+        # narrow or very low: button texts are hidden (icons only, the text stays as tooltip)
+        narrow = allocation.width < 760 or allocation.height < 480
+        layout = (narrow, allocation.width < 920 or allocation.height < 600)
         if not self.positioned and allocation.width > 50:
             self.positioned = True
             left = int(min(300, max(170, 0.22 * allocation.width)))

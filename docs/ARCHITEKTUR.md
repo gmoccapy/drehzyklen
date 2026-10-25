@@ -88,7 +88,7 @@ zurückgespiegelt in den echten `Emitter`. So gibt es die Schrupplogik nur einma
 
 `SpindleState` merkt sich, was gerade eingeschaltet ist (S-Wort, M8, Werkzeug). Ein Zyklus gibt S,
 M3/M4 und M8/M9 nur aus, wenn sich etwas ändert. Vor einem Werkzeugwechsel wird M9/M5 ausgegeben.
-Ein G-Code-Schritt wird nach M5/M9 durchsucht. Mit „Spindel/Kühlung danach wieder einschalten“
+Ein G-Code-Schritt wird nach M5/M9 durchsucht. Mit „Spindel/Kühlung wieder ein“
 werden sie direkt nach dem Schritt wieder eingeschaltet, sonst schaltet der nächste Zyklus sie ein.
 
 ## Werkzeuge

@@ -494,8 +494,8 @@ def draw_taper(sketch: Sketch, values, inside):
                      value_text(values["angle"]))
         sketch.z_mark(0, stock_radius, 26, "Z1", value_text(values["z_start"]), "l")
         sketch.z_mark(-25, stock_radius, 26, "Z2", value_text(values["z_end"]), "r")
-        sketch.dim_r(3, 0, start_radius, "ØD", value_text(values["d_start"]), extension_from=(0, 0))
-        sketch.dim_r(-25, 0, end_radius, "Ød", value_text(values["d_end"]), label_position=0.4,
+        sketch.dim_r(3, 0, start_radius, "ØD1", value_text(values["d_start"]), extension_from=(0, 0))
+        sketch.dim_r(-25, 0, end_radius, "ØD2", value_text(values["d_end"]), label_position=0.4,
                      anchor="r", label_dx=-5)
         if falling:
             levels = (18.5, 17.0, 15.0, 13.5)
@@ -529,9 +529,9 @@ def draw_taper(sketch: Sketch, values, inside):
                      value_text(values["angle"]))
         sketch.z_mark(0, 25, 30, "Z1", value_text(values["z_start"]), "l")
         sketch.z_mark(-25, 25, 30, "Z2", value_text(values["z_end"]), "r")
-        sketch.dim_r(3, 0, start_radius, "ØD", value_text(values["d_start"]),
+        sketch.dim_r(3, 0, start_radius, "ØD1", value_text(values["d_start"]),
                      extension_from=(0, 0), label_position=0.6)
-        sketch.dim_r(-20, 0, end_radius + (start_radius - end_radius) * 0.2, "Ød",
+        sketch.dim_r(-20, 0, end_radius + (start_radius - end_radius) * 0.2, "ØD2",
                      value_text(values["d_end"]), label_position=0.4)
         for level in (7.5, 9.0):
             sketch.arrow((3, level), (-24.6, level), PATH, 1.1, dash=[5, 3])
@@ -937,7 +937,7 @@ def draw_gcode_help(cr, width, height, font):
              "",
              N_("The tool is at the retract plane in front of the part."),
              N_("Own moves must return there."),
-             N_("With »Switch spindle/coolant on again afterwards« the speed,"),
+             N_("With »Spindle/coolant on again« the speed,"),
              N_("M3/M4 and M8 are output again after the block.")]
     sketch = Sketch(cr, 0, 0, width, height, (0, 1, 0, 1), False, font)
     sketch.legend(12, font + 12, lines, font)

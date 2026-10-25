@@ -20,21 +20,24 @@ entsprechen der deutschen Übersetzung. Wie das Programm intern arbeitet, beschr
 - **Links – Programm:** die Schritte des Programms; ▲ ▼ verschieben, ✎ (oder Doppelklick)
   bearbeiten, ⧉ duplizieren, ✖ löschen. Wählst du oben einen anderen Zyklus, wird die Markierung
   in der Liste aufgehoben – „✔ Übernehmen“ gilt nur für den gerade bearbeiteten Schritt.
-- **Mitte – Parameter:** Knöpfe **Außen | Innen**, die Eingabefelder und „＋ Zum Programm“. Der
+- **Mitte – Parameter** (eingerahmt): Knöpfe **Außen | Innen**, die Eingabefelder und „＋ Zum Programm“. Der
   Knopf ist nach dem Anfügen gesperrt, bis du einen Parameter änderst.
-- **Rechts – Ansicht:** Knöpfe **Zyklus | Bild | G-Code | Programm**. Die Vorschau zeigt Rohteil,
+- **Rechts – Ansicht** (eingerahmt): Knöpfe **Zyklus | Bild | G-Code | Programm**. Die Vorschau zeigt Rohteil,
   Futter und Abtrag (orange); Mausrad: Zoom, linke Maustaste: verschieben, Doppelklick:
   zurücksetzen. „G-Code“ springt zum Code des links markierten Programmschritts.
 - **Spalten:** Programm- und Parameterspalte sind schmal, ihre Breite stellst du mit den Griffen
   zwischen den Spalten ein. Den Rest bekommt die Vorschau.
 - **Unten:** Neu, Öffnen, Speichern, G-Code, Sprache, Maschine, Laden.
+- **Kleine Bildschirme:** Die Oberfläche lässt sich bis etwa 800 × 390 Pixel verkleinern (passt
+  als Benutzer-Tab in gmoccapy bei 1024 × 768). Unter ca. 920 × 600 werden die Knöpfe niedriger,
+  unter 760 × 480 zeigen sie nur noch das Symbol. Der Reiter Werkzeuge rollt bei wenig Höhe.
 
 ## Einheitliche Bezeichnungen
 
 | Zeichen | Bedeutung |
 |---|---|
-| **D** | Durchmesser Start |
-| **d** | Durchmesser Ende |
+| **D** | Durchmesser Start (beim Konus **D1**) |
+| **d** | Durchmesser Ende (beim Konus **D2**) |
 | **Z1** | Z Start |
 | **Z2** | Z Ende |
 
@@ -52,7 +55,7 @@ Alle Zyklen außer Bohren und G-Code haben den Schalter **Außen | Innen**.
 |---|---|
 | Plan | D → d radial, Z1 → Z2 in Zustellungen ap. D > d: zur Mitte, D < d: nach außen |
 | Längs | D → d zwischen Z1 und Z2. Kante am Anfang und Ende einzeln: keine, Fase oder Radius. Die Endkante darf größer sein als der Absatz und endet dann bei D |
-| Konus | „Angabe über Enddurchmesser“ (D, d, Z1, Z2) oder „Winkel“ (D, d, Z1, α/2). Umschalten berechnet den fehlenden Wert. Ein fallender Konus (z.B. D44 → d30) wird je Ebene schräg am Kegel angefahren |
+| Konus | „Angabe über Enddurchmesser“ (D1, D2, Z1, Z2) oder „Winkel“ (D1, D2, Z1, α/2). Hier heißen die Durchmesser **D1/D2** passend zu Z1/Z2 (Ø an Z1 / an Z2). Umschalten berechnet den fehlenden Wert. Ein fallender Konus (z.B. D1 44 → D2 30) wird je Ebene schräg am Kegel angefahren |
 | Gewinde | G76 außen/innen, Z1 Gewindeanfang, Z2 Gewindeende, Zs Startpunkt. Abfrage von L vor E. Gewinde aus Tabelle: metrisch Regel/Fein, UNC, UNF, Whitworth BSW, Rohrgewinde G |
 | Fase/R | Fase L × α (Winkel zur Z-Achse) oder Radius an Vorder- oder Rückkante. **Negativer Winkel = Fase an der Rückkante**; sie wird schräg angefahren |
 | Kontur | freie Kontur, Ecken je Punkt, Bögen; Richtung = erster → letzter Punkt. Passen zwei gegenläufige Radien (z.B. R2 innen, R5 außen an einem kurzen Absatz) nicht auf die Strecke dazwischen, gehen sie tangential ineinander über |
@@ -117,7 +120,7 @@ Daraus folgt:
   du Typ, Hand und Lage an. Die Angabe wird gespeichert und **neu abgefragt, sobald sich die Zeile
   in der tool.tbl ändert**.
 - Ändert LinuxCNC die tool.tbl (z.B. neues Werkzeug im Werkzeugeditor), liest **⟳ Einlesen** im
-  Reiter Werkzeuge sie neu ein. Mit dem Schalter „Werkzeugtabelle bei Änderung automatisch
+  Reiter Werkzeuge sie neu ein. Mit dem Schalter „Werkzeugtabelle autom.
   einlesen“ im Reiter Maschine geschieht das nach spätestens 2 Sekunden von selbst (Standard: aus).
 - Die Orientierung Q bestimmt die Richtung des Halters in der Grafik (Q7: Schaft nach +Z, wie in
   der LinuxCNC-Doku). Front- und Rückwinkel I/J werden mit Bogen ab Z+ eingezeichnet.
@@ -155,7 +158,7 @@ Rund- oder Sondergewinde. Dann bleibt eine deutliche Warnung.
 - **Werkzeugwechsel** immer mit `T… M6 G43`, nur bei neuer T-Nummer.
 - **Wechselposition `G53`** aus `[CHANGE_POSITION]`, sonst `[EMCIO] TOOL_CHANGE_POSITION`, sonst
   Reiter Maschine. Angefahren wird im Radiusmodus G8, damit X dem INI-Wert entspricht; erst X,
-  dann Z. Soll Z stehen bleiben (nur X anfahren), den Schalter „Werkzeugwechsel: auch Z anfahren“
+  dann Z. Soll Z stehen bleiben (nur X anfahren), den Schalter „Werkzeugwechsel: auch Z“
   im Reiter Maschine ausschalten oder in `[CHANGE_POSITION]` nur `X` eintragen.
 - **Zwischen den Zyklen** auf eine Rückzugsebene vor dem Werkstück:
   - außen: erst X nach außen
@@ -201,7 +204,7 @@ nicht zur Norm (55° gegen 60°), meldet die Werkzeugprüfung das.
   auswählen ersetzt den Inhalt des Codefelds, **Einfügen** fügt ihn zusätzlich an der Schreibmarke
   ein, **Leeren** macht das Feld frei für einen neuen Baustein. Die Bausteine („Späne entfernen“,
   „Nachmessen“, eigene über **Speichern …**) stehen in `settings.json`.
-- „Spindel/Kühlung danach wieder einschalten“: Folgt ein Zyklus mit demselben Werkzeug, werden
+- „Spindel/Kühlung wieder ein“: Folgt ein Zyklus mit demselben Werkzeug, werden
   Drehzahl mit M3/M4 und M8 direkt nach dem Baustein wieder ausgegeben; bei einem Werkzeugwechsel
   schaltet der nächste Zyklus sie ein.
 - Der **Programmordner** steht im Reiter Maschine (Standard aus `PROGRAM_PREFIX`). Ein Ordner, den
@@ -242,7 +245,7 @@ Welche INI gelesen wird (Werkzeugtabelle `[EMCIO] TOOL_TABLE`, Grenzen, G53-Wech
 1. `--ini` beim Aufruf
 2. `INI_FILE_NAME` – setzt LinuxCNC, wenn es das Programm startet (eingebettet in gmoccapy)
 3. die INI des gerade laufenden LinuxCNC (z.B. wenn das Programm im Terminal gestartet wurde)
-4. die im Reiter Maschine unter „LinuxCNC-INI“ eingetragene Datei (Betrieb ohne LinuxCNC)
+4. die im Reiter Maschine unter „LinuxCNC-INI-Datei“ eingetragene Datei (Betrieb ohne LinuxCNC)
 
 Welche Datei benutzt wurde, steht unten im Reiter Maschine.
 

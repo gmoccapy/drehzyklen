@@ -13,14 +13,16 @@
 # if not, see <https://www.gnu.org/licenses/>.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Taper: a cone from Ø D at Z1 to Ø d at Z2, given by end diameter or by half angle.
+"""Taper: a cone from Ø D1 at Z1 to Ø D2 at Z2, given by end diameter or by half angle.
+
+The symbols D1/D2 (instead of D/d as in the other cycles) belong to Z1/Z2.
 
 Contour (work frame)
 --------------------
-    cone            D at Z1 to d at Z2
-    [shoulder]      at Z2 from d up to the existing material (only if material is higher)
+    cone            D1 at Z1 to D2 at Z2
+    [shoulder]      at Z2 from D2 up to the existing material (only if material is higher)
 
-Roughing starts at the existing material (material simulation). A falling cone (d < D in
+Roughing starts at the existing material (material simulation). A falling cone (D2 < D1 in
 machining direction) is entered obliquely along the cone - no level plunges into the part.
 """
 from __future__ import annotations
@@ -45,8 +47,8 @@ class Taper(TurningCycle):
         P("mode", N_("Given by"), MODE_DIAMETER, "choice", (MODE_DIAMETER, MODE_ANGLE),
           labels={MODE_DIAMETER: N_("End diameter"), MODE_ANGLE: N_("Angle")},
           help=N_("When switching, the other value is calculated")),
-        P("d_start", N_("Ø start (at Z1)"), 30.0, unit="mm", min=0, sym="D"),
-        P("d_end", N_("Ø end (at Z2)"), 44.0, unit="mm", min=0, sym="d"),
+        P("d_start", N_("Ø start (at Z1)"), 30.0, unit="mm", min=0, sym="D1"),
+        P("d_end", N_("Ø end (at Z2)"), 44.0, unit="mm", min=0, sym="D2"),
         P("z_start", N_("Z start"), 0.0, unit="mm", sym="Z1"),
         P("z_end", N_("Z end"), -25.0, unit="mm", sym="Z2", when=("mode", (MODE_DIAMETER,))),
         P("angle", N_("Half taper angle"), 15.0, unit="°", min=-89, max=89, sym="α/2",

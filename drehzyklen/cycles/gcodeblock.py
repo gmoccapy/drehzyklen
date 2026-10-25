@@ -42,7 +42,7 @@ class GCodeOp(Cycle):
         P("code", N_("G-code"), DEFAULT_CODE, "text",
           help=N_("Inserted unchanged at this point. The tool is at the retract plane; own "
                   "moves must return there.")),
-        P("restart", N_("Switch spindle/coolant on again afterwards"), True, "bool",
+        P("restart", N_("Spindle/coolant on again"), True, "bool",
           help=N_("Right after the block the speed with M3/M4 and M8 of the previous cycle are "
                   "output again")),
     ]

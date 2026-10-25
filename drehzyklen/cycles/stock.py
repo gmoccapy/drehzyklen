@@ -29,14 +29,16 @@ ZERO_CHUCK = "chuck"
 STOCK_PARAMS = [
     P("D", N_("Outer Ø"), 50.0, unit="mm", min=0.5, sym="D"),
     P("d", N_("Inner Ø (0 = solid)"), 0.0, unit="mm", min=0, sym="d"),
-    P("L", N_("Length out of the chuck (chuck to front)"), 80.0, unit="mm", min=1, sym="L"),
+    P("L", N_("Length out of the chuck"), 80.0, unit="mm", min=1, sym="L",
+      help=N_("From the chuck face to the stock front")),
     P("zero", N_("Workpiece zero Z0"), ZERO_FRONT, "choice", (ZERO_FRONT, ZERO_CHUCK),
       labels={ZERO_FRONT: N_("Front face"), ZERO_CHUCK: N_("Chuck")},
       help=N_("Front face: Z0 at the finished front face, chuck: Z0 at the chuck face")),
-    P("face", N_("Facing allowance in front of Z0"), 1.0, unit="mm", min=0, sym="a",
+    P("face", N_("Facing allowance"), 1.0, unit="mm", min=0, sym="a",
       when=("zero", (ZERO_FRONT,)),
       help=N_("The stock protrudes this much in front of Z0 (removed by facing)")),
-    P("chuck_clear", N_("Safety distance to the chuck"), 2.0, unit="mm", min=0, sym="s"),
+    P("chuck_clear", N_("Distance to the chuck"), 2.0, unit="mm", min=0, sym="s",
+      help=N_("Safety distance - moves closer to the chuck are errors")),
 ]
 
 

@@ -52,8 +52,9 @@ class EdgeBreak(TurningCycle):
           labels={EDGE_FRONT: N_("Front edge"), EDGE_BACK: N_("Back edge")},
           help=N_("Front edge: the face points to +Z. Back edge: the face points to -Z "
                   "(undercut, entered obliquely)")),
-        P("size", N_("Length in Z (chamfer) or radius"), 1.0, unit="mm", min=0.01, sym="L/R"),
-        P("angle", N_("Chamfer angle to the Z axis"), 45.0, unit="°", min=-89, max=89, sym="α",
+        P("size", N_("Chamfer length / radius"), 1.0, unit="mm", min=0.01, sym="L/R",
+          help=N_("Chamfer: length in Z, radius: radius")),
+        P("angle", N_("Chamfer angle to Z"), 45.0, unit="°", min=-89, max=89, sym="α",
           when=("kind", (CORNER_CHAMFER,)),
           help=N_("45° = equal legs. A negative angle puts the chamfer on the back edge")),
         P("diameter", N_("Ø of the edge"), 40.0, unit="mm", min=0.1, sym="D"),

@@ -196,6 +196,16 @@ class RadioBar(Gtk.Box):
         return False
 
 
+def short_combo():
+    """Choice box whose texts are shortened with … so that long entries do not widen the
+    column (the full text is shown in the opened list)."""
+    combo = Gtk.ComboBoxText()
+    for cell in combo.get_cells():
+        cell.set_property("ellipsize", Pango.EllipsizeMode.END)
+    combo.set_hexpand(True)
+    return combo
+
+
 def image_button(text, icon_name, tooltip=None, toggle=False):
     if toggle:
         button = Gtk.ToggleButton()
@@ -299,15 +309,15 @@ class ContourEditor(Gtk.Box):
 
         grid = Gtk.Grid(row_spacing=4, column_spacing=6)
         self.kind_combo = self._combo((_("Line G1"), _("Arc G2"), _("Arc G3")))
-        self.x_entry = NumEntry(width=6)
-        self.z_entry = NumEntry(width=6)
+        self.x_entry = NumEntry(width=4)
+        self.z_entry = NumEntry(width=4)
         self.arc_combo = self._combo([_(text) for _key, text in ARC_MODES])
-        self.radius_entry = NumEntry(allow_empty=True, width=6)
-        self.i_entry = NumEntry(allow_empty=True, width=6)
-        self.k_entry = NumEntry(allow_empty=True, width=6)
+        self.radius_entry = NumEntry(allow_empty=True, width=4)
+        self.i_entry = NumEntry(allow_empty=True, width=4)
+        self.k_entry = NumEntry(allow_empty=True, width=4)
         self.corner_combo = self._combo([_(text) for _key, text in CORNER_MODES])
-        self.size_entry = NumEntry(allow_empty=True, width=6)
-        self.angle_entry = NumEntry(allow_empty=True, width=6)
+        self.size_entry = NumEntry(allow_empty=True, width=4)
+        self.angle_entry = NumEntry(allow_empty=True, width=4)
         self.radius_label = Gtk.Label(label="R", xalign=0)
         self.i_label = Gtk.Label(label="I", xalign=0)
         self.k_label = Gtk.Label(label="K", xalign=0)
@@ -358,7 +368,7 @@ class ContourEditor(Gtk.Box):
         return box
 
     def _combo(self, texts):
-        combo = Gtk.ComboBoxText()
+        combo = short_combo()
         for text in texts:
             combo.append_text(text)
         combo.set_active(0)
@@ -666,7 +676,7 @@ class ParamForm(Gtk.Grid):
             entry.connect("changed", self.on_widget_changed, param.key)
             return entry
         if param.kind == "choice":
-            combo = Gtk.ComboBoxText()
+            combo = short_combo()
             for choice in param.choices:
                 combo.append(choice, _(param.choice_label(choice)))
             combo.set_active_id(param.default)
@@ -674,10 +684,7 @@ class ParamForm(Gtk.Grid):
             combo.connect("changed", self.on_widget_changed, param.key)
             return combo
         if param.kind == "tool":
-            combo = Gtk.ComboBoxText()
-            for cell in combo.get_cells():
-                cell.set_property("ellipsize", Pango.EllipsizeMode.END)
-            combo.set_hexpand(True)
+            combo = short_combo()
             self._fill_tools(combo, param.default)
             combo.connect("changed", self.on_widget_changed, param.key)
             return combo
@@ -687,6 +694,8 @@ class ParamForm(Gtk.Grid):
             switch.connect("notify::active", self.on_switch_changed, param.key)
             return switch
         entry = Gtk.Entry()
+        entry.set_width_chars(8)            # long paths scroll inside the field
+        entry.set_hexpand(True)
         entry.set_text(str(param.default))
         entry.connect("changed", self.on_widget_changed, param.key)
         return entry
