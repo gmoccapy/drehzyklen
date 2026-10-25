@@ -1,4 +1,4 @@
-# Drehzyklen – Zyklenprogrammierung für LinuxCNC-Drehmaschinen (gmoccapy)
+# Drehzyklen - lathe cycle programming for LinuxCNC (gmoccapy)
 # Copyright (C) 2026  nieson@web.de
 #
 # This program is free software; you can redistribute it and/or modify it under the terms of
@@ -13,7 +13,7 @@
 # if not, see <https://www.gnu.org/licenses/>.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Grafische Darstellung eines Drehwerkzeugs (Schneidplatte, Halter, Winkel) – reines Cairo."""
+"""Drawing of a turning tool (insert, holder, angles) - plain Cairo."""
 from __future__ import annotations
 
 import math
@@ -21,7 +21,8 @@ import math
 from .drawtext import show_text
 from .helpdraw import (BACKGROUND, DIMENSION, EDGE, HINT, MATERIAL, PATH, TEXT, Sketch,
                        value_text)
-from .tools import HAND_TEXT, table_angles
+from .i18n import _
+from .tools import HAND_TEXT, INSIDE, LEFT, RIGHT, table_angles
 
 INSERT_COLOR = (0.95, 0.78, 0.30)
 HOLDER_COLOR = (0.48, 0.50, 0.56)
@@ -37,7 +38,7 @@ def _add(point, vector, length=1.0):
 
 
 def draw_tool(cr, width, height, tool, flip=False, font=None):
-    """Zeichnet das Werkzeug mit der Schneide im Bildmittelpunkt."""
+    """Draws the tool with its cutting tip in the centre of the picture."""
     if font is None:
         font = max(9.0, min(12.5, min(width / 46, height / 24)))
     cr.set_source_rgb(*BACKGROUND)
@@ -46,7 +47,7 @@ def draw_tool(cr, width, height, tool, flip=False, font=None):
         cr.set_source_rgb(*HINT)
         cr.set_font_size(font)
         cr.move_to(10, 10 + font)
-        show_text(cr, "Kein Werkzeug gewählt")
+        show_text(cr, _("No tool selected"))
         return
     sketch = Sketch(cr, 0, font * 4, width, height - font * 4, (-26, 26, -16, 26), flip, font)
     length = 10.0
@@ -60,21 +61,21 @@ def draw_tool(cr, width, height, tool, flip=False, font=None):
         sketch.axis(-26, 26)
         sketch.arrow((6, -6), (-6, -6), PATH, 1.6)
         sketch.label((10, radius + 3), "Ø", value_text(tool.diameter))
-        _header(cr, font, tool, "Bohrer auf Drehmitte, bohrt nach −Z")
+        _header(cr, font, tool, _("Drill on the centre line, drills towards -Z"))
         return
 
     sector = tool.sector()
     if sector is None:
-        _header(cr, font, tool, "Typ, Hand und Lage angeben (Felder unten) – erst dann ist eine "
-                                "Prüfung möglich")
+        _header(cr, font, tool, _("Enter type, hand and position (fields below) - only then "
+                                  "can the tool be checked"))
         return
     low, high = sector
     edge_low = _direction(low)
     edge_high = _direction(high)
     bisector = _direction((low + high) / 2)
 
-    # Werkstück: außen unterhalb, innen oberhalb der Schneide
-    if tool.position == "innen":
+    # workpiece: outside below, inside above the cutting tip
+    if tool.position == INSIDE:
         sketch.polygon([(-26, 0.0), (26, 0.0), (26, 16), (-26, 16)], fill=MATERIAL)
         sketch.polygon([(-26, -16), (26, -16), (26, -14), (-26, -14)], fill=MATERIAL)
     else:
@@ -83,7 +84,7 @@ def draw_tool(cr, width, height, tool, flip=False, font=None):
     if tool.kind == "groove":
         half = max(tool.width, 1.0)
         blade = [(-half, 0), (half, 0), (half, length * 1.6), (-half, length * 1.6)]
-        if tool.position == "innen":
+        if tool.position == INSIDE:
             blade = [(z, -r) for z, r in blade]
         sketch.polygon(blade, fill=INSERT_COLOR, stroke=EDGE)
         holder_start = _add(tip, bisector, length * 1.6)
@@ -109,7 +110,7 @@ def draw_tool(cr, width, height, tool, flip=False, font=None):
         sketch.angle(tip, math.radians(low), math.radians(high), 34, "ε",
                      value_text(high - low, 1) + "°", label_distance=8)
 
-    # Halter: Richtung aus der Orientierung Q der tool.tbl, sonst entlang der Winkelhalbierenden
+    # holder: direction from the orientation Q of the tool.tbl, otherwise along the bisector
     shank = _direction(tool.shank_direction())
     shank_end = _add(holder_start, shank, 12.0)
     normal = (-shank[1], shank[0])
@@ -119,24 +120,25 @@ def draw_tool(cr, width, height, tool, flip=False, font=None):
     sketch.dot(tip, (1, 0.3, 0.3), 3.5)
     angles_text = _draw_table_angles(sketch, tool, tip, flip)
 
-    # Hauptschnittrichtung
-    if tool.hand == "rechts":
+    # main cutting direction
+    if tool.hand == RIGHT:
         sketch.arrow((-3, -6), (-15, -6), PATH, 1.8)
-        sketch.label((-15, -9), "Schnitt", "−Z", anchor="l")
-    elif tool.hand == "links":
+        sketch.label((-15, -9), _("Cut"), "-Z", anchor="l")
+    elif tool.hand == LEFT:
         sketch.arrow((3, -6), (15, -6), PATH, 1.8)
-        sketch.label((15, -9), "Schnitt", "+Z", anchor="r")
+        sketch.label((15, -9), _("Cut"), "+Z", anchor="r")
     if tool.kind not in ("groove", "thread", "R"):
         sketch.label((-22, 22), "κ", value_text(tool.lead_angle, 1) + "°", anchor="l")
     if tool.kind == "groove":
         sketch.label((-22, 22), "b", value_text(tool.width), anchor="l")
     sketch.label((-22, 18), "r", value_text(tool.nose_radius), anchor="l")
-    _header(cr, font, tool, f"{HAND_TEXT.get(tool.hand, tool.hand)}, {tool.position} · "
-                            f"{angles_text} · Quelle: {tool.source}")
+    _header(cr, font, tool, _("{hand}, {position} · {angles} · source: {source}").format(
+        hand=_(HAND_TEXT.get(tool.hand, tool.hand)), position=tool.position_text(),
+        angles=angles_text, source=tool.source_text()))
 
 
 def _draw_table_angles(sketch, tool, tip, flip):
-    """Front- und Rückwinkel wie in der tool.tbl: im Uhrzeigersinn ab Z+ (LinuxCNC-Ansicht)."""
+    """Front and back angle as in the tool.tbl: clockwise from Z+ (LinuxCNC view)."""
     back_tool = not flip
     if tool.angles_from_table:
         front, back, orientation = tool.front_angle, tool.back_angle, tool.orientation

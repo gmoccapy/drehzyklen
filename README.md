@@ -4,6 +4,11 @@ Zyklenprogrammierung für Drehmaschinen. Du stellst Zyklen in einer Liste zusamm
 Abtrag und Parameterbild und erzeugst daraus das fertige CNC-Programm (`.ngc`). Das Programm läuft
 als **Benutzer-Tab in gmoccapy** (ab 1024×768) oder als **eigenes Fenster**.
 
+Die Oberfläche ist standardmäßig **englisch**; Deutsch und Spanisch lassen sich unten rechts in der
+Bedienleiste jederzeit umschalten (siehe [Sprache](#sprache)). Die Begriffe in dieser Anleitung
+entsprechen der deutschen Übersetzung. Wie das Programm intern arbeitet, beschreibt
+[docs/ARCHITEKTUR.md](docs/ARCHITEKTUR.md).
+
 ## Oberfläche
 
 ```
@@ -15,7 +20,7 @@ als **Benutzer-Tab in gmoccapy** (ab 1024×768) oder als **eigenes Fenster**.
 │ 3 G-Code    │ │ …                │ │   Mausrad: Zoom · linke Maustaste: verschieben ·              │
 │ ▲ ▼ ✎ ⧉ ✖  │ │ ＋ Zum Programm  │ │   Doppelklick: zurücksetzen                                   │
 ├─────────────┴─┴──────────────────┴─┴───────────────────────────────────────────────────────────────┤
-│ Neu   Öffnen   Speichern   G-Code                                                Maschine   Laden  │
+│ Neu   Öffnen   Speichern   G-Code                                    [Deutsch ▾]  Maschine   Laden  │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 - **Spalten:** Programm- und Parameterspalte sind schmal, ihre Breite stellst du mit den Griffen (╫)
@@ -169,9 +174,9 @@ Die Tabellen stehen in `drehzyklen/data/threads.json`. Eigene Gewinde trägst du
 `~/.config/drehzyklen/threads.json` ein (wird beim ersten Start mit einem Beispiel angelegt):
 
 ```json
-{"norms": {"Eigene": {"label": "Eigene Gewinde", "angle": 60}},
- "threads": [{"norm": "Eigene", "name": "M12x0,75", "diameter": 12.0, "pitch": 0.75},
-             {"norm": "UNF", "name": "7/16-28 Sonder", "diameter_inch": 0.4375, "tpi": 28}]}
+{"norms": {"Own": {"label": "Eigene Gewinde", "angle": 60}},
+ "threads": [{"norm": "Own", "name": "M12x0.75", "diameter": 12.0, "pitch": 0.75},
+             {"norm": "UNF", "name": "7/16-28 special", "diameter_inch": 0.4375, "tpi": 28}]}
 ```
 
 `diameter` (mm) oder `diameter_inch`, `pitch` (mm) oder `tpi`, optional `angle`. Gleicher Name in
@@ -224,6 +229,7 @@ Z = 250
 ```
 python3 start_drehzyklen.py --ini ~/linuxcnc/configs/meine_drehe/meine_drehe.ini
 python3 start_drehzyklen.py --gcode beispiel.dzp > teil.ngc
+python3 start_drehzyklen.py --language de
 ```
 
 Welche INI gelesen wird (Werkzeugtabelle `[EMCIO] TOOL_TABLE`, Grenzen, G53-Wechselposition):
@@ -234,6 +240,22 @@ Welche INI gelesen wird (Werkzeugtabelle `[EMCIO] TOOL_TABLE`, Grenzen, G53-Wech
 
 Welche Datei benutzt wurde, steht unten im Reiter Maschine.
 
+## Sprache
+
+- Die Auswahl unten in der Bedienleiste wechselt die Sprache **sofort**: die Oberfläche wird neu
+  aufgebaut, Programm, Eingaben und der gerade bearbeitete Schritt bleiben erhalten. Die Wahl wird in
+  `settings.json` gespeichert. Auch die Kommentare im erzeugten G-Code folgen der Sprache.
+- Beim Start: `--language de` (oder `en`, `es`) setzt die Sprache und speichert sie.
+- Gespeichert werden sprachunabhängige Schlüssel (z.B. `"side": "outside"`, `"speed_feed":
+  "G96_G95"`). Projekte (`.dzp`), Werkzeugangaben und Schnittdaten aus älteren Versionen mit
+  deutschen Werten werden beim Laden automatisch umgesetzt.
+- Die Übersetzungen liegen als Gettext-Dateien in `drehzyklen/locale/` (`de.po`, `es.po`) und werden
+  zur Laufzeit gelesen, ein Übersetzen mit `msgfmt` ist nicht nötig. Nach Textänderungen im
+  Quellcode sammelt `python3 scripts/update_translations.py` alle `_("…")`/`N_("…")`-Texte in
+  `drehzyklen.pot` und ergänzt fehlende Einträge in allen `.po`-Dateien (meldet „x von y
+  übersetzt“). Eine weitere Sprache: `drehzyklen.pot` nach `<code>.po` kopieren, übersetzen und den
+  Namen in `LANGUAGE_NAMES` (`drehzyklen/i18n.py`) eintragen.
+
 ## Wichtig vor dem ersten Span
 
 - Prüfe neue Programme in der Simulation (`configs/sim/gmoccapy/lathe_configs`) oder im Luftschnitt.
@@ -243,21 +265,32 @@ Welche Datei benutzt wurde, steht unten im Reiter Maschine.
 ## Aufbau
 
 ```
-start_drehzyklen.py      Start (Fenster, gmoccapy-Plug, Kommandozeile)
-drehzyklen/geometry.py   Konturtext, Bögen, Ecken, Schruppebenen
-drehzyklen/cycles.py     Zyklen, Grenzwerte, Werkzeugprüfung, Programmerzeugung
-drehzyklen/gcode.py      G-Code-Ausgabe, Spiegelung ins Arbeitssystem
-drehzyklen/material.py   Abtragssimulation
-drehzyklen/tools.py      Werkzeugtabelle (tool.tbl / Vorgaben)
-drehzyklen/threads.py    Gewindetabellen (metrisch, UNC, UNF, BSW, G)
-drehzyklen/machine.py    Maschinendaten (machine.json + INI)
-drehzyklen/settings.py   letzter Ordner, Textbausteine, Schnittdaten
-drehzyklen/render.py     Vorschau mit Zoom
-drehzyklen/helpdraw.py   Parameterbilder und Symbole
-drehzyklen/tooldraw.py   Werkzeuggrafik
-drehzyklen/widgets.py    GTK-Bausteine
-drehzyklen/gui.py        Oberfläche
-tests/test_core.py       Tests (python3 tests/test_core.py)
+start_drehzyklen.py          Start (Fenster, gmoccapy-Plug, Kommandozeile)
+drehzyklen/cycles/           ein Modul je Zyklus, jedes beschreibt oben seine Werkzeugbahn
+  facing.py longturning.py taper.py edgebreak.py contour.py thread.py drill.py gcodeblock.py
+  params.py                  Feldbeschreibungen (P), Auswahlschlüssel, gemeinsame Parametergruppen
+  base.py                    Basisklasse Cycle (Werte, Richtung, Drehzahl/Vorschub)
+  turning.py                 TurningCycle, ContourTurner (Schruppebenen + Schlichtschnitt)
+  toolcheck.py               passt das Werkzeug zur Kontur?
+  stock.py                   Rohteil und Aufspannung
+  program.py                 Program.generate(): Prüfungen, Kopf, Werkzeugwechsel, Abtrag
+drehzyklen/geometry.py       Konturtext, Bögen, Ecken, Schruppebenen
+drehzyklen/gcode.py          G-Code-Ausgabe, Spiegelung ins Arbeitssystem
+drehzyklen/material.py       Abtragssimulation
+drehzyklen/tools.py          Werkzeugtabelle (tool.tbl / Vorgaben), Schreiben in die tool.tbl
+drehzyklen/threads.py        Gewindetabellen (data/threads.json + eigene)
+drehzyklen/machine.py        Maschinendaten (machine.json + INI)
+drehzyklen/settings.py       Sprache, letzter Ordner, Textbausteine, Schnittdaten
+drehzyklen/i18n.py           Übersetzung (_(), N_(), Sprachwechsel), locale/*.po
+drehzyklen/render.py         Vorschau mit Zoom
+drehzyklen/helpdraw.py       Parameterbilder und Symbole
+drehzyklen/tooldraw.py       Werkzeuggrafik
+drehzyklen/drawtext.py       Text in Grafiken (Ersatz für fehlende Zeichen)
+drehzyklen/widgets.py        GTK-Bausteine
+drehzyklen/gui.py            Oberfläche, App (Sprachwechsel durch Neuaufbau)
+drehzyklen/data/             threads.json, Programmsymbol drehzyklen.svg/.png
+scripts/update_translations.py   Übersetzungsdateien aktualisieren
+tests/test_core.py           Tests (python3 tests/test_core.py)
 ```
 
 ## Lizenz

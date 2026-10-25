@@ -1,4 +1,4 @@
-# Drehzyklen – Zyklenprogrammierung für LinuxCNC-Drehmaschinen (gmoccapy)
+# Drehzyklen - lathe cycle programming for LinuxCNC (gmoccapy)
 # Copyright (C) 2026  nieson@web.de
 #
 # This program is free software; you can redistribute it and/or modify it under the terms of
@@ -13,7 +13,7 @@
 # if not, see <https://www.gnu.org/licenses/>.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""G-Code-Ausgabe mit gleichzeitiger Aufzeichnung der Werkzeugbahn (für Vorschau und Prüfungen)."""
+"""G-code output that records the tool path at the same time (for the preview and checks)."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -32,31 +32,31 @@ def fmt(value: float, digits: int = 4) -> str:
 @dataclass
 class Segment:
     kind: str           # "rapid" | "feed" | "arc" | "thread"
-    x0: float           # Durchmesser
+    x0: float           # diameter
     z0: float
     x1: float
     z1: float
     radius: float = 0.0
     ccw: bool = False
-    op: int = 0         # Nummer der Operation
-    cz: float = 0.0     # Bogenmittelpunkt Z
-    cr: float = 0.0     # Bogenmittelpunkt als Radius
+    op: int = 0         # number of the operation
+    cz: float = 0.0     # arc centre Z
+    cr: float = 0.0     # arc centre as radius
 
 
 class Emitter:
-    """Schreibt G-Code-Zeilen und merkt sich Position, Vorschub und Bahn."""
+    """Writes G-code lines and keeps track of position, feed and path."""
 
     def __init__(self):
         self.lines: List[str] = []
         self.path: List[Segment] = []
-        self.x: Optional[float] = None      # Durchmesser
+        self.x: Optional[float] = None      # diameter
         self.z: Optional[float] = None
         self.feed_value: Optional[float] = None
-        self.radius_mode = False            # G8 aktiv?
+        self.radius_mode = False            # G8 active?
         self.feed_mode = "G95"
         self.op = 0
 
-    # ---------------------------------------------------------------- Grundlagen
+    # ---------------------------------------------------------------- basics
     def emit(self, text: str):
         self.lines.append(text)
 
@@ -118,7 +118,7 @@ class Emitter:
             return "F" + fmt(feed)
         return ""
 
-    # ---------------------------------------------------------------- Bewegungen
+    # ---------------------------------------------------------------- moves
     def rapid(self, x: Optional[float] = None, z: Optional[float] = None):
         self._move("G0", "rapid", x, z)
 
@@ -139,10 +139,10 @@ class Emitter:
 
     def arc(self, x: float, z: float, center_z: float, center_r: float, counter_clockwise: bool,
             f: Optional[float] = None):
-        """Kreisbogen im Mittelpunktformat. x = Durchmesser, Mittelpunkt (center_r als Radius).
+        """Arc in centre format. x = diameter, centre given with center_r as radius.
 
-        I/K werden relativ zum Anfangspunkt (G91.1) und als Radiuswert ausgegeben – der Bogen
-        steht deshalb im Radiusmodus G8 (turn_contour sorgt dafür).
+        I/K are written relative to the start point (G91.1) and as radius values - the arc is
+        therefore output in radius mode G8 (the contour turner takes care of that).
         """
         feed_word = self._feed_word(f)
         start_radius = self.x / 2.0
@@ -164,7 +164,7 @@ class Emitter:
         self.z = z
 
     def follow(self, points, f: Optional[float] = None):
-        """G1 entlang einer Punktliste (z, r)."""
+        """G1 along a list of points (z, r)."""
         for z, r in points:
             self.feed(x=2 * r, z=z, f=f)
 
@@ -184,11 +184,11 @@ class Emitter:
 
 
 class TransformedEmitter:
-    """Nimmt Bewegungen im Arbeitssystem eines Zyklus entgegen und gibt sie gespiegelt aus.
+    """Takes moves in the work frame of a cycle and writes them mirrored back.
 
-    Arbeitssystem: Bearbeitung in −Z, Material oberhalb der Kontur.
-      radius_sign = −1: Innenbearbeitung (Spiegelung an der Drehachse)
-      z_sign      = −1: Bearbeitung von links nach rechts (Spiegelung an Z = 0)
+    Work frame: machining towards -Z, material above the contour.
+      radius_sign = -1: inside machining (mirrored at the spindle axis)
+      z_sign      = -1: machining from left to right (mirrored at Z = 0)
     """
 
     def __init__(self, emitter: Emitter, radius_sign: int = 1, z_sign: int = 1):

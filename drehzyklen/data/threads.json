@@ -1,12 +1,12 @@
 {
- "_info": "Gewindetabellen für Drehzyklen. diameter in mm oder diameter_inch in Zoll; pitch in mm oder tpi (Gänge je Zoll); angle (Flankenwinkel) optional, sonst der Winkel der Norm. Eigene Gewinde gehören in ~/.config/drehzyklen/threads.json.",
+ "_info": "Thread tables of Drehzyklen. diameter in mm or diameter_inch in inch; pitch in mm or tpi (threads per inch); angle (flank angle) optional, otherwise the angle of the norm. Own threads belong in ~/.config/drehzyklen/threads.json.",
  "norms": {
-  "M": {"label": "Metrisch Regelgewinde", "angle": 60},
-  "MF": {"label": "Metrisch Feingewinde", "angle": 60},
-  "UNC": {"label": "UNC (Zoll, grob)", "angle": 60},
-  "UNF": {"label": "UNF (Zoll, fein)", "angle": 60},
+  "M": {"label": "Metric coarse thread", "angle": 60},
+  "MF": {"label": "Metric fine thread", "angle": 60},
+  "UNC": {"label": "UNC (inch, coarse)", "angle": 60},
+  "UNF": {"label": "UNF (inch, fine)", "angle": 60},
   "BSW": {"label": "Whitworth BSW (55°)", "angle": 55},
-  "G": {"label": "Rohrgewinde G / BSP (55°)", "angle": 55}
+  "G": {"label": "Pipe thread G / BSP (55°)", "angle": 55}
  },
  "threads": [
   {"norm": "M", "name": "M3", "diameter": 3.0, "pitch": 0.5},

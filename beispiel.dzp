@@ -1,10 +1,10 @@
 {
-  "name": "Beispielwelle",
+  "name": "Example shaft",
   "stock": {
     "D": 64,
     "d": 0.0,
     "L": 70,
-    "zero": "Vorderkante",
+    "zero": "front",
     "face": 1,
     "chuck_clear": 2.0
   },
@@ -12,10 +12,10 @@
     {
       "cycle": "facing",
       "values": {
-        "side": "Außen",
+        "side": "outside",
         "tool": 1,
         "tool_ok": false,
-        "speed_feed": "G96 Vc · G95 mm/U",
+        "speed_feed": "G96_G95",
         "speed": 180.0,
         "spindle_dir": "auto",
         "coolant": true,
@@ -32,15 +32,15 @@
     {
       "cycle": "contour",
       "values": {
-        "side": "Außen",
+        "side": "outside",
         "tool": 7,
         "tool_ok": false,
-        "speed_feed": "G96 Vc · G95 mm/U",
+        "speed_feed": "G96_G95",
         "speed": 180.0,
         "spindle_dir": "auto",
         "coolant": true,
         "contour": "X0 Z0\nX50 Z0 C2 A30\nX50 Z-20\nX60 Z-20 R5\nX60 Z-50\nX64 Z-50",
-        "corner_mode": "keine",
+        "corner_mode": "none",
         "corner_size": 1.0,
         "ap": 1.5,
         "f_rough": 0.25,
@@ -49,7 +49,7 @@
         "allow_z": 0.1,
         "do_rough": true,
         "do_finish": true,
-        "comp": "aus"
+        "comp": "off"
       }
     },
     {
@@ -64,7 +64,7 @@
       "values": {
         "tool": 11,
         "tool_ok": false,
-        "speed_feed": "G96 Vc · G95 mm/U",
+        "speed_feed": "G96_G95",
         "speed": 25.0,
         "spindle_dir": "auto",
         "coolant": true,
@@ -72,8 +72,8 @@
         "tip_angle": 118.0,
         "z_start": 0.0,
         "z_end": -30,
-        "depth_ref": "Spitze",
-        "mode": "Entspanen",
+        "depth_ref": "tip",
+        "mode": "peck",
         "peck": 8,
         "break_back": 0.5,
         "dwell": 0.0,
@@ -83,10 +83,10 @@
     {
       "cycle": "long",
       "values": {
-        "side": "Innen",
+        "side": "inside",
         "tool": 12,
         "tool_ok": false,
-        "speed_feed": "G96 Vc · G95 mm/U",
+        "speed_feed": "G96_G95",
         "speed": 180.0,
         "spindle_dir": "auto",
         "coolant": true,
@@ -94,9 +94,9 @@
         "d_end": 20,
         "z_start": 0.0,
         "z_end": -12,
-        "start_kind": "Fase",
+        "start_kind": "chamfer",
         "start_size": 1,
-        "end_kind": "keine",
+        "end_kind": "none",
         "end_size": 1.0,
         "ap": 1.5,
         "f_rough": 0.25,
@@ -105,18 +105,25 @@
         "allow_z": 0.1,
         "do_rough": true,
         "do_finish": true,
-        "comp": "aus"
+        "comp": "off"
       }
     },
     {
       "cycle": "thread",
       "values": {
-        "side": "Außen",
+        "side": "outside",
         "tool": 10,
         "tool_ok": false,
         "speed": 500,
         "spindle_dir": "auto",
         "coolant": true,
+        "norm": "free",
+        "size_m": "M3",
+        "size_mf": "M6x0,75",
+        "size_unc": "#4-40 UNC",
+        "size_unf": "#4-48 UNF",
+        "size_bsw": "1/8-40 BSW",
+        "size_g": "G1/16",
         "diameter": 60,
         "pitch": 1.5,
         "z_begin": -25,

@@ -1,4 +1,4 @@
-# Drehzyklen – Zyklenprogrammierung für LinuxCNC-Drehmaschinen (gmoccapy)
+# Drehzyklen - lathe cycle programming for LinuxCNC (gmoccapy)
 # Copyright (C) 2026  nieson@web.de
 #
 # This program is free software; you can redistribute it and/or modify it under the terms of
@@ -13,11 +13,11 @@
 # if not, see <https://www.gnu.org/licenses/>.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Parameterbilder (bemaßte Skizzen) und Symbole für die Zyklen – reines Cairo, ohne GTK.
+"""Parameter pictures (dimensioned sketches) and icons of the cycles - plain Cairo, no GTK.
 
-Jede Skizze ist schematisch (feste Proportionen); die Beschriftung zeigt Kurzzeichen und den
-aktuell eingestellten Wert, z.B. "Z2 = -30". Gezeichnet wird im Modellsystem (Z nach rechts,
-X nach oben); bei Werkzeug vor der Drehmitte wird die Darstellung gespiegelt (X+ nach unten).
+Every sketch is schematic (fixed proportions); the labels show the symbol and the value that is
+currently set, e.g. "Z2 = -30". Drawing happens in the model frame (Z to the right, X up); with
+the tool in front of the centre line the picture is mirrored (X+ down).
 """
 from __future__ import annotations
 
@@ -26,6 +26,7 @@ from typing import Dict, List
 
 from .drawtext import show_text, text_width
 from .geometry import ContourError, Row, parse_rows, polyline, resolve_rows, row_to_text
+from .i18n import N_, _
 
 BACKGROUND = (0.11, 0.12, 0.14)
 MATERIAL = (0.44, 0.47, 0.52)
@@ -40,7 +41,7 @@ CHUCK = (0.30, 0.31, 0.34)
 CHUCK_BODY = (0.25, 0.26, 0.29)
 DANGER = (1.0, 0.35, 0.3, 0.35)
 
-DIRECTION_LINES = ["Z1 > Z2: Bearbeitung nach −Z", "Z1 < Z2: nach +Z (linkes Werkzeug)"]
+DIRECTION_LINES = [N_("Z1 > Z2: machining towards -Z"), N_("Z1 < Z2: towards +Z (left-hand tool)")]
 
 
 def value_text(value, digits=3) -> str:
@@ -48,8 +49,8 @@ def value_text(value, digits=3) -> str:
         return "–"
     if isinstance(value, bool):
         if value:
-            return "ja"
-        return "nein"
+            return _("yes")
+        return _("no")
     if isinstance(value, (int, float)):
         text = f"{value:.{digits}f}".rstrip("0").rstrip(".")
         if text in ("-0", ""):
@@ -66,7 +67,7 @@ def set_color(cr, color):
 
 
 class Sketch:
-    """Abbildung Modell (z, r) -> Bildschirm, mit Bemaßungshelfern."""
+    """Mapping model (z, r) -> screen, with dimensioning helpers."""
 
     def __init__(self, cr, left, top, width, height, bounds, flip=False, font=11.0, padding=6):
         self.cr = cr
@@ -92,7 +93,7 @@ class Sketch:
     def to_model(self, x, y):
         return (x - self.origin_x) / self.scale, (self.origin_y - y) / (self.sign * self.scale)
 
-    # ---------------------------------------------------------------- Grundformen
+    # ---------------------------------------------------------------- basic shapes
     def _path(self, points, close=False):
         self.cr.move_to(*self.to_screen(*points[0]))
         for point in points[1:]:
@@ -149,7 +150,7 @@ class Sketch:
             self._arrow_head(start_screen, end_screen, color)
 
     def origin_cross(self, point, length=6.0, color=(1.0, 0.85, 0.2)):
-        """Koordinatenkreuz am Werkstücknullpunkt: Z+ nach rechts, X+ nach außen."""
+        """Coordinate cross at the workpiece zero: Z+ to the right, X+ outwards."""
         z, r = point
         self.arrow((z, r), (z + length, r), color, 1.6)
         self.arrow((z, r), (z, r + length), color, 1.6)
@@ -166,7 +167,7 @@ class Sketch:
 
     # ---------------------------------------------------------------- Text
     def label(self, point, symbol, value=None, anchor="c", dx=0.0, dy=0.0, color=DIMENSION):
-        """Beschriftung 'symbol = wert' mit Hintergrund an Modellpunkt point (dx/dy in Pixeln)."""
+        """Label 'symbol = value' with background at the model point (dx/dy in pixels)."""
         cr = self.cr
         cr.set_font_size(self.font)
         cr.select_font_face("Sans", 0, 1)
@@ -206,6 +207,8 @@ class Sketch:
         cr.select_font_face("Sans", 0, 0)
 
     def legend(self, x, y, lines: List[str], size=None):
+        """Text block; "key: text" is drawn with a bold key. Lines are translated here."""
+        lines = [_(text) for text in lines]
         cr = self.cr
         if size is None:
             size = self.font * 0.92
@@ -234,10 +237,10 @@ class Sketch:
                 cr.move_to(x, baseline)
                 show_text(cr, text)
 
-    # ---------------------------------------------------------------- Bemaßung
+    # ---------------------------------------------------------------- dimensions
     def dim_z(self, z_from, z_to, r, symbol, value=None, extension_from=None, label_position=0.5,
               anchor="c", label_dy=None):
-        """Horizontale Bemaßung (in Z) auf Höhe r, Hilfslinien ab extension_from=(r0, r1)."""
+        """Horizontal dimension (in Z) at height r, extension lines from extension_from=(r0, r1)."""
         if extension_from:
             for z, start_radius in ((z_from, extension_from[0]), (z_to, extension_from[1])):
                 if start_radius is not None:
@@ -250,7 +253,7 @@ class Sketch:
 
     def dim_r(self, z, r_from, r_to, symbol, value=None, extension_from=None, anchor="l",
               label_dx=5, label_position=0.5):
-        """Vertikale Bemaßung (radial) an Stelle z, Hilfslinien ab extension_from=(z0, z1)."""
+        """Vertical (radial) dimension at z, extension lines from extension_from=(z0, z1)."""
         if extension_from:
             for start_z, radius in ((extension_from[0], r_from), (extension_from[1], r_to)):
                 if start_z is not None:
@@ -260,7 +263,7 @@ class Sketch:
         self.label((z, label_r), symbol, value, anchor=anchor, dx=label_dx)
 
     def z_mark(self, z, r_from, r_to, symbol, value, anchor="c"):
-        """Senkrechte Hilfslinie an einer Z-Position mit Beschriftung am Ende."""
+        """Vertical helper line at a Z position with a label at its end."""
         self.line((z, r_from), (z, r_to), DIMENSION, 0.9, [4, 3])
         upward_on_screen = (r_to > r_from) != self.flip
         if upward_on_screen:
@@ -270,7 +273,7 @@ class Sketch:
         self.label((z, r_to), symbol, value, anchor=anchor, dy=label_dy)
 
     def angle(self, center, angle_from, angle_to, radius_px, symbol, value=None, label_distance=16):
-        """Winkelbogen um Modellpunkt center, Winkel im Modell (z rechts, r oben)."""
+        """Angle arc around the model point center, angles in the model (z right, r up)."""
         cr = self.cr
         center_x, center_y = self.to_screen(*center)
         if self.flip:
@@ -290,14 +293,14 @@ class Sketch:
         self.label(self.to_model(label_x, label_y), symbol, value)
 
     def leader(self, point, label_point, symbol, value=None, anchor="c"):
-        """Hinweislinie von der Beschriftung zum Punkt."""
+        """Leader line from the label to the point."""
         self.line(label_point, point, DIMENSION, 0.9)
         self.dot(point, DIMENSION, 2.5)
         self.label(label_point, symbol, value, anchor=anchor)
 
 
 def contour_from_diameters(*points):
-    """Kontur aus (X-Durchmesser, Z[, Ecke, Größe[, Winkel, Bezug]]) – wie im Konturtext."""
+    """Contour from (X diameter, Z[, corner, size[, angle, reference]]) - as in the contour text."""
     rows = []
     for point in points:
         row = Row("L", point[0], point[1])
@@ -312,7 +315,7 @@ def contour_from_diameters(*points):
 
 
 def contour_from_model(*points):
-    """Kontur aus Modellpunkten (z, r[, Ecke, Größe[, Winkel, Bezug]])."""
+    """Contour from model points (z, r[, corner, size[, angle, reference]])."""
     rows = []
     for point in points:
         row = Row("L", 2 * point[1], point[0])
@@ -330,10 +333,10 @@ def feeds_text(values) -> str:
     return f"{value_text(values.get('f_rough'))} / {value_text(values.get('f_finish'))}"
 
 
-# =========================================================================== Skizzen
+# =========================================================================== sketches
 
 def draw_facing(sketch: Sketch, values, inside):
-    # Richtung aus den Werten: D < d = Planschnitt nach außen, sonst zur Mitte
+    # direction from the values: D < d = facing outwards, otherwise towards the centre
     try:
         outward = float(values["d_end"]) > float(values["d_start"])
     except (TypeError, ValueError):
@@ -390,22 +393,25 @@ def draw_facing(sketch: Sketch, values, inside):
 
 
 def corner_spec(kind, size):
-    if kind == "Fase":
+    if kind == "chamfer":
         return ("C", size)
-    if kind == "Radius":
+    if kind == "radius":
         return ("R", size)
     return ()
 
 
+CORNER_TEXT = {"chamfer": N_("Chamfer"), "radius": N_("Radius")}
+
+
 def corner_text(kind, size):
-    if kind == "keine" or kind is None:
-        return "keine"
-    return f"{kind} {value_text(size)}"
+    if kind not in CORNER_TEXT:
+        return _("none")
+    return f"{_(CORNER_TEXT[kind])} {value_text(size)}"
 
 
 def draw_long(sketch: Sketch, values, inside):
-    start_corner = corner_spec(values.get("start_kind", "keine"), 2.0)
-    end_corner = corner_spec(values.get("end_kind", "keine"), 3.0)
+    start_corner = corner_spec(values.get("start_kind", "none"), 2.0)
+    end_corner = corner_spec(values.get("end_kind", "none"), 3.0)
     start_text = corner_text(values.get("start_kind"), values.get("start_size"))
     end_text = corner_text(values.get("end_kind"), values.get("end_size"))
     allowance = f"{value_text(values['allow_x'])} / {value_text(values['allow_z'])}"
@@ -531,7 +537,11 @@ def draw_taper(sketch: Sketch, values, inside):
             sketch.arrow((3, level), (-24.6, level), PATH, 1.1, dash=[5, 3])
         sketch.dim_r(6, bore_radius, 7.5, "ap", value_text(values["ap"]),
                      extension_from=(0, None), label_position=1.0)
-    sketch.label((-10, -4), "Angabe über", str(values["mode"]))
+    if values.get("mode") == "angle":
+        mode_text = _("Angle")
+    else:
+        mode_text = _("End diameter")
+    sketch.label((-10, -4), _("Given by"), mode_text)
 
 
 def draw_thread(sketch: Sketch, values, inside):
@@ -568,7 +578,7 @@ def draw_thread(sketch: Sketch, values, inside):
     sketch.z_mark(0, crest, top, "Z1", value_text(values["z_begin"]), "c")
     sketch.z_mark(z_start_point, drive_radius, top, "Zs", value_text(values["z_start"]), "l")
     sketch.z_mark(z_end, crest, top, "Z2", value_text(values["z_end"]), "c")
-    sketch.label((z_start_point, drive_radius), "Start", None, anchor="l", dx=6,
+    sketch.label((z_start_point, drive_radius), _("Start"), None, anchor="l", dx=6,
                  dy=sketch.font * 1.1 * sketch.sign, color=PATH)
     sketch.dim_z(z_end + 5, z_end, drive_radius + sign * 3.5, "E", value_text(values["chamfer_e"]),
                  extension_from=(drive_radius, drive_radius + sign * 2.0))
@@ -584,7 +594,7 @@ def draw_thread(sketch: Sketch, values, inside):
 
 
 def draw_thread_detail(cr, left, top, width, height, values, font):
-    """Vergrößerter Gewindegang: Zustellwinkel Q, erste Zustellung J, Degression R, Tiefe K."""
+    """Enlarged thread groove: infeed angle Q, first depth J, degression R, depth K."""
     sketch = Sketch(cr, left, top, width, height, (-6, 6, -1.0, 7.5), False, font, padding=4)
     cr.set_source_rgba(*BACKGROUND, 1.0)
     cr.rectangle(left, top, width, height)
@@ -627,9 +637,9 @@ def draw_thread_detail(cr, left, top, width, height, values, font):
 
 def draw_edge(sketch: Sketch, values, inside):
     length = 4.0
-    is_chamfer = values["kind"] == "Fase"
+    is_chamfer = values["kind"] == "chamfer"
     angle = abs(float(values.get("angle") or 45))
-    back_edge = values.get("edge") == "Rückkante"
+    back_edge = values.get("edge") == "back"
     if is_chamfer and float(values.get("angle") or 45) < 0:
         back_edge = not back_edge
     if is_chamfer:
@@ -645,7 +655,7 @@ def draw_edge(sketch: Sketch, values, inside):
         sign = 1
         far = 0.0
     if back_edge:
-        # Bund (z > Z1) mit Kante an der Rückseite, dahinter kleinerer Ø
+        # collar (z > Z1) with the edge at its back, a smaller Ø behind it
         neck = radius - sign * (leg + 3)
         sketch.polygon([(0, radius), (-length - 1, radius), (0, radius - sign * (leg + 1))],
                        fill=MATERIAL_REMOVED)
@@ -676,7 +686,7 @@ def draw_edge(sketch: Sketch, values, inside):
             note_radius = 27.0
         else:
             note_radius = -3.0
-        sketch.label((-26, note_radius), "Rückkante", "schräg anfahren", anchor="l")
+        sketch.label((-26, note_radius), _("Back edge"), _("entered obliquely"), anchor="l")
         return
     if not inside:
         sketch.polygon([(0, radius - leg - 1), (0, radius), (-length - 1, radius)],
@@ -747,10 +757,11 @@ def draw_drill(sketch: Sketch, values):
             start_z += 0.6
         sketch.arrow((start_z, 1.2), (end_z, 1.2), PATH, 1.2)
     sketch.z_mark(0, 18, 22.5, "Z1", value_text(values["z_start"]), "l")
-    if values.get("depth_ref") == "Spitze":
-        sketch.z_mark(z_tip, 0, -23, "Z2 (Spitze)", value_text(values["z_end"]), "c")
+    if values.get("depth_ref") == "tip":
+        sketch.z_mark(z_tip, 0, -23, _("Z2 (tip)"), value_text(values["z_end"]), "c")
     else:
-        sketch.z_mark(z_shoulder, radius, -23, "Z2 (voller Ø)", value_text(values["z_end"]), "c")
+        sketch.z_mark(z_shoulder, radius, -23, _("Z2 (full Ø)"), value_text(values["z_end"]),
+                      "c")
     sketch.dim_r(-8, 0, radius, "ØD", value_text(values["diameter"]), label_position=1.6,
                  label_dx=4)
     sketch.dim_z(0, -6, -2.6, "Q", value_text(values["peck"]), label_dy=0)
@@ -795,19 +806,20 @@ def draw_contour_example(sketch: Sketch, values, inside):
         sketch.label((-20, 15), "P4", "X30 Z-20", "l", dx=6, dy=font * 0.9 * sign)
         sketch.label((-50, 15), "P5", "X30 Z-50", "l", dx=6, dy=-font * 1.0 * sign)
         sketch.label((-50, 10), "P6", "X20 Z-50", "l", dx=6, dy=font * 1.0 * sign)
-    sketch.label((-62, -2.6), "ap", value_text(values["ap"]) + " (Zustellung radial)", anchor="l")
+    sketch.label((-62, -2.6), "ap", value_text(values["ap"]) + " " + _("(radial depth of cut)"),
+                 anchor="l")
 
 
 def contour_geometry(values, inside):
-    """Eigene Kontur für das Parameterbild: (Zeilen, Punkte, Grenzen) oder None bei Fehlern."""
+    """The own contour for the parameter picture: (rows, points, bounds) or None on errors."""
     try:
         rows = parse_rows(str(values.get("contour", "")))
         if len(rows) < 2:
             return None
         corner_mode = values.get("corner_mode")
-        if corner_mode == "Radius":
+        if corner_mode == "radius":
             default = "R"
-        elif corner_mode == "Fase":
+        elif corner_mode == "chamfer":
             default = "C"
         else:
             default = None
@@ -827,7 +839,7 @@ def contour_geometry(values, inside):
 
 
 def draw_contour(sketch: Sketch, values, inside, rows, points):
-    """Die eingegebene Kontur mit den Punkten P1…Pn und ihren Werten."""
+    """The entered contour with the points P1…Pn and their values."""
     z_first = points[0][0]
     z_end, r_end = points[-1]
     span = max(abs(z_end - z_first), 1.0)
@@ -835,7 +847,7 @@ def draw_contour(sketch: Sketch, values, inside, rows, points):
         z_last = z_end - 0.08 * span
     else:
         z_last = z_end + 0.08 * span
-    outline = points + [(z_last, r_end)]          # Material geht hinter dem letzten Punkt weiter
+    outline = points + [(z_last, r_end)]          # material continues behind the last point
     if inside:
         top = max(r for _z, r in points) * 1.12 + 1.0
         sketch.polygon(outline + [(z_last, top), (z_first, top)], fill=MATERIAL, stroke=EDGE)
@@ -854,7 +866,7 @@ def draw_contour(sketch: Sketch, values, inside, rows, points):
         else:
             offset = -font * 1.0 * sign
         sketch.label(point, f"P{index + 1}", row_to_text(row, index == 0), "l", dx=6, dy=offset)
-    sketch.label((z_low, 0.0), "ap", value_text(values["ap"]) + " (Zustellung radial)",
+    sketch.label((z_low, 0.0), "ap", value_text(values["ap"]) + " " + _("(radial depth of cut)"),
                  anchor="l", dy=font * 1.4 * sign)
 
 
@@ -865,7 +877,7 @@ def draw_stock(sketch: Sketch, values):
     else:
         bore = 0.0
     z_chuck, z_finished, allowance = -40.0, 0.0, 3.0
-    front_zero = values.get("zero", "Vorderkante") == "Vorderkante"
+    front_zero = values.get("zero", "front") == "front"
     sketch.polygon([(z_chuck - 14, radius), (z_chuck, radius), (z_chuck, radius + 7),
                     (z_chuck - 14, radius + 7)], fill=CHUCK, stroke=HINT, line_width=0.8)
     sketch.polygon([(z_chuck - 18, 0), (z_chuck - 14, 0), (z_chuck - 14, radius + 11),
@@ -888,7 +900,7 @@ def draw_stock(sketch: Sketch, values):
     if bore > 0:
         sketch.dim_r(-8, 0, bore, "Ød", value_text(values.get("d")), label_position=1.3)
     else:
-        sketch.label((-30, 3.0), "Ød", "0 (voll)")
+        sketch.label((-30, 3.0), "Ød", _("0 (solid)"))
     safety = 3.0
     sketch.polygon([(z_chuck, radius), (z_chuck + safety, radius), (z_chuck + safety, radius + 3),
                     (z_chuck, radius + 3)], fill=DANGER)
@@ -896,61 +908,62 @@ def draw_stock(sketch: Sketch, values):
                  extension_from=(0, 0), anchor="l", label_position=1.0, label_dy=0)
     if front_zero:
         zero_z = z_finished
-        zero_text = "Vorderkante"
+        zero_text = _("Front face")
     else:
         zero_z = z_chuck
-        zero_text = "Futter"
+        zero_text = _("Chuck")
     sketch.origin_cross((zero_z, 0))
     sketch.label((zero_z, -4.5), "Z0", zero_text, anchor="r", dx=-8, color=(1, 0.85, 0.2))
     if front_zero:
         sketch.dim_z(z_finished, z_finished + allowance, radius + 1.5, "a",
                      value_text(values.get("face")), extension_from=(radius, radius), anchor="l",
                      label_position=1.0, label_dy=0)
-    sketch.legend(8, sketch.font + 6, ["L: Ausspannlänge Futter bis Rohteil-Vorderkante",
-                                       "s: Sicherheitsabstand – Fahrten dahinter sind Fehler,",
-                                       "    Bohren/Innen dahinter nur Warnung"], sketch.font * 0.85)
+    sketch.legend(8, sketch.font + 6, [N_("L: length out of the chuck to the stock front"),
+                                       N_("s: safety distance - moves behind it are errors,"),
+                                       N_("    drilling/inside behind it only a warning")],
+                  sketch.font * 0.85)
 
 
 def draw_gcode_help(cr, width, height, font):
-    lines = ["Eigener G-Code wird zwischen zwei Zyklen unverändert eingefügt.",
+    lines = [N_("Own G-code is inserted unchanged between two cycles."),
              "",
-             "Textbausteine: oben auswählen und »Einfügen« – eigene Bausteine",
-             "mit »Als Baustein speichern« anlegen.",
+             N_("Snippets: choosing one replaces the code field, »Insert« adds it at the"),
+             N_("cursor, »Clear« empties the field, »Save …« stores own snippets."),
              "",
-             "Beispiel Späne entfernen:",
-             "   M5        Spindel aus",
-             "   M9        Kühlung aus",
-             "   M0        Halt (M1 nur bei eingeschaltetem wahlweisem Halt)",
+             N_("Example remove chips:"),
+             N_("   M5        spindle off"),
+             N_("   M9        coolant off"),
+             N_("   M0        stop (M1 only with optional stop switched on)"),
              "",
-             "Das Werkzeug steht dabei auf der Rückzugsebene vor dem Werkstück.",
-             "Eigene Fahrbewegungen müssen dorthin zurückkehren.",
-             "Mit »Spindel/Kühlung danach wieder einschalten« gibt der",
-             "nächste Zyklus Drehzahl, M3/M4 und M8 neu aus."]
+             N_("The tool is at the retract plane in front of the part."),
+             N_("Own moves must return there."),
+             N_("With »Switch spindle/coolant on again afterwards« the speed,"),
+             N_("M3/M4 and M8 are output again after the block.")]
     sketch = Sketch(cr, 0, 0, width, height, (0, 1, 0, 1), False, font)
     sketch.legend(12, font + 12, lines, font)
 
 
 CONTOUR_LEGEND = [
-    "X Z: Gerade, U W inkremental",
-    "R5: Eckenradius",
-    "C2: Fase 45°",
-    "C2 A30: 2 mm auf ankommender",
-    "      Kante, 30° zu ihr",
-    "C2 B30: dto. abgehende Kante",
-    "G2/G3 X Z R: Bogen",
-    "LA: Bogen > 180°",
-    "I K: Mittelpunkt (relativ)",
-    "TS / TE: tangential Anfang/Ende",
-    "RND / CHR: Ecke nach Bogen",
-    "R0: Ecke scharf lassen",
-    "Richtung: erster → letzter Punkt",
+    N_("X Z: line, U W incremental"),
+    N_("R5: corner radius"),
+    N_("C2: chamfer 45°"),
+    N_("C2 A30: 2 mm on the incoming"),
+    N_("      edge, 30° to it"),
+    N_("C2 B30: same, outgoing edge"),
+    N_("G2/G3 X Z R: arc"),
+    N_("LA: arc > 180°"),
+    N_("I K: centre (relative)"),
+    N_("TS / TE: tangential start/end"),
+    N_("RND / CHR: corner after an arc"),
+    N_("R0: keep the corner sharp"),
+    N_("Direction: first -> last point"),
 ]
 
 
-# =========================================================================== Einstieg
+# =========================================================================== entry point
 
 def draw_help(cr, width, height, key: str, values: Dict, inside=False, flip=False, font=None):
-    """Zeichnet das Parameterbild eines Zyklus in ein Feld width × height."""
+    """Draws the parameter picture of a cycle into an area width × height."""
     if font is None:
         font = max(9.0, min(12.5, min(width / 46, height / 24)))
     cr.set_source_rgb(*BACKGROUND)
@@ -991,9 +1004,10 @@ def draw_help(cr, width, height, key: str, values: Dict, inside=False, flip=Fals
             bounds = (-34, 15, -2, 22)
         sketch = Sketch(cr, 0, 0, main_width, main_height, bounds, flip, font)
         draw_thread(sketch, values, inside)
-        lines = [f"H: {value_text(values['spring'])} Leerschnitt(e)",
-                 f"L: {value_text(values['chamfer_l'])} (0 kein, 1 Ein, 2 Aus, 3 beide)",
-                 f"S: {value_text(values['speed'])} 1/min (G97)"]
+        lines = [_("H: {count} spring pass(es)").format(count=value_text(values['spring'])),
+                 _("L: {value} (0 none, 1 entry, 2 exit, 3 both)").format(
+                     value=value_text(values['chamfer_l'])),
+                 _("S: {speed} 1/min (G97)").format(speed=value_text(values['speed']))]
         if wide:
             detail = (main_width + 2, 6, width - main_width - 8, height * 0.58)
             draw_thread_detail(cr, *detail, values, font * 0.95)
@@ -1012,10 +1026,14 @@ def draw_help(cr, width, height, key: str, values: Dict, inside=False, flip=Fals
     elif key == "drill":
         sketch = Sketch(cr, 0, 0, width, height, (-46, 12, -27, 27), flip, font)
         draw_drill(sketch, values)
-        sketch.legend(8, height - 4 * (font * 0.85 + 3) + 2, [f"Bohrart: {values.get('mode')}",
-                                    "Spanbruch: je Zustellung Q um Rb zurück",
-                                    "Entspanen: je Zustellung ganz heraus",
-                                    f"P: Verweilzeit {value_text(values.get('dwell'))} s"],
+        mode_texts = {"through": N_("Straight"), "chip_break": N_("Chip breaking"),
+                      "peck": N_("Peck drilling")}
+        mode_text = _(mode_texts.get(values.get("mode"), str(values.get("mode"))))
+        sketch.legend(8, height - 4 * (font * 0.85 + 3) + 2,
+                      [_("Mode: {mode}").format(mode=mode_text),
+                       N_("Chip breaking: back by Rb after every step Q"),
+                       N_("Peck drilling: all the way out after every step"),
+                       _("P: dwell {seconds} s").format(seconds=value_text(values.get('dwell')))],
                       font * 0.85)
     elif key == "contour":
         wide = width > 1.45 * height
@@ -1055,17 +1073,17 @@ def draw_help(cr, width, height, key: str, values: Dict, inside=False, flip=Fals
         cr.set_source_rgb(*HINT)
         cr.set_font_size(font)
         cr.move_to(10, 10 + font)
-        show_text(cr, "Kein Parameterbild")
+        show_text(cr, _("No parameter picture"))
 
 
-# =========================================================================== Symbole
+# =========================================================================== icons
 
 def draw_icon(cr, key: str, size: float, color=(0.9, 0.9, 0.9), accent=(1.0, 0.65, 0.2),
               flip=False):
-    """Kleines Symbol (size × size) für die Auswahlleiste.
+    """Small icon (size × size) for the tab bar.
 
-    Gezeichnet für Werkzeug hinter der Drehmitte (Werkzeug oben); flip=True spiegelt für
-    Werkzeug vor der Drehmitte (Werkzeug unten), passend zur Vorschau.
+    Drawn for a tool behind the centre line (tool at the top); flip=True mirrors for a tool in
+    front of the centre line (tool at the bottom), matching the preview.
     """
     scale = size / 24.0
     cr.set_line_width(1.6 * scale)

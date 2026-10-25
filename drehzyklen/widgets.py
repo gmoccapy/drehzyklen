@@ -1,4 +1,4 @@
-# Drehzyklen – Zyklenprogrammierung für LinuxCNC-Drehmaschinen (gmoccapy)
+# Drehzyklen - lathe cycle programming for LinuxCNC (gmoccapy)
 # Copyright (C) 2026  nieson@web.de
 #
 # This program is free software; you can redistribute it and/or modify it under the terms of
@@ -13,8 +13,8 @@
 # if not, see <https://www.gnu.org/licenses/>.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Wiederverwendbare GTK-Bausteine: Zahlenfeld, Umschaltleisten, Kontureditor, Formular,
-Zeichenfläche mit Zoom und Verschieben."""
+"""Reusable GTK building blocks: number field, toggle bars, contour editor, parameter form,
+drawing area with zoom and pan."""
 from __future__ import annotations
 
 from typing import Callable, Dict, List, Optional
@@ -27,39 +27,40 @@ gi.require_version("Pango", "1.0")
 from gi.repository import Gdk, GLib, Gtk, Pango  # noqa: E402
 
 from . import helpdraw, render, tooldraw  # noqa: E402
-from .cycles import P  # noqa: E402
+from .cycles import INSIDE, OUTSIDE, P  # noqa: E402
 from .geometry import ContourError, Row, parse_rows, rows_to_text  # noqa: E402
+from .i18n import N_, _  # noqa: E402
 from .machine import Machine  # noqa: E402
 
 SYM_COLOR = "#e0a422"
 
 
 def is_icon_flipped() -> bool:
-    """Wird vom Hauptpanel ersetzt: True, wenn das Werkzeug vor der Drehmitte steht."""
+    """Replaced by the main panel: True if the tool is in front of the centre line."""
     return True
 
 
 ICON_STATE = {"flipped": is_icon_flipped}
 
 
-# =========================================================================== Eingabeelemente
+# =========================================================================== input elements
 
 def eval_simple(text: str) -> float:
-    """Zahl oder einfache Rechnung wie '40-2*1.5'."""
+    """Number or a simple calculation like '40-2*1.5'."""
     try:
         return float(text)
     except ValueError:
         pass
     if not set(text) <= set("0123456789.+-*/() "):
         raise ValueError(text)
-    return float(eval(text, {"__builtins__": {}}, {}))  # nur Ziffern und Operatoren
+    return float(eval(text, {"__builtins__": {}}, {}))  # digits and operators only
 
 
 def number_text(value) -> str:
     if value is None:
         return ""
     if isinstance(value, float):
-        # bis 6 Nachkommastellen, damit z.B. Zollsteigungen (25,4/28) genau bleiben
+        # up to 6 decimals so that e.g. inch pitches (25.4/28) stay exact
         text = f"{value:.6f}".rstrip("0").rstrip(".")
         if text in ("-0", ""):
             return "0"
@@ -68,7 +69,7 @@ def number_text(value) -> str:
 
 
 class NumEntry(Gtk.Entry):
-    """Zahlenfeld mit Bildschirm-Ziffernblock (Touch), Dezimalkomma und einfacher Rechnung."""
+    """Number field with an on-screen keypad (touch), decimal comma and simple calculations."""
 
     def __init__(self, allow_empty=False, width=8):
         super().__init__()
@@ -77,7 +78,7 @@ class NumEntry(Gtk.Entry):
         self.set_alignment(1.0)
         self.set_hexpand(True)
         self.set_icon_from_icon_name(Gtk.EntryIconPosition.SECONDARY, "input-dialpad-symbolic")
-        self.set_icon_tooltip_text(Gtk.EntryIconPosition.SECONDARY, "Ziffernblock")
+        self.set_icon_tooltip_text(Gtk.EntryIconPosition.SECONDARY, _("Keypad"))
         self.connect("icon-press", self.on_numpad)
 
     def get_value(self) -> Optional[float]:
@@ -85,7 +86,7 @@ class NumEntry(Gtk.Entry):
         if not text:
             if self.allow_empty:
                 return None
-            raise ValueError("leer")
+            raise ValueError("empty")
         return eval_simple(text)
 
     def set_value(self, value):
@@ -132,7 +133,7 @@ class NumEntry(Gtk.Entry):
 
 
 class RadioBar(Gtk.Box):
-    """Reihe verbundener Umschalttasten. items: [(key, text, icon_key|None, tooltip)]."""
+    """Row of linked toggle buttons. items: [(key, text, icon_key|None, tooltip)]."""
 
     def __init__(self, items, css_class, on_toggle, icon_size=0):
         super().__init__(spacing=0)
@@ -198,19 +199,21 @@ def error_markup(text):
     return f"<span foreground='#e03030'>{GLib.markup_escape_text(text)}</span>"
 
 
-# =========================================================================== Kontureditor
+# =========================================================================== contour editor
 
-ARC_MODES = [("R", "Radius"), ("RL", "Radius, Bogen > 180°"), ("TS", "tangential am Anfang"),
-             ("TE", "tangential am Ende"), ("IK", "Mittelpunkt I/K")]
-CORNER_MODES = [(None, "Vorgabe (alle übrigen)"), ("N", "keine"), ("R", "Radius R"),
-                ("C45", "Fase 45°"), ("CA", "Fase L × Winkel zur ankommenden Kante"),
-                ("CB", "Fase L × Winkel zur abgehenden Kante")]
-ARC_TEXT = {"R": "R{}", "RL": "R{} >180°", "TS": "tang. Anf.", "TE": "tang. Ende"}
+ARC_MODES = [("R", N_("Radius")), ("RL", N_("Radius, arc > 180°")),
+             ("TS", N_("tangential at the start")), ("TE", N_("tangential at the end")),
+             ("IK", N_("Centre I/K"))]
+CORNER_MODES = [(None, N_("Default (all other corners)")), ("N", N_("none")),
+                ("R", N_("Radius R")), ("C45", N_("Chamfer 45°")),
+                ("CA", N_("Chamfer L × angle to the incoming edge")),
+                ("CB", N_("Chamfer L × angle to the outgoing edge"))]
+ARC_TEXT = {"R": "R{}", "RL": N_("R{} >180°"), "TS": N_("tang. start"), "TE": N_("tang. end")}
 
 
 def describe_row(row: Row, first: bool):
     if first:
-        kind_text = "Start"
+        kind_text = _("Start")
     elif row.kind == "L":
         kind_text = "G1"
     else:
@@ -220,10 +223,10 @@ def describe_row(row: Row, first: bool):
         if row.arc == "IK":
             arc_text = f"I{number_text(row.ai)} K{number_text(row.ak)}"
         else:
-            arc_text = ARC_TEXT[row.arc].format(number_text(row.ar))
+            arc_text = _(ARC_TEXT[row.arc]).format(number_text(row.ar))
     corner_text = ""
     if row.corner == "N":
-        corner_text = "scharf"
+        corner_text = _("sharp")
     elif row.corner == "R":
         corner_text = f"R{number_text(row.csize)}"
     elif row.corner == "C":
@@ -234,7 +237,7 @@ def describe_row(row: Row, first: bool):
 
 
 class ContourEditor(Gtk.Box):
-    """Kontur als Liste (Punkt für Punkt, touchtauglich) oder als Text."""
+    """Contour as a list (point by point, touch friendly) or as text."""
 
     def __init__(self, on_change: Callable):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=4)
@@ -242,8 +245,8 @@ class ContourEditor(Gtk.Box):
         self.rows: List[Row] = []
         self.locked = False
 
-        self.mode_bar = RadioBar([("list", "Liste", None, "Punkt für Punkt bearbeiten"),
-                                  ("text", "Text", None, "Konturtext direkt bearbeiten")],
+        self.mode_bar = RadioBar([("list", _("List"), None, _("Edit point by point")),
+                                  ("text", _("Text"), None, _("Edit the contour text directly"))],
                                  "viewswitch", self.on_mode)
         self.pack_start(self.mode_bar, False, False, 0)
         self.stack = Gtk.Stack()
@@ -255,12 +258,12 @@ class ContourEditor(Gtk.Box):
         self.pack_start(self.error_label, False, False, 0)
         self.update_sensitivity()
 
-    # ---------------------------------------------------------------- Aufbau
+    # ---------------------------------------------------------------- building
     def _build_list_view(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         self.store = Gtk.ListStore(str, str, str, str, str, str)
         self.tree = Gtk.TreeView(model=self.store)
-        for index, title in enumerate(("P", "Art", "X (Ø)", "Z", "Bogen", "Ecke")):
+        for index, title in enumerate(("P", _("Kind"), "X (Ø)", "Z", _("Arc"), _("Corner"))):
             renderer = Gtk.CellRendererText()
             if index in (2, 3):
                 renderer.set_property("xalign", 1.0)
@@ -275,29 +278,29 @@ class ContourEditor(Gtk.Box):
         box.pack_start(scroller, True, True, 0)
 
         grid = Gtk.Grid(row_spacing=4, column_spacing=6)
-        self.kind_combo = self._combo(("Gerade G1", "Bogen G2", "Bogen G3"))
+        self.kind_combo = self._combo((_("Line G1"), _("Arc G2"), _("Arc G3")))
         self.x_entry = NumEntry(width=6)
         self.z_entry = NumEntry(width=6)
-        self.arc_combo = self._combo([text for _key, text in ARC_MODES])
+        self.arc_combo = self._combo([_(text) for _key, text in ARC_MODES])
         self.radius_entry = NumEntry(allow_empty=True, width=6)
         self.i_entry = NumEntry(allow_empty=True, width=6)
         self.k_entry = NumEntry(allow_empty=True, width=6)
-        self.corner_combo = self._combo([text for _key, text in CORNER_MODES])
+        self.corner_combo = self._combo([_(text) for _key, text in CORNER_MODES])
         self.size_entry = NumEntry(allow_empty=True, width=6)
         self.angle_entry = NumEntry(allow_empty=True, width=6)
         self.radius_label = Gtk.Label(label="R", xalign=0)
         self.i_label = Gtk.Label(label="I", xalign=0)
         self.k_label = Gtk.Label(label="K", xalign=0)
-        self.size_label = Gtk.Label(label="Größe", xalign=0)
-        self.angle_label = Gtk.Label(label="Winkel °", xalign=0)
+        self.size_label = Gtk.Label(label=_("Size"), xalign=0)
+        self.angle_label = Gtk.Label(label=_("Angle °"), xalign=0)
 
-        grid.attach(Gtk.Label(label="Element", xalign=0), 0, 0, 1, 1)
+        grid.attach(Gtk.Label(label=_("Element"), xalign=0), 0, 0, 1, 1)
         grid.attach(self.kind_combo, 1, 0, 3, 1)
         grid.attach(Gtk.Label(label="X (Ø)", xalign=0), 0, 1, 1, 1)
         grid.attach(self.x_entry, 1, 1, 1, 1)
         grid.attach(Gtk.Label(label="Z", xalign=0), 2, 1, 1, 1)
         grid.attach(self.z_entry, 3, 1, 1, 1)
-        grid.attach(Gtk.Label(label="Bogen", xalign=0), 0, 2, 1, 1)
+        grid.attach(Gtk.Label(label=_("Arc"), xalign=0), 0, 2, 1, 1)
         grid.attach(self.arc_combo, 1, 2, 3, 1)
         grid.attach(self.radius_label, 0, 3, 1, 1)
         grid.attach(self.radius_entry, 1, 3, 1, 1)
@@ -307,7 +310,7 @@ class ContourEditor(Gtk.Box):
         center_box.pack_start(self.k_label, False, False, 0)
         center_box.pack_start(self.k_entry, True, True, 0)
         grid.attach(center_box, 2, 3, 2, 1)
-        grid.attach(Gtk.Label(label="Ecke", xalign=0), 0, 4, 1, 1)
+        grid.attach(Gtk.Label(label=_("Corner"), xalign=0), 0, 4, 1, 1)
         grid.attach(self.corner_combo, 1, 4, 3, 1)
         grid.attach(self.size_label, 0, 5, 1, 1)
         grid.attach(self.size_entry, 1, 5, 1, 1)
@@ -316,9 +319,9 @@ class ContourEditor(Gtk.Box):
         box.pack_start(grid, False, False, 0)
 
         buttons = Gtk.Grid(row_spacing=4, column_spacing=4)
-        actions = [("＋ Anfügen", self.on_append, "Neues Element hinter dem markierten einfügen"),
-                   ("✔ Ändern", self.on_apply, "Markiertes Element mit den Feldern überschreiben"),
-                   ("Löschen", self.on_delete, None),
+        actions = [(_("＋ Append"), self.on_append, _("Insert a new element after the marked one")),
+                   (_("✔ Change"), self.on_apply, _("Overwrite the marked element with the fields")),
+                   (_("Delete"), self.on_delete, None),
                    ("▲", self.on_move_up, None),
                    ("▼", self.on_move_down, None)]
         for index, (text, handler, tooltip) in enumerate(actions):
@@ -357,14 +360,14 @@ class ContourEditor(Gtk.Box):
         scroller.add(self.text_view)
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         box.pack_start(scroller, True, True, 0)
-        hint = Gtk.Label(xalign=0, label="X Z · R5 · C2 · C2 A30 / B30 · G2/G3 X Z R|LA|I K|TS|TE · "
-                                         "RND/CHR · R0  (Ansicht »Bild« zeigt ein Beispiel)")
+        hint = Gtk.Label(xalign=0, label=_("X Z · R5 · C2 · C2 A30 / B30 · G2/G3 X Z R|LA|I K|TS|TE · "
+                                           "RND/CHR · R0  (the »Picture« view shows the contour)"))
         hint.set_line_wrap(True)
         hint.get_style_context().add_class("hint")
         box.pack_start(hint, False, False, 0)
         return box
 
-    # ---------------------------------------------------------------- Text <-> Zeilen
+    # ---------------------------------------------------------------- text <-> rows
     def get_text(self) -> str:
         buffer = self.text_view.get_buffer()
         return buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), True)
@@ -415,7 +418,7 @@ class ContourEditor(Gtk.Box):
             return
         self.stack.set_visible_child_name(key)
 
-    # ---------------------------------------------------------------- Editor
+    # ---------------------------------------------------------------- editor
     def selected_index(self):
         model, tree_iter = self.tree.get_selection().get_selected()
         if tree_iter is None:
@@ -484,10 +487,10 @@ class ContourEditor(Gtk.Box):
                 if row.arc in ("R", "RL"):
                     radius = self.radius_entry.get_value()
                     if radius is None or radius <= 0:
-                        raise ValueError("Bogenradius R fehlt")
+                        raise ValueError(_("Arc radius R is missing"))
                     row.ar = radius
                     if row.ar <= 0:
-                        raise ValueError("Bogenradius R fehlt")
+                        raise ValueError(_("Arc radius R is missing"))
                 elif row.arc == "IK":
                     offset_i = self.i_entry.get_value()
                     offset_k = self.k_entry.get_value()
@@ -503,7 +506,7 @@ class ContourEditor(Gtk.Box):
             elif corner_key in ("R", "C45", "CA", "CB"):
                 size = self.size_entry.get_value()
                 if not size or size <= 0:
-                    raise ValueError("Größe der Ecke fehlt")
+                    raise ValueError(_("The size of the corner is missing"))
                 if corner_key == "R":
                     row.corner = "R"
                 else:
@@ -512,14 +515,14 @@ class ContourEditor(Gtk.Box):
                 if corner_key in ("CA", "CB"):
                     angle = self.angle_entry.get_value()
                     if angle is None or not 0 < angle < 180:
-                        raise ValueError("Fasenwinkel fehlt (0…180°)")
+                        raise ValueError(_("The chamfer angle is missing (0…180°)"))
                     row.cangle = angle
                     row.cref = corner_key[1]
             return row
         except (ValueError, SyntaxError, ZeroDivisionError) as error:
             message = str(error)
-            if message == "leer":
-                message = "X und Z angeben"
+            if message == "empty":
+                message = _("Enter X and Z")
             self.error_label.set_markup(error_markup(message))
             return None
 
@@ -563,17 +566,18 @@ class ContourEditor(Gtk.Box):
         self._move(1)
 
 
-# =========================================================================== Formular
+# =========================================================================== parameter form
 
 class ParamForm(Gtk.Grid):
-    """Formular aus einer Parameterliste (cycles.P).
+    """Form built from a parameter list (cycles.P).
 
-    - Kurzzeichen (sym) vor der Beschriftung, passend zum Parameterbild
-    - Beschriftung/Einheit kann von einem Auswahlfeld abhängen (label_by / unit_by)
-    - Felder mit `when` werden abhängig von einem Auswahlfeld ein-/ausgeblendet
-    - Felder mit `skey` werden mit dem Rohteil-Ø vorbelegt (außen D, innen d)
-    - Felder vom Typ "tool" zeigen die Werkzeugtabelle als Auswahl
-    on_change(key, alter_wert) wird bei jeder Änderung gerufen.
+    - symbol (sym) in front of the label, matching the parameter picture
+    - label/unit may depend on a choice field (label_by / unit_by)
+    - fields with `when` are shown or hidden depending on a choice field
+    - fields with `skey` are prefilled with the stock Ø (outside D, inside d)
+    - fields of kind "tool" show the tool table as a choice
+    - choice fields store keys; the shown texts are translated (P.labels)
+    on_change(key, old_value) is called on every change.
     """
 
     def __init__(self, params: List[P], machine: Optional[Machine] = None, on_change=None,
@@ -585,7 +589,7 @@ class ParamForm(Gtk.Grid):
         self.labels: Dict[str, Gtk.Label] = {}
         self.on_change = on_change
         self.tool_choices = tool_choices
-        self.side = "Außen"
+        self.side = OUTSIDE
         self.stock = None
         self.locked = False
         self.choice_values: Dict[str, str] = {}
@@ -596,7 +600,7 @@ class ParamForm(Gtk.Grid):
             label.set_max_width_chars(22)
             self.labels[param.key] = label
             if param.help:
-                label.set_tooltip_text(param.help)
+                label.set_tooltip_text(_(param.help))
             widget = self._create_widget(param)
             if param.kind == "contour":
                 self.attach(widget, 0, row, 2, 1)
@@ -610,7 +614,7 @@ class ParamForm(Gtk.Grid):
                 self.attach(widget, 1, row, 1, 1)
                 row += 1
             if param.help and param.kind not in ("contour", "text"):
-                widget.set_tooltip_text(param.help)
+                widget.set_tooltip_text(_(param.help))
             self.widgets[param.key] = widget
         self.update_labels()
 
@@ -629,7 +633,7 @@ class ParamForm(Gtk.Grid):
             scroller = Gtk.ScrolledWindow()
             scroller.set_shadow_type(Gtk.ShadowType.IN)
             scroller.set_min_content_height(150)
-            # Breite folgt der mittleren Spalte (lange Zeilen: waagrecht scrollen)
+            # the width follows the middle column (long lines scroll horizontally)
             scroller.set_hexpand(True)
             scroller.set_vexpand(True)
             scroller.set_min_content_width(120)
@@ -644,8 +648,8 @@ class ParamForm(Gtk.Grid):
         if param.kind == "choice":
             combo = Gtk.ComboBoxText()
             for choice in param.choices:
-                combo.append_text(choice)
-            combo.set_active(param.choices.index(param.default))
+                combo.append(choice, _(param.choice_label(choice)))
+            combo.set_active_id(param.default)
             self.choice_values[param.key] = param.default
             combo.connect("changed", self.on_widget_changed, param.key)
             return combo
@@ -667,7 +671,7 @@ class ParamForm(Gtk.Grid):
         entry.connect("changed", self.on_widget_changed, param.key)
         return entry
 
-    # ---- Werkzeugauswahl
+    # ---- tool selection
     def _fill_tools(self, combo, selected):
         combo.remove_all()
         known = set()
@@ -680,7 +684,8 @@ class ParamForm(Gtk.Grid):
         except (TypeError, ValueError):
             selected_number = 0
         if selected_number not in known:
-            combo.append(str(selected_number), f"T{selected_number}  (nicht in der Werkzeugtabelle)")
+            combo.append(str(selected_number),
+                         _("T{number}  (not in the tool table)").format(number=selected_number))
         combo.set_active_id(str(selected_number))
 
     def refresh_tools(self):
@@ -694,11 +699,11 @@ class ParamForm(Gtk.Grid):
         finally:
             self.locked = False
 
-    # ---- Vorbelegung mit Rohteil
+    # ---- prefill with the stock
     def _stock_value(self, stock, side):
         if stock is None:
             return None
-        if side == "Innen":
+        if side == INSIDE:
             if stock.d > 0:
                 return stock.d
             return None
@@ -718,7 +723,7 @@ class ParamForm(Gtk.Grid):
             self.locked = False
 
     def set_stock(self, stock, old=None, force=False):
-        """Rohteil-Ø übernehmen, solange das Feld nicht bewusst anders eingestellt wurde."""
+        """Take over the stock Ø as long as the field was not set to something else deliberately."""
         self.stock = stock
         new_value = self._stock_value(stock, self.side)
         old_value = None
@@ -750,15 +755,15 @@ class ParamForm(Gtk.Grid):
                         self._set(param.key, new_value)
         self.update_labels()
 
-    # ---- Beschriftung / Sichtbarkeit
+    # ---- labels / visibility
     def _choice(self, key):
         widget = self.widgets.get(key)
         if isinstance(widget, Gtk.ComboBoxText):
-            return widget.get_active_text()
+            return widget.get_active_id()
         return None
 
     def update_labels(self):
-        inside = self.side == "Innen"
+        inside = self.side == INSIDE
         for param in self.params:
             if inside and param.label_in:
                 text = param.label_in
@@ -766,11 +771,12 @@ class ParamForm(Gtk.Grid):
                 text = param.label
             if param.label_by:
                 text = param.label_by[1].get(self._choice(param.label_by[0]), text)
+            text = _(text)
             unit = param.unit
             if param.unit_by:
                 unit = param.unit_by[1].get(self._choice(param.unit_by[0]), unit)
             if unit:
-                text += f" [{unit}]"
+                text += f" [{_(unit)}]"
             if param.sym and param.kind != "contour":
                 symbol = (f"<span foreground='{SYM_COLOR}'><b>"
                           f"{GLib.markup_escape_text(param.sym)}</b></span>  ")
@@ -780,7 +786,7 @@ class ParamForm(Gtk.Grid):
         self.update_visibility()
 
     def update_visibility(self):
-        inside = self.side == "Innen"
+        inside = self.side == INSIDE
         for param in self.params:
             visible = param.show is None or (param.show == "in") == inside
             if param.when:
@@ -793,7 +799,7 @@ class ParamForm(Gtk.Grid):
             else:
                 widget.set_visible(visible)
 
-    # ---- Änderungen
+    # ---- changes
     def on_contour_changed(self):
         self._changed("contour")
 
@@ -818,7 +824,7 @@ class ParamForm(Gtk.Grid):
         if self.on_change:
             self.on_change(key, old_value)
 
-    # ---- Werte
+    # ---- values
     def get_values(self, lenient=False):
         values, errors = {}, []
         for param in self.params:
@@ -837,22 +843,24 @@ class ParamForm(Gtk.Grid):
                 elif param.kind == "tool":
                     values[param.key] = int(widget.get_active_id() or 0)
                 elif param.kind == "choice":
-                    values[param.key] = widget.get_active_text()
+                    values[param.key] = widget.get_active_id()
                 elif param.kind == "bool":
                     values[param.key] = widget.get_active()
                 else:
                     values[param.key] = widget.get_text()
             except (ValueError, SyntaxError, ZeroDivisionError, TypeError):
-                errors.append(f"{param.sym or param.label}: ungültige Zahl")
+                errors.append(_("{field}: invalid number").format(field=param.sym or _(param.label)))
                 if lenient:
                     values[param.key] = param.default
                 continue
             value = values[param.key]
             if isinstance(value, (int, float)) and not isinstance(value, bool):
                 if param.min is not None and value < param.min:
-                    errors.append(f"{param.sym or param.label}: mindestens {number_text(param.min)}")
+                    errors.append(_("{field}: at least {limit}").format(
+                        field=param.sym or _(param.label), limit=number_text(param.min)))
                 if param.max is not None and value > param.max:
-                    errors.append(f"{param.sym or param.label}: höchstens {number_text(param.max)}")
+                    errors.append(_("{field}: at most {limit}").format(
+                        field=param.sym or _(param.label), limit=number_text(param.max)))
         return values, errors
 
     def set_values(self, values):
@@ -873,7 +881,7 @@ class ParamForm(Gtk.Grid):
                     self._fill_tools(widget, value)
                 elif param.kind == "choice":
                     if value in param.choices:
-                        widget.set_active(param.choices.index(value))
+                        widget.set_active_id(value)
                         self.choice_values[param.key] = value
                 elif param.kind == "bool":
                     widget.set_active(bool(value))
@@ -884,11 +892,11 @@ class ParamForm(Gtk.Grid):
         self.update_labels()
 
 
-# =========================================================================== Zeichenfläche
+# =========================================================================== drawing area
 
 class ViewArea(Gtk.DrawingArea):
-    """Vorschau (mit Zoom: Mausrad, Verschieben: linke Maustaste, Doppelklick: zurück),
-    Parameterbild oder Werkzeuggrafik."""
+    """Preview (zoom: mouse wheel, pan: left mouse button, double click: reset), parameter
+    picture or tool drawing."""
 
     def __init__(self, machine: Machine):
         super().__init__()
@@ -914,7 +922,7 @@ class ViewArea(Gtk.DrawingArea):
         self.connect("button-release-event", self.on_button_release)
         self.connect("motion-notify-event", self.on_motion)
 
-    # ---- Inhalt
+    # ---- content
     def set_scene(self, scene):
         if scene:
             self.scene = scene
@@ -943,7 +951,7 @@ class ViewArea(Gtk.DrawingArea):
         self.pan_y = 0.0
         self.queue_draw()
 
-    # ---- Zoom und Verschieben
+    # ---- zoom and pan
     def on_scroll(self, _widget, event):
         if self.mode != "preview":
             return False
@@ -965,7 +973,7 @@ class ViewArea(Gtk.DrawingArea):
         center_x = self.get_allocated_width() / 2
         center_y = self.get_allocated_height() / 2
         ratio = new_zoom / self.zoom
-        # Punkt unter dem Mauszeiger bleibt stehen
+        # the point under the mouse pointer stays where it is
         self.pan_x = event.x - center_x - (event.x - center_x - self.pan_x) * ratio
         self.pan_y = event.y - center_y - (event.y - center_y - self.pan_y) * ratio
         self.zoom = new_zoom
@@ -998,7 +1006,7 @@ class ViewArea(Gtk.DrawingArea):
         self.queue_draw()
         return True
 
-    # ---- Zeichnen
+    # ---- drawing
     def on_draw(self, _widget, cr):
         width = self.get_allocated_width()
         height = self.get_allocated_height()

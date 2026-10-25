@@ -1,4 +1,4 @@
-# Drehzyklen – Zyklenprogrammierung für LinuxCNC-Drehmaschinen (gmoccapy)
+# Drehzyklen - lathe cycle programming for LinuxCNC (gmoccapy)
 # Copyright (C) 2026  nieson@web.de
 #
 # This program is free software; you can redistribute it and/or modify it under the terms of
@@ -13,10 +13,10 @@
 # if not, see <https://www.gnu.org/licenses/>.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Benutzereinstellungen: zuletzt benutzter Ordner, G-Code-Textbausteine und die zuletzt
-benutzten Schnittdaten je Zyklus.
+"""User settings: language, last used folder, G-code snippets and the last used cutting data
+of every cycle.
 
-Gespeichert in ~/.config/drehzyklen/settings.json (bzw. neben machine.json).
+Stored in ~/.config/drehzyklen/settings.json (next to machine.json).
 """
 from __future__ import annotations
 
@@ -24,16 +24,21 @@ import json
 import os
 from typing import Any, Dict, List
 
+from .i18n import N_
+
+# names are translated when shown; the code stays as written
 DEFAULT_SNIPPETS = [
-    {"name": "Späne entfernen", "code": "M5\nM9\nM0 (Späne entfernen – weiter mit Zyklusstart)"},
-    {"name": "Nachmessen", "code": "G0 X200\n(MSG, Bitte Durchmesser nachmessen)\nM0"},
+    {"name": N_("Remove chips"), "code": "M5\nM9\nM0 (Remove chips - continue with cycle start)"},
+    {"name": N_("Measure"), "code": "G0 X200\n(MSG, Please measure the diameter)\nM0"},
 ]
+LEGACY_SIDES = {"Außen": "outside", "Innen": "inside"}
 
 
 class Settings:
     def __init__(self, path: str):
         self.path = path
         self.last_dir = ""
+        self.language = "en"
         self.snippets: List[Dict[str, str]] = [dict(snippet) for snippet in DEFAULT_SNIPPETS]
         self.cutting: Dict[str, Dict[str, Any]] = {}
         self.load()
@@ -47,6 +52,7 @@ class Settings:
         except (OSError, ValueError):
             return
         self.last_dir = str(data.get("last_dir", ""))
+        self.language = str(data.get("language", "en"))
         snippets = data.get("snippets")
         if isinstance(snippets, list):
             cleaned = []
@@ -58,19 +64,20 @@ class Settings:
         if isinstance(cutting, dict):
             for cycle_key, values in cutting.items():
                 if isinstance(values, dict):
-                    self.cutting[str(cycle_key)] = dict(values)
+                    self.cutting[self._migrated_key(str(cycle_key))] = self._migrated(values)
 
     def save(self):
         try:
             os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
             with open(self.path, "w", encoding="utf-8") as file:
-                json.dump({"last_dir": self.last_dir, "snippets": self.snippets,
-                           "cutting": self.cutting}, file, indent=2, ensure_ascii=False)
+                json.dump({"language": self.language, "last_dir": self.last_dir,
+                           "snippets": self.snippets, "cutting": self.cutting}, file, indent=2,
+                          ensure_ascii=False)
         except OSError:
             pass
 
     def program_dir(self, machine_dir: str) -> str:
-        """Ordner für Dateidialoge: zuletzt benutzter Ordner, sonst der Programmordner."""
+        """Folder for file dialogs: the last used folder, otherwise the program folder."""
         if self.last_dir and os.path.isdir(self.last_dir):
             return self.last_dir
         return os.path.expanduser(machine_dir)
@@ -95,8 +102,32 @@ class Settings:
         self.save()
 
     def remember_cutting(self, cycle_key: str, values: Dict[str, Any]):
-        """Schnittdaten eines Zyklus merken (nur speichern, wenn sich etwas geändert hat)."""
+        """Remember the cutting data of a cycle (saved only if something changed)."""
         if self.cutting.get(cycle_key) == values:
             return
         self.cutting[cycle_key] = dict(values)
         self.save()
+
+    def set_language(self, code: str):
+        if code != self.language:
+            self.language = code
+            self.save()
+
+    @staticmethod
+    def _migrated_key(key: str) -> str:
+        """Cutting data keys of version 0.4 ("facing/Außen") -> "facing/outside"."""
+        cycle, separator, side = key.partition("/")
+        if separator and side in LEGACY_SIDES:
+            return f"{cycle}/{LEGACY_SIDES[side]}"
+        return key
+
+    @staticmethod
+    def _migrated(values: Dict[str, Any]) -> Dict[str, Any]:
+        from .cycles.params import LEGACY_VALUES
+        result = {}
+        for key, value in values.items():
+            if isinstance(value, str) and value in LEGACY_VALUES:
+                result[key] = LEGACY_VALUES[value]
+            else:
+                result[key] = value
+        return result

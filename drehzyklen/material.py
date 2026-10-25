@@ -1,4 +1,4 @@
-# Drehzyklen – Zyklenprogrammierung für LinuxCNC-Drehmaschinen (gmoccapy)
+# Drehzyklen - lathe cycle programming for LinuxCNC (gmoccapy)
 # Copyright (C) 2026  nieson@web.de
 #
 # This program is free software; you can redistribute it and/or modify it under the terms of
@@ -13,16 +13,16 @@
 # if not, see <https://www.gnu.org/licenses/>.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Einfache Abtragssimulation für Vorschau, Schruppstart und Kollisionsprüfung.
+"""Simple material removal simulation for the preview, the roughing start and collision checks.
 
-Das Werkstück ist rotationssymmetrisch; für jede Z-Stelle eines feinen Rasters wird ein Ring
-[inner, outer] (Innen-/Außenradius) gespeichert. Außenbearbeitung verkleinert den Außenradius,
-Innenbearbeitung und Bohren vergrößern den Innenradius, Plandrehen entfernt ein radiales Band.
+The workpiece is rotationally symmetric; for every Z position of a fine grid a ring
+[inner, outer] (inner and outer radius) is stored. Outside machining reduces the outer radius,
+inside machining and drilling enlarge the inner radius, facing removes a radial band.
 
-Jeder Zyklus beschreibt seinen Abtrag mit material_cuts():
-    ("outside", punkte)               Material oberhalb der Kontur wird entfernt
-    ("inside", punkte)                Material unterhalb der Kontur (Bohrung) wird entfernt
-    ("band", z_a, z_b, r_von, r_bis)  radiales Band zwischen z_a und z_b wird entfernt
+Every cycle describes what it removes with material_cuts():
+    ("outside", points)                   material above the contour is removed
+    ("inside", points)                    material below the contour (bore) is removed
+    ("band", z_a, z_b, r_from, r_to)      a radial band between z_a and z_b is removed
 """
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ EPS = 1e-6
 
 
 def inside_length(stock) -> float:
-    """Wie weit das Rohteil in der Vorschau im Futter dargestellt wird."""
+    """How far the stock is drawn inside the chuck in the preview."""
     return min(20.0, max(5.0, 0.25 * stock.L))
 
 
@@ -63,7 +63,7 @@ class Material:
         clone.inner = list(self.inner)
         return clone
 
-    # ---------------------------------------------------------------- Abfragen
+    # ---------------------------------------------------------------- queries
     def _indices(self, z_first, z_second):
         low = min(z_first, z_second)
         high = max(z_first, z_second)
@@ -74,7 +74,7 @@ class Material:
         return self.outer[index] > self.inner[index] + EPS
 
     def max_outer(self, z_first, z_second) -> Optional[float]:
-        """Größter Außenradius zwischen z_first und z_second (None, wenn dort kein Material)."""
+        """Largest outer radius between z_first and z_second (None if there is no material)."""
         result = None
         for index in self._indices(z_first, z_second):
             if self.has_material(index):
@@ -83,7 +83,7 @@ class Material:
         return result
 
     def min_inner(self, z_first, z_second) -> Optional[float]:
-        """Kleinster Innenradius zwischen z_first und z_second (None, wenn dort kein Material)."""
+        """Smallest inner radius between z_first and z_second (None if there is no material)."""
         result = None
         for index in self._indices(z_first, z_second):
             if self.has_material(index):
@@ -92,7 +92,7 @@ class Material:
         return result
 
     def material_end(self, z_start: float, direction: int) -> float:
-        """Vom Punkt z_start in Richtung direction (+1/−1) bis zum Ende des Materials gehen."""
+        """Walk from z_start in direction (+1/-1) to the end of the material."""
         index = bisect.bisect_left(self.z, z_start)
         index = max(0, min(self.count - 1, index))
         end = z_start
@@ -103,11 +103,10 @@ class Material:
         return end
 
     def contains(self, z: float, r: float, margin: float = 0.05) -> bool:
-        """Liegt der Punkt (z, Radius) deutlich im Material?
+        """Is the point (z, radius) clearly inside the material?
 
-        Der Abstand margin gilt radial und axial: Ein Punkt direkt auf einer eben gedrehten
-        Planfläche zählt nicht als „im Material“, auch wenn der nächste Rasterpunkt knapp
-        dahinter liegt.
+        The margin applies radially and axially: a point right on a face that was just cut does
+        not count as "in the material", even if the nearest grid point lies just behind it.
         """
         if z < self.z[0] or z > self.z[-1]:
             return False
@@ -125,7 +124,7 @@ class Material:
                 return False
         return True
 
-    # ---------------------------------------------------------------- Abtrag
+    # ---------------------------------------------------------------- removal
     def _profile(self, points, choose):
         profile = {}
         for (z_start, r_start), (z_end, r_end) in zip(points, points[1:]):
@@ -170,7 +169,7 @@ class Material:
                 self.cut_band(cut[1], cut[2], cut[3], cut[4])
         return self
 
-    # ---------------------------------------------------------------- Darstellung
+    # ---------------------------------------------------------------- drawing
     def polygons(self) -> List[List[Tuple[float, float]]]:
         polygons = []
         run = []
@@ -205,7 +204,7 @@ def bounds(stock, ops) -> Tuple[float, float]:
 
 
 def simulate(stock, ops, upto: Optional[int] = None, extra=None) -> Material:
-    """Material nach ops[:upto]; extra = weitere Operation, die ins Raster passen soll."""
+    """Material after ops[:upto]; extra = another operation that must fit into the grid."""
     all_ops = list(ops)
     if extra is not None:
         all_ops.append(extra)
