@@ -18,7 +18,8 @@
 
     python3 scripts/update_translations.py
 
-1. Every _("...") and N_("...") in drehzyklen/ is collected into drehzyklen/locale/drehzyklen.pot.
+1. Every _("...") and N_("...") in drehzyklen/ and every text marked translatable in the Glade
+   file drehzyklen/ui/drehzyklen.ui is collected into drehzyklen/locale/drehzyklen.pot.
 2. Every drehzyklen/locale/<language>.po is merged with it: existing translations are kept,
    new texts are added with an empty translation, texts no longer used are dropped.
 
@@ -35,6 +36,7 @@ arguments; they are merged as well and created from the template if they do not 
 import ast
 import os
 import sys
+from xml.etree import ElementTree
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
@@ -77,7 +79,31 @@ def collect():
         calls.sort(key=lambda node: (node.lineno, node.col_offset))
         for node in calls:
             found.setdefault(node.args[0].value, []).append(f"{relative}:{node.lineno}")
+    for path in ui_paths():
+        for text, line in ui_texts(path):
+            found.setdefault(text, []).append(f"{os.path.relpath(path, ROOT)}:{line}")
     return found
+
+
+def ui_paths():
+    folder = os.path.join(PACKAGE, "ui")
+    if not os.path.isdir(folder):
+        return []
+    return [os.path.join(folder, name) for name in sorted(os.listdir(folder))
+            if name.endswith(".ui")]
+
+
+def ui_texts(path):
+    """Texts marked translatable="yes" in a Glade file, with their line numbers."""
+    parser = ElementTree.XMLPullParser(events=("end",))
+    texts = []
+    with open(path, encoding="utf-8") as file:
+        for line_number, line in enumerate(file, 1):
+            parser.feed(line)
+            for _event, element in parser.read_events():
+                if element.get("translatable") == "yes" and element.text:
+                    texts.append((element.text, line_number))
+    return texts
 
 
 def quote(text):

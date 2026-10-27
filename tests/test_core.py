@@ -612,6 +612,33 @@ def test_special_tool_from_front_and_back_angle():
     assert table_angles(tool, back_tool=False)[:2] == (70, 120)
 
 
+
+def test_glade_file_matches_the_code():
+    """Every object the code needs is in the Glade file, every signal handler exists."""
+    import ast
+    from xml.etree import ElementTree
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    gui_source = open(os.path.join(root, "drehzyklen", "gui.py"), encoding="utf-8").read()
+    tree = ast.parse(gui_source)
+    required = None
+    names = set()
+    for node in ast.walk(tree):
+        target_name = ""
+        if isinstance(node, ast.Assign):
+            target_name = getattr(node.targets[0], "id", "")
+        if target_name == "REQUIRED_OBJECTS":
+            required = ast.literal_eval(node.value)
+        if isinstance(node, ast.FunctionDef) and node.name == "handlers":
+            for inner in ast.walk(node):
+                if isinstance(inner, ast.Dict):
+                    names.update(key.value for key in inner.keys)
+    ui = ElementTree.parse(os.path.join(root, "drehzyklen", "ui", "drehzyklen.ui"))
+    ids = {element.get("id") for element in ui.iter("object")}
+    assert required and not set(required) - ids, set(required) - ids
+    used = {signal.get("handler") for signal in ui.iter("signal")}
+    assert not used - names, used - names
+
+
 if __name__ == "__main__":
     for name, function in list(globals().items()):
         if name.startswith("test_"):

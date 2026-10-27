@@ -4,8 +4,8 @@ Zyklenprogrammierung für Drehmaschinen. Du stellst Zyklen in einer Liste zusamm
 Abtrag und Parameterbild und erzeugst daraus das fertige CNC-Programm (`.ngc`). Das Programm läuft
 als **Benutzer-Tab in gmoccapy** (ab 1024×768) oder als **eigenes Fenster**.
 
-Die Oberfläche ist standardmäßig **englisch**; Deutsch und Spanisch lassen sich unten rechts in der
-Bedienleiste jederzeit umschalten (siehe [Sprache](#sprache)). Die Begriffe in dieser Anleitung
+Die Oberfläche ist standardmäßig **englisch**; Deutsch und Spanisch lassen sich in den
+Einstellungen (☰) jederzeit umschalten (siehe [Sprache](#sprache)). Die Begriffe in dieser Anleitung
 entsprechen der deutschen Übersetzung. Wie das Programm intern arbeitet, beschreibt
 [docs/ARCHITEKTUR.md](docs/ARCHITEKTUR.md).
 
@@ -15,22 +15,48 @@ entsprechen der deutschen Übersetzung. Wie das Programm intern arbeitet, beschr
 
 
 
-- **Oben:** Knöpfe für Rohteil, die Zyklen, Werkzeuge und (ohne laufendes LinuxCNC) Maschine.
-  Die Symbole richten sich nach der Werkzeuglage (vor oder hinter der Drehmitte).
+- **Oben:** **Neu**, **Öffnen**, **Speichern**, **Senden**; rechts **Werkzeuge** und **☰
+  Einstellungen**. „Senden“ zeigt den erzeugten G-Code, dort ergänzen, speichern oder an LinuxCNC
+  senden.
+- **Unten:** die Zyklen von **Rohteil** bis **G-Code**. Die Symbole richten sich nach der
+  Werkzeuglage (vor oder hinter der Drehmitte); gezeichnet ist die übliche Bearbeitung von rechts
+  nach links.
 - **Links – Programm:** die Schritte des Programms; ▲ ▼ verschieben, ✎ (oder Doppelklick)
-  bearbeiten, ⧉ duplizieren, ✖ löschen. Wählst du oben einen anderen Zyklus, wird die Markierung
+  bearbeiten, ⧉ duplizieren, ✖ löschen. Wählst du einen anderen Zyklus, wird die Markierung
   in der Liste aufgehoben – „✔ Übernehmen“ gilt nur für den gerade bearbeiteten Schritt.
-- **Mitte – Parameter** (eingerahmt): Knöpfe **Außen | Innen**, die Eingabefelder und „＋ Zum Programm“. Der
-  Knopf ist nach dem Anfügen gesperrt, bis du einen Parameter änderst.
-- **Rechts – Ansicht** (eingerahmt): Knöpfe **Zyklus | Bild | G-Code | Programm**. Die Vorschau zeigt Rohteil,
-  Futter und Abtrag (orange); Mausrad: Zoom, linke Maustaste: verschieben, Doppelklick:
-  zurücksetzen. „G-Code“ springt zum Code des links markierten Programmschritts.
+- **Mitte – Parameter** (eingerahmt): Knöpfe **Außen | Innen**, die Eingabefelder und
+  „＋ Zum Programm“. Der Knopf ist nach dem Anfügen gesperrt, bis du einen Parameter änderst.
+- **Rechts – Ansicht** (eingerahmt): Knöpfe **Zyklus | Bild | G-Code | Programm**. Die Vorschau
+  zeigt Rohteil, Futter und Abtrag (orange); Mausrad: Zoom, linke Maustaste: verschieben,
+  Doppelklick: zurücksetzen. „G-Code“ (Symbol mit Lupe) springt zum Code des links markierten
+  Programmschritts.
 - **Spalten:** Programm- und Parameterspalte sind schmal, ihre Breite stellst du mit den Griffen
   zwischen den Spalten ein. Den Rest bekommt die Vorschau.
-- **Unten:** Neu, Öffnen, Speichern, G-Code, Sprache, Maschine, Laden.
+- **☰ Einstellungen:** eine eigene Seite über die ganze Breite mit Sprache, Maschinendaten und
+  einem Bild der Maschine (siehe [Maschinenbild](#maschinenbild)). Ein Zyklusknopf führt zurück.
 - **Kleine Bildschirme:** Die Oberfläche lässt sich bis etwa 800 × 390 Pixel verkleinern (passt
   als Benutzer-Tab in gmoccapy bei 1024 × 768). Unter ca. 920 × 600 werden die Knöpfe niedriger,
-  unter 760 × 480 zeigen sie nur noch das Symbol. Der Reiter Werkzeuge rollt bei wenig Höhe.
+  unter 760 × 480 zeigen sie nur noch das Symbol.
+
+### Oberfläche anpassen (Glade, CSS)
+
+- **Anordnung:** Die Oberfläche ist in der Glade-Datei `drehzyklen/ui/drehzyklen.ui` beschrieben.
+  Sie lässt sich mit [Glade](https://glade.gnome.org/) oder
+  [Cambalache](https://gitlab.gnome.org/jpu/cambalache) öffnen; Knöpfe, Leisten und Spalten kannst
+  du dort verschieben. Lege die geänderte Datei als `~/.config/drehzyklen/drehzyklen.ui` ab, dann
+  wird sie statt der mitgelieferten benutzt (so überlebt sie ein Update). Die ids und
+  Signal-Handler müssen bleiben; fehlt nach einem Update etwas, nimmt das Programm die
+  mitgelieferte Datei und meldet das in der Konsole. Was das Programm selbst einsetzt
+  (Eingabefelder, Zyklusknöpfe, Vorschau), steht oben in der Datei.
+- **Aussehen:** Größen, Abstände und Farben der Knöpfe stehen in `drehzyklen/data/drehzyklen.css`.
+  Eigene Regeln kommen in `~/.config/drehzyklen/drehzyklen.css`; sie werden danach geladen und
+  gewinnen, z.B. `.dz .buttonbar button { min-height: 60px; }`.
+
+### Maschinenbild
+
+Ein Bild der eigenen Maschine als `machine.svg` oder `machine.png` in den Ordner
+`~/.config/drehzyklen/bilder/` (oder `bilder/` im Programmordner) legen. Es erscheint skaliert
+rechts auf der Einstellungsseite.
 
 ## Einheitliche Bezeichnungen
 
@@ -119,9 +145,10 @@ Daraus folgt:
 - Geht das nicht (I = J = 0, Q = 0 oder 9), öffnet sich beim Start der Reiter Werkzeuge. Dort gibst
   du Typ, Hand und Lage an. Die Angabe wird gespeichert und **neu abgefragt, sobald sich die Zeile
   in der tool.tbl ändert**.
+- Der Griff zwischen Werkzeugliste und Eingabefeldern vergrößert die Liste nach unten.
 - Ändert LinuxCNC die tool.tbl (z.B. neues Werkzeug im Werkzeugeditor), liest **⟳ Einlesen** im
   Reiter Werkzeuge sie neu ein. Mit dem Schalter „Werkzeugtabelle autom.
-  einlesen“ im Reiter Maschine geschieht das nach spätestens 2 Sekunden von selbst (Standard: aus).
+  einlesen“ in den Einstellungen geschieht das nach spätestens 2 Sekunden von selbst (Standard: aus).
 - Die Orientierung Q bestimmt die Richtung des Halters in der Grafik (Q7: Schaft nach +Z, wie in
   der LinuxCNC-Doku). Front- und Rückwinkel I/J werden mit Bogen ab Z+ eingezeichnet.
 - **→ In tool.tbl schreiben** trägt das gewählte Werkzeug mit D, I, J, Q und Kommentar in die
@@ -157,9 +184,9 @@ Rund- oder Sondergewinde. Dann bleibt eine deutliche Warnung.
 
 - **Werkzeugwechsel** immer mit `T… M6 G43`, nur bei neuer T-Nummer.
 - **Wechselposition `G53`** aus `[CHANGE_POSITION]`, sonst `[EMCIO] TOOL_CHANGE_POSITION`, sonst
-  Reiter Maschine. Angefahren wird im Radiusmodus G8, damit X dem INI-Wert entspricht; erst X,
+  Einstellungen. Angefahren wird im Radiusmodus G8, damit X dem INI-Wert entspricht; erst X,
   dann Z. Soll Z stehen bleiben (nur X anfahren), den Schalter „Werkzeugwechsel: auch Z“
-  im Reiter Maschine ausschalten oder in `[CHANGE_POSITION]` nur `X` eintragen.
+  in den Einstellungen ausschalten oder in `[CHANGE_POSITION]` nur `X` eintragen.
 - **Zwischen den Zyklen** auf eine Rückzugsebene vor dem Werkstück:
   - außen: erst X nach außen
   - innen: erst X zur Mitte, dann Z heraus
@@ -198,8 +225,8 @@ nicht zur Norm (55° gegen 60°), meldet die Werkzeugprüfung das.
 
 ## G-Code bearbeiten
 
-- Die Taste **G-Code** zeigt den erzeugten Code in einem Editor. Dort ergänzen, speichern oder direkt
-  in LinuxCNC laden (nur möglich, wenn LinuxCNC läuft).
+- **Senden** (oben) zeigt den erzeugten Code in einem Editor. Dort ergänzen, speichern oder an
+  LinuxCNC senden (nur möglich, wenn LinuxCNC läuft).
 - Dauerhafter Code zwischen zwei Zyklen gehört in einen Schritt **G-Code**. Einen Textbaustein
   auswählen ersetzt den Inhalt des Codefelds, **Einfügen** fügt ihn zusätzlich an der Schreibmarke
   ein, **Leeren** macht das Feld frei für einen neuen Baustein. Die Bausteine („Späne entfernen“,
@@ -207,7 +234,7 @@ nicht zur Norm (55° gegen 60°), meldet die Werkzeugprüfung das.
 - „Spindel/Kühlung wieder ein“: Folgt ein Zyklus mit demselben Werkzeug, werden
   Drehzahl mit M3/M4 und M8 direkt nach dem Baustein wieder ausgegeben; bei einem Werkzeugwechsel
   schaltet der nächste Zyklus sie ein.
-- Der **Programmordner** steht im Reiter Maschine (Standard aus `PROGRAM_PREFIX`). Ein Ordner, den
+- Der **Programmordner** steht in den Einstellungen (Standard aus `PROGRAM_PREFIX`). Ein Ordner, den
   es nicht gibt, wird nicht übernommen (auf Wunsch wird er angelegt). Danach merkt sich das
   Programm den zuletzt benutzten Ordner.
 - Die **Schnittdaten** (Werkzeug, Drehzahl, Vorschübe, Zustellung, Aufmaße …) merkt sich jeder
@@ -245,13 +272,13 @@ Welche INI gelesen wird (Werkzeugtabelle `[EMCIO] TOOL_TABLE`, Grenzen, G53-Wech
 1. `--ini` beim Aufruf
 2. `INI_FILE_NAME` – setzt LinuxCNC, wenn es das Programm startet (eingebettet in gmoccapy)
 3. die INI des gerade laufenden LinuxCNC (z.B. wenn das Programm im Terminal gestartet wurde)
-4. die im Reiter Maschine unter „LinuxCNC-INI-Datei“ eingetragene Datei (Betrieb ohne LinuxCNC)
+4. die in den Einstellungen unter „LinuxCNC-INI-Datei“ eingetragene Datei (Betrieb ohne LinuxCNC)
 
-Welche Datei benutzt wurde, steht unten im Reiter Maschine.
+Welche Datei benutzt wurde, steht unten in den Einstellungen.
 
 ## Sprache
 
-- Die Auswahl unten in der Bedienleiste wechselt die Sprache **sofort**: die Oberfläche wird neu
+- Die Auswahl in den Einstellungen (☰) wechselt die Sprache **sofort**: die Oberfläche wird neu
   aufgebaut, Programm, Eingaben und der gerade bearbeitete Schritt bleiben erhalten. Die Wahl wird in
   `settings.json` gespeichert. Auch die Kommentare im erzeugten G-Code folgen der Sprache.
 - Beim Start: `--language de` (oder `en`, `es`) setzt die Sprache und speichert sie.

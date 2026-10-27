@@ -272,7 +272,8 @@ class Sketch:
             label_dy = self.font * 0.7
         self.label((z, r_to), symbol, value, anchor=anchor, dy=label_dy)
 
-    def angle(self, center, angle_from, angle_to, radius_px, symbol, value=None, label_distance=16):
+    def angle(self, center, angle_from, angle_to, radius_px, symbol, value=None, label_distance=16,
+              color=DIMENSION):
         """Angle arc around the model point center, angles in the model (z right, r up)."""
         cr = self.cr
         center_x, center_y = self.to_screen(*center)
@@ -282,7 +283,7 @@ class Sketch:
             screen_from, screen_to = -angle_from, -angle_to
         low = min(screen_from, screen_to)
         high = max(screen_from, screen_to)
-        cr.set_source_rgb(*DIMENSION)
+        cr.set_source_rgb(*color)
         cr.set_line_width(1.0)
         cr.new_sub_path()
         cr.arc(center_x, center_y, radius_px, low, high)
@@ -290,7 +291,7 @@ class Sketch:
         middle = (low + high) / 2
         label_x = center_x + (radius_px + label_distance) * math.cos(middle)
         label_y = center_y + (radius_px + label_distance) * math.sin(middle)
-        self.label(self.to_model(label_x, label_y), symbol, value)
+        self.label(self.to_model(label_x, label_y), symbol, value, color=color)
 
     def leader(self, point, label_point, symbol, value=None, anchor="c"):
         """Leader line from the label to the point."""
@@ -1087,6 +1088,8 @@ def draw_icon(cr, key: str, size: float, color=(0.9, 0.9, 0.9), accent=(1.0, 0.6
     """
     scale = size / 24.0
     cr.set_line_width(1.6 * scale)
+    if key in ("menu", "send", "gcode_view"):
+        flip = False                    # symbols without a tool position
 
     def point(x, y):
         if flip:
@@ -1126,11 +1129,12 @@ def draw_icon(cr, key: str, size: float, color=(0.9, 0.9, 0.9), accent=(1.0, 0.6
         shape([(2, 4), (14, 4), (14, 20), (2, 20)], True)
         arrow(18, 3, 18, 18)
     elif key == "long":
-        shape([(2, 7), (13, 7), (13, 4), (22, 4), (22, 20), (2, 20)], True)
-        arrow(14, 1.5, 3, 1.5)
+        # turned section at the front (right), machining towards the chuck (left)
+        shape([(22, 7), (11, 7), (11, 4), (2, 4), (2, 20), (22, 20)], True)
+        arrow(23, 2.5, 12, 2.5)
     elif key == "taper":
-        shape([(2, 20), (2, 12), (22, 5), (22, 20)], True)
-        arrow(4, 8, 19, 2.5)
+        shape([(22, 20), (22, 12), (2, 5), (2, 20)], True)
+        arrow(20, 8, 5, 2.5)
     elif key == "thread":
         teeth = [(2, 20), (2, 10)]
         for index in range(5):
@@ -1145,8 +1149,8 @@ def draw_icon(cr, key: str, size: float, color=(0.9, 0.9, 0.9), accent=(1.0, 0.6
         shape([(2, 4), (14, 4), (22, 12), (22, 20), (2, 20)], True)
         shape([(15, 2), (24, 11)], shape_color=accent)
     elif key == "contour":
-        shape([(2, 20), (2, 16), (6, 14), (8, 9), (11, 8), (16, 8), (22, 3), (22, 20)], True)
-        for x, y in ((2, 16), (11, 8), (16, 8), (22, 3)):
+        shape([(22, 20), (22, 16), (18, 14), (16, 9), (13, 8), (8, 8), (2, 3), (2, 20)], True)
+        for x, y in ((22, 16), (13, 8), (8, 8), (2, 3)):
             disc(x, y, 1.8, accent)
     elif key == "drill":
         shape([(2, 9), (14, 9), (19, 12), (14, 15), (2, 15)], True)
@@ -1180,6 +1184,30 @@ def draw_icon(cr, key: str, size: float, color=(0.9, 0.9, 0.9), accent=(1.0, 0.6
         cr.move_to(11 * scale, 16 * scale)
         show_text(cr, "M")
         cr.select_font_face("Sans", 0, 0)
+    elif key == "menu":
+        cr.set_line_width(2.6 * scale)
+        for y in (6, 12, 18):
+            shape([(3, y), (21, y)])
+        cr.set_line_width(1.6 * scale)
+    elif key == "gcode_view":
+        shape([(4, 2), (16, 2), (16, 21), (4, 21), (4, 2)])
+        for y in (6, 9, 12):
+            shape([(7, y), (13, y)], shape_color=accent)
+        cr.set_source_rgb(*color)
+        center_x, center_y = point(15, 15)
+        cr.new_sub_path()
+        cr.arc(center_x, center_y, 4.5 * scale, 0, 2 * math.pi)
+        cr.stroke()
+        cr.set_line_width(2.8 * scale)
+        shape([(18.3, 18.3), (22.5, 22.5)])
+        cr.set_line_width(1.6 * scale)
+    elif key == "send":
+        shape([(2, 3), (12, 3), (12, 21), (2, 21), (2, 3)])
+        for y in (7, 10, 13):
+            shape([(4.5, y), (9.5, y)])
+        cr.set_line_width(2.4 * scale)
+        arrow(11, 15, 22.5, 15)
+        cr.set_line_width(1.6 * scale)
     elif key == "side_out":
         shape([(2, 8), (22, 8), (22, 16), (2, 16)], True)
         arrow(12, 1, 12, 7)

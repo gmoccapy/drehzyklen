@@ -543,9 +543,23 @@ class ToolTable:
         self.tools: Dict[int, Tool] = {}
         self.from_linuxcnc = False
         self.mirror_table_angles = bool(self._stored().get("mirror_table_angles", False))
-        self.message = ""
+        # status text as (English text, values): translated when shown, so that it follows a
+        # language switch
+        self.message_parts: List[Tuple[str, dict]] = []
         self.loaded_stamp = None
         self.load()
+
+    # ---------------------------------------------------------------- status text
+    def set_message(self, text: str, **values):
+        self.message_parts = [(text, values)]
+
+    def add_message(self, text: str, **values):
+        self.message_parts.append((text, values))
+
+    @property
+    def message(self) -> str:
+        """Status text in the active language."""
+        return " - ".join(_(text).format(**values) for text, values in self.message_parts)
 
     # ---------------------------------------------------------------- loading
     def table_path(self) -> str:
@@ -596,12 +610,12 @@ class ToolTable:
                 except TypeError:
                     continue
                 self.tools[tool.number] = tool
-            self.message = _("Tools from {file}").format(file=os.path.basename(self.data_path))
+            self.set_message(N_("Tools from {file}"), file=os.path.basename(self.data_path))
         else:
             for tool in preset_tools():
                 self.tools[tool.number] = tool
-            self.message = _("Preset tools (ISO C, D, T, V left/right, grooving, threading, "
-                             "drill, boring bar)")
+            self.set_message(N_("Preset tools (ISO C, D, T, V left/right, grooving, threading, "
+                                "drill, boring bar)"))
 
     def _load_tbl(self, path: str):
         assignments = self._stored().get("assignments", {})
@@ -609,7 +623,7 @@ class ToolTable:
             with open(path, encoding="utf-8", errors="replace") as file:
                 lines = file.readlines()
         except OSError as error:
-            self.message = _("tool.tbl cannot be read: {error}").format(error=error)
+            self.set_message(N_("tool.tbl cannot be read: {error}"), error=error)
             return
         for line in lines:
             entry = parse_tool_line(line)
@@ -621,10 +635,10 @@ class ToolTable:
                 self._apply_assignment(tool, stored)
             self.tools[tool.number] = tool
         pending = [tool for tool in self.tools.values() if tool.needs_input]
-        self.message = _("{count} tools from {path}").format(count=len(self.tools), path=path)
+        self.set_message(N_("{count} tools from {path}"), count=len(self.tools), path=path)
         if pending:
             numbers = ", ".join(f"T{tool.number}" for tool in pending)
-            self.message += " - " + _("input missing for {numbers}").format(numbers=numbers)
+            self.add_message(N_("input missing for {numbers}"), numbers=numbers)
 
     def table_axis(self, tool: Tool) -> Optional[float]:
         """Tool axis of an entered special shape in tool.tbl convention (None = bisector)."""
@@ -686,7 +700,7 @@ class ToolTable:
             with open(self.data_path, "w", encoding="utf-8") as file:
                 json.dump(data, file, indent=2, ensure_ascii=False)
         except OSError as error:
-            self.message = _("Tools not saved: {error}").format(error=error)
+            self.set_message(N_("Tools not saved: {error}"), error=error)
 
     # ---------------------------------------------------------------- access
     def get(self, number) -> Optional[Tool]:

@@ -137,6 +137,17 @@ def draw_tool(cr, width, height, tool, flip=False, font=None):
         angles=angles_text, source=tool.source_text()))
 
 
+def _screen_point(sketch, center, model_angle, radius_px):
+    """Screen point at radius_px from the model point center in the direction model_angle."""
+    center_x, center_y = sketch.to_screen(*center)
+    if sketch.flip:
+        screen_angle = model_angle
+    else:
+        screen_angle = -model_angle
+    return (center_x + radius_px * math.cos(screen_angle),
+            center_y + radius_px * math.sin(screen_angle))
+
+
 def _draw_table_angles(sketch, tool, tip, flip):
     """Front and back angle as in the tool.tbl: clockwise from Z+ (LinuxCNC view)."""
     back_tool = not flip
@@ -147,15 +158,20 @@ def _draw_table_angles(sketch, tool, tip, flip):
         if angles is None:
             return ""
         front, back, orientation = angles
-    sketch.line(tip, (24.0, 0.0), DIMENSION, 0.8, [4, 3])
-    sketch.label((24.0, 0.0), "Z+", None, anchor="r", dy=-sketch.font * 0.9 * sketch.sign)
+    # blue like the cutting direction, so that the arcs stand out against the yellow insert
+    sketch.line(tip, (24.0, 0.0), PATH, 0.8, [4, 3])
+    sketch.label((24.0, 0.0), "Z+", None, anchor="r", dy=-sketch.font * 0.9 * sketch.sign,
+                 color=PATH)
     for value, symbol, radius in ((front, "I", 58), (back, "J", 76)):
         if back_tool:
             model = -value
         else:
             model = value
         sketch.angle(tip, 0.0, math.radians(model), radius, symbol, value_text(value, 1) + "°",
-                     label_distance=10)
+                     label_distance=10, color=PATH)
+        # thin line along the edge up to the arc: shows which edge the angle belongs to
+        edge_end = sketch.to_model(*_screen_point(sketch, tip, math.radians(model), radius))
+        sketch.line(tip, edge_end, PATH, 1.6)
     return f"I {value_text(front, 1)}°  J {value_text(back, 1)}°  Q{orientation}"
 
 
