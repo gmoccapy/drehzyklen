@@ -82,12 +82,14 @@ def draw_tool(cr, width, height, tool, flip=False, font=None):
         sketch.polygon([(-26, 0.0), (26, 0.0), (26, -14), (-26, -14)], fill=MATERIAL)
 
     if tool.kind == "groove":
-        half = max(tool.width, 1.0)
-        blade = [(-half, 0), (half, 0), (half, length * 1.6), (-half, length * 1.6)]
-        if tool.position == INSIDE:
-            blade = [(z, -r) for z, r in blade]
-        sketch.polygon(blade, fill=INSERT_COLOR, stroke=EDGE)
-        holder_start = _add(tip, bisector, length * 1.6)
+        flanks = _groove_flanks(tool, sector)
+        blade_length = length * 1.6
+        (left_corner, left_edge), (right_corner, right_edge) = flanks
+        left_end = _add(left_corner, _direction(left_edge), blade_length)
+        right_end = _add(right_corner, _direction(right_edge), blade_length)
+        sketch.polygon([left_corner, right_corner, right_end, left_end], fill=INSERT_COLOR,
+                       stroke=EDGE)
+        holder_start = ((left_end[0] + right_end[0]) / 2, (left_end[1] + right_end[1]) / 2)
     elif tool.kind == "R":
         center = _add(tip, bisector, 4.0)
         cr.set_source_rgb(*INSERT_COLOR)
@@ -148,6 +150,76 @@ def _screen_point(sketch, center, model_angle, radius_px):
             center_y + radius_px * math.sin(screen_angle))
 
 
+def _groove_flanks(tool, sector):
+    """Corners of the cutting edge with the direction of their side flank (model degrees).
+
+    I/J of a grooving tool are the directions of the two side flanks. Each flank starts at its
+    own corner and leans inwards (side clearance): the left flank towards +Z, the right one
+    towards -Z - the blade gets narrower towards the back and does not jam in the groove.
+    """
+    half = max(tool.width, 1.0)
+    edge_one, edge_two = sector
+    if math.cos(math.radians(edge_one)) > math.cos(math.radians(edge_two)):
+        left_edge, right_edge = edge_one, edge_two
+    else:
+        left_edge, right_edge = edge_two, edge_one
+    return [((-half, 0.0), left_edge), ((half, 0.0), right_edge)]
+
+
+def _table_value(model_degrees, back_tool):
+    """Model angle -> tool.tbl angle (0…360°) for comparing with I/J."""
+    if back_tool:
+        return (-model_degrees) % 360.0
+    return model_degrees % 360.0
+
+
+def _arc(sketch, center, from_degrees, to_degrees, radius_px, color):
+    """Arc around a model point between two model angles (as Sketch.angle, without label)."""
+    cr = sketch.cr
+    center_x, center_y = sketch.to_screen(*center)
+    if sketch.flip:
+        screen_from, screen_to = math.radians(from_degrees), math.radians(to_degrees)
+    else:
+        screen_from, screen_to = -math.radians(from_degrees), -math.radians(to_degrees)
+    cr.set_source_rgb(*color)
+    cr.set_line_width(1.2)
+    cr.new_sub_path()
+    cr.arc(center_x, center_y, radius_px, min(screen_from, screen_to),
+           max(screen_from, screen_to))
+    cr.stroke()
+
+
+def _draw_groove_angles(sketch, tool, front, back, back_tool):
+    """Grooving tool: I and J at the corner of their flank, measured from Z+; the small arc
+    between the dashed vertical and the flank is the side clearance."""
+    radius_px = 70
+    for (corner, edge), side in zip(_groove_flanks(tool, tool.sector()), (-1, 1)):
+        value = _table_value(edge, back_tool)
+        if abs(((value - front) + 180.0) % 360.0 - 180.0) < 0.05:
+            symbol, shown = "I", front
+        else:
+            symbol, shown = "J", back
+        if math.sin(math.radians(edge)) >= 0:
+            vertical = 90.0
+        else:
+            vertical = -90.0
+        clearance = abs(edge - vertical)
+        reference_end = sketch.to_model(*_screen_point(sketch, corner, math.radians(vertical),
+                                                       radius_px + 14))
+        sketch.line(corner, reference_end, PATH, 0.8, [4, 3])
+        _arc(sketch, corner, vertical, edge, radius_px, PATH)
+        label_point = sketch.to_model(*_screen_point(sketch, corner, math.radians(vertical),
+                                                     radius_px))
+        if side < 0:
+            anchor = "r"
+        else:
+            anchor = "l"
+        sketch.label(label_point, symbol,
+                     _("{angle}° (clearance {clearance}°)").format(
+                         angle=value_text(shown, 1), clearance=value_text(clearance, 1)),
+                     anchor=anchor, dx=side * 8, color=PATH)
+
+
 def _draw_table_angles(sketch, tool, tip, flip):
     """Front and back angle as in the tool.tbl: clockwise from Z+ (LinuxCNC view)."""
     back_tool = not flip
@@ -162,6 +234,9 @@ def _draw_table_angles(sketch, tool, tip, flip):
     sketch.line(tip, (24.0, 0.0), PATH, 0.8, [4, 3])
     sketch.label((24.0, 0.0), "Z+", None, anchor="r", dy=-sketch.font * 0.9 * sketch.sign,
                  color=PATH)
+    if tool.kind == "groove":
+        _draw_groove_angles(sketch, tool, front, back, back_tool)
+        return f"I {value_text(front, 1)}°  J {value_text(back, 1)}°  Q{orientation}"
     for value, symbol, radius in ((front, "I", 58), (back, "J", 76)):
         if back_tool:
             model = -value

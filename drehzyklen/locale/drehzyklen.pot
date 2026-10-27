@@ -995,13 +995,18 @@ msgstr ""
 msgid "Enter type, hand and position (fields below) - only then can the tool be checked"
 msgstr ""
 
-#: drehzyklen/tooldraw.py:126 drehzyklen/tooldraw.py:129
+#: drehzyklen/tooldraw.py:128 drehzyklen/tooldraw.py:131
 msgid "Cut"
 msgstr ""
 
-#: drehzyklen/tooldraw.py:135
+#: drehzyklen/tooldraw.py:137
 #, python-brace-format
 msgid "{hand}, {position} · {angles} · source: {source}"
+msgstr ""
+
+#: drehzyklen/tooldraw.py:218
+#, python-brace-format
+msgid "{angle}° (clearance {clearance}°)"
 msgstr ""
 
 #: drehzyklen/tools.py:52
