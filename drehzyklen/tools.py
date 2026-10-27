@@ -317,33 +317,56 @@ def model_angle(table_angle: float, back_tool: bool, mirror_z: bool = False) -> 
 def table_angles(tool: Tool, back_tool: bool, mirror_z: bool = False):
     """Front angle I, back angle J and orientation Q for the tool.tbl.
 
+    The front angle belongs to the main cutting edge: for a right-hand tool the edge towards -Z,
+    for a left-hand tool the edge towards +Z. For a neutral tool (threading, grooving) the
+    larger angle is the front angle (e.g. I117.5 J62.5).
+
     The angles are written as positive values (0…360°) where possible. If the insert covers
     the direction Z+ (0°), the smaller angle becomes negative (like Q7 in the LinuxCNC
-    documentation), because LinuxCNC draws the insert from the smaller to the larger angle.
+    documentation). A tool read from the tool.tbl keeps its I and J unchanged.
     """
     sector = tool.sector()
     if sector is None:
         return None
-    # model -> table is the same (self-inverse) mapping as table -> model
-    first = model_angle(sector[0], back_tool, mirror_z)
-    second = model_angle(sector[1], back_tool, mirror_z)
-    low, high = min(first, second), max(first, second)
-    while low < 0:
-        low += 360.0
-        high += 360.0
-    while low >= 360.0:
-        low -= 360.0
-        high -= 360.0
-    if high > 360.0:
-        low -= 360.0
-        high -= 360.0
     if tool.orientation in ORIENTATION_ANGLES and tool.angles_from_table:
         orientation = tool.orientation
     else:
         # control point as in the LinuxCNC documentation: right outside 2, left outside 1,
         # right inside 3, left inside 4, neutral outside 6, neutral inside 8
         orientation = STANDARD_ORIENTATION.get((tool.hand, tool.position), 6)
-    return round(low, 3), round(high, 3), orientation
+    if tool.angles_from_table and not tool.entered_angles:
+        return tool.front_angle, tool.back_angle, orientation
+    if tool.entered_angles:
+        return tool.front_angle, tool.back_angle, orientation
+    # main cutting edge in the model: the edge pointing most towards the cutting direction
+    edge_one, edge_two = sector
+    if tool.hand == RIGHT:
+        if math.cos(math.radians(edge_one)) < math.cos(math.radians(edge_two)):
+            main_edge, other_edge = edge_one, edge_two
+        else:
+            main_edge, other_edge = edge_two, edge_one
+    elif tool.hand == LEFT:
+        if math.cos(math.radians(edge_one)) > math.cos(math.radians(edge_two)):
+            main_edge, other_edge = edge_one, edge_two
+        else:
+            main_edge, other_edge = edge_two, edge_one
+    else:
+        main_edge, other_edge = edge_one, edge_two
+    # model -> table is the same (self-inverse) mapping as table -> model
+    front = model_angle(main_edge, back_tool, mirror_z)
+    back = model_angle(other_edge, back_tool, mirror_z)
+    shift = 0.0
+    while min(front, back) + shift < 0:
+        shift += 360.0
+    while min(front, back) + shift >= 360.0:
+        shift -= 360.0
+    if max(front, back) + shift > 360.0:
+        shift -= 360.0
+    front += shift
+    back += shift
+    if tool.hand not in (RIGHT, LEFT) and front < back:
+        front, back = back, front
+    return round(front, 3), round(back, 3), orientation
 
 
 def write_table_line(path: str, tool: Tool, front: float, back: float, orientation: int):

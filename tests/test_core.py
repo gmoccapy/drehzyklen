@@ -547,6 +547,10 @@ def test_orientation_angles_and_table_writing():
     assert table_angles(tool, False) == (240.0, 300.0, 7)
     boring_bar = preset_tools()[11]
     assert table_angles(boring_bar, False) == (273.0, 328.0, 3)  # written as positive angles
+    # front angle I = main cutting edge: right-hand edge towards -Z, left-hand towards +Z
+    assert table_angles(preset_tools()[0], False) == (85.0, 5.0, 2)      # ISO C right
+    assert table_angles(preset_tools()[1], False) == (95.0, 175.0, 1)    # ISO C left
+    assert table_angles(preset_tools()[9], False) == (120.0, 60.0, 6)    # threading 60°
     folder = tempfile.mkdtemp()
     path = os.path.join(folder, "tool.tbl")
     with open(path, "w", encoding="utf-8") as file:
@@ -609,7 +613,7 @@ def test_special_tool_from_front_and_back_angle():
     assert tool.shank_direction() == 80
     set_special_angles(tool, 120, 70, None, back_tool=False)
     assert tool.shank_direction() == 95
-    assert table_angles(tool, back_tool=False)[:2] == (70, 120)
+    assert table_angles(tool, back_tool=False)[:2] == (120, 70)          # as entered
 
 
 
