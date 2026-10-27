@@ -746,6 +746,7 @@ class SettingsPage:
             params.append(P(key, label, value, kind, help=MACHINE_HELP.get(key, "")))
         self.form = ParamForm(params)
         get("machine_form_scroller").add(self.form)
+        self.form.show_all()
         self.info = get("machine_info")
         self.language_combo = get("language_combo")
         for code in i18n.available_languages():
@@ -1054,12 +1055,17 @@ class DrehzyklenPanel(Gtk.Box):
         self.view_column = ViewColumn(self, builder)
 
         # ---- pages of the middle column
+        # pages created in code must be visible before they are added: a Gtk.Stack ignores
+        # switching to an invisible page (it would stay on the tools page from the Glade file)
         self.stack = get("page_stack")
         self.stock_page = StockPage(self)
+        self.stock_page.show_all()
         self.stack.add_named(self.stock_page, "stock")
         self.pages: Dict[str, CyclePage] = {}
         for cycle_class in CYCLES:
             page = CyclePage(self, cycle_class)
+            page.show_all()
+            page.form.update_visibility()
             self.pages[cycle_class.KEY] = page
             self.stack.add_named(page, cycle_class.KEY)
         self.tool_page = ToolPage(self, builder)
