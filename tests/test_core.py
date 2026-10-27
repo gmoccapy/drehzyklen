@@ -643,6 +643,28 @@ def test_glade_file_matches_the_code():
     assert not used - names, used - names
 
 
+
+def test_lead_angle_limit_and_free_holder_axis():
+    """κ + ε must not exceed 180° (minor edge would rub); the holder angle is independent."""
+    from drehzyklen.tools import lead_angle_problem, table_angles
+    assert lead_angle_problem("C", 95.0) == ""
+    assert lead_angle_problem("C", 100.0) == ""                 # minor edge exactly 0°
+    assert "100" in lead_angle_problem("C", 105.0)              # -5°: maximum 100° for ISO C
+    assert lead_angle_problem("V", 140.0) == ""
+    assert lead_angle_problem("thread", 170.0) == ""            # κ not used there
+    machine = Machine()
+    table = ToolTable(machine, os.path.join(tempfile.mkdtemp(), "tools.json"))
+    tool = table.get(1)                                         # ISO C right, κ 95°
+    table.assign(tool, "C", "right", "outside", 95.0, 0.8, 0, 0, "", 0.0, None, 90.0)
+    assert tool.sector() == (5.0, 85.0)                         # insert unchanged by the holder
+    assert tool.shank_direction() == 90.0 and tool.entered_axis
+    assert table_angles(tool, False) == (85.0, 5.0, 6)          # Q from the holder direction
+    reloaded = ToolTable(machine, table.data_path).get(1)
+    assert reloaded.shank_direction() == 90.0
+    table.assign(tool, "C", "right", "outside", 95.0, 0.8, 0, 0, "", 0.0, None, None)
+    assert tool.shank_direction() == 45.0                       # empty = bisector
+
+
 if __name__ == "__main__":
     for name, function in list(globals().items()):
         if name.startswith("test_"):

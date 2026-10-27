@@ -51,7 +51,8 @@ from .machine import MACHINE_FIELDS, MACHINE_HELP, Machine  # noqa: E402
 from .material import simulate  # noqa: E402
 from .settings import Settings  # noqa: E402
 from .tools import (HAND_LABELS, HANDS, KIND_LABELS, NEW_SOURCE, POSITION_LABELS,  # noqa: E402
-                    NEUTRAL, POSITIONS, RIGHT, Tool, ToolTable, table_angles)
+                    NEUTRAL, POSITIONS, RIGHT, Tool, ToolTable, lead_angle_problem,
+                    table_angles)
 from .widgets import (NumberField, ParamForm, RadioBar, ViewArea,  # noqa: E402
                       ellipsize_combo, message_area, message_markup, short_combo)
 
@@ -459,10 +460,11 @@ class ToolPage:
                        "Example I120 J70 gives a point angle of 50°")
         self.front_entry.set_tooltip_text(angle_help)
         self.back_entry.set_tooltip_text(angle_help)
-        self.axis_entry.set_tooltip_text(_("Direction of the tool axis (shank), same convention "
-                                           "as I/J. Empty = bisector of the insert. The insert "
-                                           "may sit asymmetrically, e.g. I120 J70 mounted at "
-                                           "80°"))
+        self.axis_entry.set_tooltip_text(_("Direction of the holder (shank), counted like I/J "
+                                           "clockwise from Z+: 90° = holder at right angles to "
+                                           "the spindle axis. Empty = bisector of the insert. "
+                                           "Independent of κ, e.g. ISO C with κ 95° in a holder "
+                                           "at 90°"))
         self.comment_entry = get("tool_comment")
         self.apply_button = get("tool_apply")
         self.new_button = get("tool_new")
@@ -610,7 +612,16 @@ class ToolPage:
         self.tip_entry.set_sensitive(geometry_free and kind == "thread")
         self.front_entry.set_sensitive(special)
         self.back_entry.set_sensitive(special)
-        self.axis_entry.set_sensitive(special)
+        self.axis_entry.set_sensitive(self.axis_editable(kind, tool))
+
+    def axis_editable(self, kind, tool) -> bool:
+        """The holder direction can be entered for every tool except drills, as long as the
+        tool.tbl does not fix it (then it comes from Q)."""
+        if kind in (None, "drill"):
+            return False
+        if self.special_editable(kind, tool):
+            return True
+        return tool is None or not tool.angles_from_table or tool.entered_axis
 
     def on_apply(self, _button):
         tool = self.selected_tool()
@@ -651,12 +662,24 @@ class ToolPage:
         if not kind or not hand or not position:
             self.panel.message(_("Choose type, hand and position."), Gtk.MessageType.ERROR)
             return
+        axis = None
+        if special_angles is None and self.axis_editable(kind, tool):
+            try:
+                axis = self.axis_entry.get_value()
+            except (ValueError, SyntaxError, ZeroDivisionError):
+                self.panel.message(_("Please enter valid numbers."), Gtk.MessageType.ERROR)
+                return
+        if not tool.angles_from_table:
+            problem = lead_angle_problem(kind, lead)
+            if problem:
+                self.panel.message(problem, Gtk.MessageType.ERROR)
+                return
         if kind == "thread" and not tool.angles_from_table and not 20.0 <= tip_angle <= 90.0:
             self.panel.message(_("Point angle of the threading tool: 20° … 90°."),
                                Gtk.MessageType.ERROR)
             return
         self.panel.tools.assign(tool, kind, hand, position, lead, radius, width, diameter,
-                                self.comment_entry.get_text(), tip_angle, special_angles)
+                                self.comment_entry.get_text(), tip_angle, special_angles, axis)
         self.panel.tools_changed(tool.number)
 
     def on_new(self, _button):
