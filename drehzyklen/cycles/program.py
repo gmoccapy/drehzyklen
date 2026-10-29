@@ -55,8 +55,8 @@ from .thread import Thread
 CYCLES = [Facing, LongTurning, Taper, Thread, EdgeBreak, Contour, Drill, GCodeOp]
 CYCLE_BY_KEY = {cycle.KEY: cycle for cycle in CYCLES}
 CHECKED_ERRORS = (ContourError, ValueError, TypeError, ZeroDivisionError)
-NO_TOOL_CHANGE_WARNING = N_("No tool change position defined (INI [CHANGE_POSITION] or machine "
-                            "tab) - the change happens at the retract position")
+NO_TOOL_CHANGE_WARNING = N_("No tool change position defined (INI [CHANGE_POSITION] or "
+                            "settings) - the change happens at the retract position")
 
 
 def cycle_from_dict(data) -> Cycle:

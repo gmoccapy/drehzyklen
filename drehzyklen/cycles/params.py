@@ -131,7 +131,7 @@ TOOL_PARAMS = [
 
 SPINDLE_DIR = P("spindle_dir", N_("Spindle direction"), "auto", "choice", ("auto", "M3", "M4"),
                 labels={"auto": N_("auto")},
-                help=N_("auto: tool in front of the centre line M3, behind it M4 (machine tab)"))
+                help=N_("auto: tool in front of the centre line M3, behind it M4 (settings)"))
 COOLANT = P("coolant", N_("Coolant M8"), True, "bool")
 
 TECH = TOOL_PARAMS + [

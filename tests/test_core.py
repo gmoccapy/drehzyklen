@@ -547,6 +547,10 @@ def test_orientation_angles_and_table_writing():
     assert table_angles(tool, False) == (240.0, 300.0, 7)
     boring_bar = preset_tools()[11]
     assert table_angles(boring_bar, False) == (273.0, 328.0, 3)  # written as positive angles
+    # front angle I = main cutting edge: right-hand edge towards -Z, left-hand towards +Z
+    assert table_angles(preset_tools()[0], False) == (85.0, 5.0, 2)      # ISO C right
+    assert table_angles(preset_tools()[1], False) == (95.0, 175.0, 1)    # ISO C left
+    assert table_angles(preset_tools()[9], False) == (120.0, 60.0, 6)    # threading 60°
     folder = tempfile.mkdtemp()
     path = os.path.join(folder, "tool.tbl")
     with open(path, "w", encoding="utf-8") as file:
@@ -609,7 +613,56 @@ def test_special_tool_from_front_and_back_angle():
     assert tool.shank_direction() == 80
     set_special_angles(tool, 120, 70, None, back_tool=False)
     assert tool.shank_direction() == 95
-    assert table_angles(tool, back_tool=False)[:2] == (70, 120)
+    assert table_angles(tool, back_tool=False)[:2] == (120, 70)          # as entered
+
+
+
+def test_glade_file_matches_the_code():
+    """Every object the code needs is in the Glade file, every signal handler exists."""
+    import ast
+    from xml.etree import ElementTree
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    gui_source = open(os.path.join(root, "drehzyklen", "gui.py"), encoding="utf-8").read()
+    tree = ast.parse(gui_source)
+    required = None
+    names = set()
+    for node in ast.walk(tree):
+        target_name = ""
+        if isinstance(node, ast.Assign):
+            target_name = getattr(node.targets[0], "id", "")
+        if target_name == "REQUIRED_OBJECTS":
+            required = ast.literal_eval(node.value)
+        if isinstance(node, ast.FunctionDef) and node.name == "handlers":
+            for inner in ast.walk(node):
+                if isinstance(inner, ast.Dict):
+                    names.update(key.value for key in inner.keys)
+    ui = ElementTree.parse(os.path.join(root, "drehzyklen", "ui", "drehzyklen.ui"))
+    ids = {element.get("id") for element in ui.iter("object")}
+    assert required and not set(required) - ids, set(required) - ids
+    used = {signal.get("handler") for signal in ui.iter("signal")}
+    assert not used - names, used - names
+
+
+
+def test_lead_angle_limit_and_free_holder_axis():
+    """κ + ε must not exceed 180° (minor edge would rub); the holder angle is independent."""
+    from drehzyklen.tools import lead_angle_problem, table_angles
+    assert lead_angle_problem("C", 95.0) == ""
+    assert lead_angle_problem("C", 100.0) == ""                 # minor edge exactly 0°
+    assert "100" in lead_angle_problem("C", 105.0)              # -5°: maximum 100° for ISO C
+    assert lead_angle_problem("V", 140.0) == ""
+    assert lead_angle_problem("thread", 170.0) == ""            # κ not used there
+    machine = Machine()
+    table = ToolTable(machine, os.path.join(tempfile.mkdtemp(), "tools.json"))
+    tool = table.get(1)                                         # ISO C right, κ 95°
+    table.assign(tool, "C", "right", "outside", 95.0, 0.8, 0, 0, "", 0.0, None, 90.0)
+    assert tool.sector() == (5.0, 85.0)                         # insert unchanged by the holder
+    assert tool.shank_direction() == 90.0 and tool.entered_axis
+    assert table_angles(tool, False) == (85.0, 5.0, 6)          # Q from the holder direction
+    reloaded = ToolTable(machine, table.data_path).get(1)
+    assert reloaded.shank_direction() == 90.0
+    table.assign(tool, "C", "right", "outside", 95.0, 0.8, 0, 0, "", 0.0, None, None)
+    assert tool.shank_direction() == 45.0                       # empty = bisector
 
 
 if __name__ == "__main__":

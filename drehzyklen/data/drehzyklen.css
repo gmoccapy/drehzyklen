@@ -1,0 +1,35 @@
+/* Drehzyklen - appearance of the user interface (GTK3 CSS).
+ *
+ * Do not change this file - put your own rules into
+ *     ~/.config/drehzyklen/drehzyklen.css
+ * They are loaded after this file and win. Example:
+ *     .dz .buttonbar button { min-height: 60px; }
+ *     .dz .buttonbar button:checked { box-shadow: inset 0 -4px #2a8ad4; }
+ *
+ * Classes:
+ *   .dz            the whole panel
+ *   .dz.compact    added automatically on small screens (below about 920 x 600 px)
+ *   .buttonbar     rows of large buttons: .filebar (top), .selbar (cycles, bottom),
+ *                  .viewbar (Cycle/Picture/G-code/Program), .sidesw (outside/inside)
+ *   .buttontext    the text under the symbol of a large button
+ *   frame.column   frames around the parameter and the view column
+ *   .title         bold headings, .hint small grey notes, .msg messages under the preview
+ *   .numpad        the on-screen keypad of the number fields
+ */
+.dz button { min-height: 30px; padding: 2px 8px; }
+.dz entry { min-height: 28px; }
+.dz .buttonbar button { min-height: 50px; min-width: 70px; padding: 2px 8px; }
+.dz .buttonbar button:checked { box-shadow: inset 0 -3px #e0a422; }
+.dz .sidesw button, .dz .viewbar button { min-width: 56px; padding: 2px 4px; }
+.dz .selbar button { min-width: 64px; padding: 2px 6px; }
+.dz .viewswitch button { min-height: 28px; padding: 0 8px; }
+.dz .title { font-weight: bold; }
+.dz .hint { opacity: 0.7; font-size: 90%; }
+.dz frame.column > border { border-radius: 6px; }
+.dz frame.column { margin: 2px; }
+.dz .msg { font-size: 92%; }
+.dz .numpad button { min-width: 54px; min-height: 46px; font-size: 16px; }
+.dz.compact button { min-height: 26px; padding: 1px 5px; }
+.dz.compact entry { min-height: 24px; }
+.dz.compact .buttonbar button { min-height: 40px; min-width: 56px; }
+.dz.compact { font-size: 92%; }

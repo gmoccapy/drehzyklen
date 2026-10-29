@@ -68,21 +68,30 @@ def number_text(value) -> str:
     return str(value)
 
 
-class NumEntry(Gtk.Entry):
-    """Number field with an on-screen keypad (touch), decimal comma and simple calculations."""
+class NumberField:
+    """Number input on top of a Gtk.Entry: on-screen keypad (touch), decimal comma and simple
+    calculations. Used for entries created in code (NumEntry) and for plain GtkEntry widgets
+    from the Glade file (NumberField(builder.get_object(...))).
 
-    def __init__(self, allow_empty=False, width=8):
-        super().__init__()
+    Unknown attributes are passed on to the entry (set_sensitive, set_text, ...).
+    """
+
+    def __init__(self, entry: Gtk.Entry, allow_empty=False, width=None):
+        self.entry = entry
         self.allow_empty = allow_empty
-        self.set_width_chars(width)
-        self.set_alignment(1.0)
-        self.set_hexpand(True)
-        self.set_icon_from_icon_name(Gtk.EntryIconPosition.SECONDARY, "input-dialpad-symbolic")
-        self.set_icon_tooltip_text(Gtk.EntryIconPosition.SECONDARY, _("Keypad"))
-        self.connect("icon-press", self.on_numpad)
+        if width is not None:
+            entry.set_width_chars(width)
+        entry.set_alignment(1.0)
+        entry.set_hexpand(True)
+        entry.set_icon_from_icon_name(Gtk.EntryIconPosition.SECONDARY, "input-dialpad-symbolic")
+        entry.set_icon_tooltip_text(Gtk.EntryIconPosition.SECONDARY, _("Keypad"))
+        entry.connect("icon-press", self.on_numpad)
+
+    def __getattr__(self, name):
+        return getattr(self.entry, name)
 
     def get_value(self) -> Optional[float]:
-        text = self.get_text().strip().replace(",", ".")
+        text = self.entry.get_text().strip().replace(",", ".")
         if not text:
             if self.allow_empty:
                 return None
@@ -90,10 +99,10 @@ class NumEntry(Gtk.Entry):
         return eval_simple(text)
 
     def set_value(self, value):
-        self.set_text(number_text(value))
+        self.entry.set_text(number_text(value))
 
     def on_numpad(self, *_args):
-        popover = Gtk.Popover.new(self)
+        popover = Gtk.Popover.new(self.entry)
         grid = Gtk.Grid(row_spacing=4, column_spacing=4, margin=6)
         grid.get_style_context().add_class("numpad")
         keys = ["7", "8", "9", "4", "5", "6", "1", "2", "3", "-", "0", "."]
@@ -115,21 +124,39 @@ class NumEntry(Gtk.Entry):
         popover.popup()
 
     def on_numpad_key(self, _button, key):
-        position = self.get_position()
-        self.insert_text(key, position)
-        self.set_position(position + 1)
+        position = self.entry.get_position()
+        self.entry.insert_text(key, position)
+        self.entry.set_position(position + 1)
 
     def on_numpad_backspace(self, _button):
-        position = self.get_position()
+        position = self.entry.get_position()
         if position > 0:
-            self.delete_text(position - 1, position)
+            self.entry.delete_text(position - 1, position)
 
     def on_numpad_clear(self, _button):
-        self.set_text("")
+        self.entry.set_text("")
 
     def on_numpad_ok(self, _button, popover):
         popover.popdown()
-        self.activate()
+        self.entry.activate()
+
+
+class NumEntry(Gtk.Entry):
+    """Gtk.Entry with the behaviour of NumberField (for fields created in code)."""
+
+    def __init__(self, allow_empty=False, width=8):
+        super().__init__()
+        self.field = NumberField(self, allow_empty, width)
+
+    @property
+    def allow_empty(self):
+        return self.field.allow_empty
+
+    def get_value(self) -> Optional[float]:
+        return self.field.get_value()
+
+    def set_value(self, value):
+        self.field.set_value(value)
 
 
 class RadioBar(Gtk.Box):
@@ -196,33 +223,17 @@ class RadioBar(Gtk.Box):
         return False
 
 
-def short_combo():
-    """Choice box whose texts are shortened with … so that long entries do not widen the
-    column (the full text is shown in the opened list)."""
-    combo = Gtk.ComboBoxText()
+def ellipsize_combo(combo):
+    """Shorten the texts of a choice box with … so that long entries do not widen the column
+    (the full text is shown in the opened list)."""
     for cell in combo.get_cells():
         cell.set_property("ellipsize", Pango.EllipsizeMode.END)
     combo.set_hexpand(True)
     return combo
 
 
-def image_button(text, icon_name, tooltip=None, toggle=False):
-    if toggle:
-        button = Gtk.ToggleButton()
-    else:
-        button = Gtk.Button()
-    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
-    image = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.LARGE_TOOLBAR)
-    label = Gtk.Label(label=text)
-    box.pack_start(image, True, True, 0)
-    box.pack_start(label, False, False, 0)
-    button.add(box)
-    button.text_label = label
-    if tooltip:
-        button.set_tooltip_text(tooltip)
-    else:
-        button.set_tooltip_text(text)
-    return button
+def short_combo():
+    return ellipsize_combo(Gtk.ComboBoxText())
 
 
 def error_markup(text):
