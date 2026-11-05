@@ -226,6 +226,7 @@ class TurningCycle(Cycle):
     Subclasses only build their finished contour in the work frame (``work_elements``); the
     path is produced by ``ContourTurner``.
     """
+    ROUNDS_CORNERS = True
 
     def work_elements(self, material: Optional[Material] = None) -> List[Element]:
         raise NotImplementedError

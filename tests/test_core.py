@@ -771,6 +771,26 @@ def test_groove_bottom_has_the_corner_radius_of_the_tool():
     assert material.outer[index] > 20.2               # material left in the rounded corner
 
 
+def test_tool_corner_radius_rounds_inner_corners():
+    """A turning tool with corner radius r leaves the inner corners rounded with r (preview and
+    material for the following cycles); outer corners stay sharp."""
+    from types import SimpleNamespace
+    turning = LongTurning({"d_start": 64, "d_end": 50, "z_start": 0, "z_end": -30})
+    turning.prepare(SimpleNamespace(nose_radius=3.0, kind="C"))
+    material = simulate(Stock({"D": 64, "L": 70}), [turning], None)
+
+    def outer(z):
+        return material.outer[min(range(material.count), key=lambda i: abs(material.z[i] - z))]
+    assert abs(outer(-10) - 25) < 1e-6                       # turned Ø50
+    assert abs(outer(-29) - (28 - math.sqrt(9 - 4))) < 0.05  # arc r3 in the shoulder corner
+    assert abs(outer(-35) - 32) < 1e-6                       # shoulder untouched
+    sharp = simulate(Stock({"D": 64, "L": 70}),
+                     [LongTurning({"d_start": 64, "d_end": 50, "z_start": 0, "z_end": -30})],
+                     None)
+    index = min(range(sharp.count), key=lambda i: abs(sharp.z[i] - -29.5))
+    assert abs(sharp.outer[index] - 25) < 1e-6               # without radius: sharp corner
+
+
 if __name__ == "__main__":
     for name, function in list(globals().items()):
         if name.startswith("test_"):

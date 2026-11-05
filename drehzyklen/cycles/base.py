@@ -58,9 +58,13 @@ class Cycle:
     # chaining: a new cycle starts where the step before it ended
     END_KEYS: Optional[Tuple[str, str]] = None    # (Ø, Z) fields of the end point
     START_KEYS: Optional[Tuple[str, str]] = None  # (Ø, Z) fields the end point is put into
+    # the corner radius of the tool rounds the inner corners of the removed material (preview,
+    # material for the following cycles); set for turning and facing
+    ROUNDS_CORNERS = False
 
     def __init__(self, values: Optional[Dict[str, Any]] = None, variables=None):
         self.v: Dict[str, Any] = {}
+        self.tool_radius = 0.0                  # corner radius of the tool (see prepare)
         params = self.all_params()
         for param in params:
             self.v[param.key] = param.default
@@ -312,7 +316,9 @@ class Cycle:
         return []
 
     def prepare(self, tool):
-        """Called with the tool (or None) before body() - for cycles that need tool data."""
+        """Called with the tool (or None) before body() and when the program is calculated -
+        for cycles that need tool data."""
+        self.tool_radius = max(0.0, getattr(tool, "nose_radius", 0.0) or 0.0) if tool else 0.0
 
     def body(self, emitter: Emitter, machine: Machine, material: Optional[Material]):
         raise NotImplementedError

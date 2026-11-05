@@ -27,6 +27,7 @@ Every cycle describes what it removes with material_cuts():
 from __future__ import annotations
 
 import bisect
+import math
 from typing import List, Optional, Tuple
 
 from .geometry import ContourError
@@ -160,6 +161,9 @@ class Material:
             cuts = op.material_cuts(self)
         except (ContourError, ValueError, TypeError, ZeroDivisionError):
             return self
+        radius = getattr(op, "tool_radius", 0.0) if getattr(op, "ROUNDS_CORNERS", False) else 0.0
+        if radius > 2 * self.grid_step():
+            before = (list(self.outer), list(self.inner))
         for cut in cuts:
             if cut[0] == "outside":
                 self.cut_outside(cut[1])
@@ -167,7 +171,72 @@ class Material:
                 self.cut_inside(cut[1])
             elif cut[0] == "band":
                 self.cut_band(cut[1], cut[2], cut[3], cut[4])
+        if radius > 2 * self.grid_step():
+            self.round_corners(before[0], before[1], radius)
         return self
+
+    def grid_step(self) -> float:
+        return (self.z[-1] - self.z[0]) / (self.count - 1)
+
+    # ---------------------------------------------------------------- corner radius
+    def round_corners(self, outer_before, inner_before, radius):
+        """The tool has a corner radius: it cannot cut sharp inner corners. Where a disc with
+        this radius does not fit into the space just cut free, material stays (the inner
+        corners get the radius of the tool). Only where the cut changed something."""
+        step = self.grid_step()
+        reach = int(radius / step)
+        rise = [math.sqrt(max(0.0, radius * radius - (offset * step) ** 2))
+                for offset in range(-reach, reach + 1)]
+        changed_outer = [index for index in range(self.count)
+                         if self.outer[index] < outer_before[index] - EPS
+                         and self.has_material(index)]
+        if changed_outer:
+            free = [-math.inf if not self.has_material(index) else self.outer[index]
+                    for index in range(self.count)]
+            opened = self._open(free, changed_outer, reach, rise, 1.0)
+            for index in changed_outer:
+                value = max(self.outer[index], opened[index])
+                self.outer[index] = min(outer_before[index], value)
+        changed_inner = [index for index in range(self.count)
+                         if self.inner[index] > inner_before[index] + EPS
+                         and self.has_material(index)]
+        if changed_inner:
+            # mirrored: the free space lies below the inner radius
+            free = [-math.inf if not self.has_material(index) else -self.inner[index]
+                    for index in range(self.count)]
+            opened = self._open(free, changed_inner, reach, rise, -1.0)
+            for index in changed_inner:
+                value = min(self.inner[index], -opened[index])
+                self.inner[index] = max(inner_before[index], value)
+
+    def _open(self, surface, indices, reach, rise, _sign):
+        """surface[i]: height of the material (free space above it). Returns, for the given
+        indices, the height up to which a disc rolling over the free space cannot reach."""
+        count = self.count
+        low = max(0, min(indices) - 2 * reach)
+        high = min(count - 1, max(indices) + 2 * reach)
+        # lowest possible centre height of a disc above every grid point
+        centre = {}
+        for index in range(max(0, low - reach), min(count, high + reach + 1)):
+            best = -math.inf
+            for offset in range(-reach, reach + 1):
+                neighbour = index + offset
+                if 0 <= neighbour < count:
+                    value = surface[neighbour] + rise[offset + reach]
+                    if value > best:
+                        best = value
+            centre[index] = best
+        result = {}
+        for index in indices:
+            lowest = math.inf
+            for offset in range(-reach, reach + 1):
+                value = centre.get(index + offset)
+                if value is not None:
+                    height = value - rise[offset + reach]
+                    if height < lowest:
+                        lowest = height
+            result[index] = lowest
+        return result
 
     # ---------------------------------------------------------------- drawing
     def polygons(self) -> List[List[Tuple[float, float]]]:
