@@ -32,6 +32,7 @@ table and the values in all forms are carried over.
 from __future__ import annotations
 
 import os
+import tempfile
 from typing import Dict, Optional
 
 import gi
@@ -893,6 +894,10 @@ class ToolPage:
 
 
 # =========================================================================== settings page
+
+# sending the same file again: wait this long after the placeholder (the GUI polls every ~100 ms)
+RELOAD_DELAY_MS = 400
+RELOAD_TRIES = 5
 
 PROGRAM_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MACHINE_PICTURE_NAMES = ("machine.svg", "machine.png")
@@ -2175,17 +2180,56 @@ class DrehzyklenPanel(Gtk.Box):
             if status.task_mode != linuxcnc.MODE_AUTO:
                 command.mode(linuxcnc.MODE_AUTO)
                 command.wait_complete()
+            if os.path.abspath(status.file or "") == os.path.abspath(path):
+                # same file name: the GUI (gmoccapy, AXIS) only reloads preview and code when
+                # the loaded file name changes - so load a placeholder first, then the program
+                command.program_open(self.reload_placeholder())
+                command.wait_complete()
+                GLib.timeout_add(RELOAD_DELAY_MS, self.open_after_placeholder, path, warnings,
+                                 RELOAD_TRIES)
+                return True
             command.program_open(path)
-            self.program_column.status.set_text(_("Loaded into LinuxCNC: {path}").format(
-                path=path))
-            if warnings:
-                self.message(_("Program loaded. Please note the hints in the »Program« view."),
-                             Gtk.MessageType.WARNING)
+            self.loaded_into_linuxcnc(path, warnings)
             return True
         except linuxcnc.error as error:
             self.message(_("LinuxCNC error: {error}\nThe file is at {path}").format(
                 error=error, path=path), Gtk.MessageType.ERROR)
             return False
+
+    @staticmethod
+    def reload_placeholder() -> str:
+        """Empty program that is loaded for a moment when the same file is sent again."""
+        path = os.path.join(tempfile.gettempdir(), "drehzyklen_reload.ngc")
+        with open(path, "w", encoding="utf-8") as file:
+            file.write("M2\n")
+        return path
+
+    def open_after_placeholder(self, path, warnings, tries):
+        """Second half of sending the same file again: load the program once the GUI has seen
+        the placeholder (it polls the LinuxCNC status every 100 ms or so)."""
+        import linuxcnc
+        try:
+            status = linuxcnc.stat()
+            status.poll()
+            if os.path.basename(status.file or "") != "drehzyklen_reload.ngc" and tries > 1:
+                GLib.timeout_add(RELOAD_DELAY_MS, self.open_after_placeholder, path, warnings,
+                                 tries - 1)
+                return False
+            command = linuxcnc.command()
+            command.program_open(path)
+            command.wait_complete()
+        except linuxcnc.error as error:
+            self.message(_("LinuxCNC error: {error}\nThe file is at {path}").format(
+                error=error, path=path), Gtk.MessageType.ERROR)
+            return False
+        self.loaded_into_linuxcnc(path, warnings)
+        return False
+
+    def loaded_into_linuxcnc(self, path, warnings):
+        self.program_column.status.set_text(_("Loaded into LinuxCNC: {path}").format(path=path))
+        if warnings:
+            self.message(_("Program loaded. Please note the hints in the »Program« view."),
+                         Gtk.MessageType.WARNING)
 
     def write_file(self, path, text) -> bool:
         try:
