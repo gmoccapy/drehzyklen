@@ -239,6 +239,13 @@ class TurningCycle(Cycle):
 
     def material_cuts(self, material=None) -> list:
         points = polyline(self.outline(), 2.0)
+        if (self.v.get("do_rough", True) and not self.v.get("do_finish", True)
+                and (self.v.get("allow_x", 0) or self.v.get("allow_z", 0))):
+            # roughing only: the finishing allowance stays (in the work frame like roughing)
+            sign_r, sign_z = self.radius_sign, self.z_sign()
+            allow_x, allow_z = self.v.get("allow_x", 0.0), self.v.get("allow_z", 0.0)
+            points = [(sign_z * (z + allow_z), sign_r * (r + allow_x / 2.0))
+                      for z, r in polyline(self.work_elements(), 2.0)]
         if self.inside:
             kind = "inside"
         else:

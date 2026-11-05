@@ -827,6 +827,23 @@ def test_steps_as_one_contour_merge_and_finishing_step():
     assert late.generate().errors
 
 
+def test_roughing_only_leaves_the_finishing_allowance():
+    """Without its own finishing pass a step leaves the finishing allowance (preview and
+    material), the finishing step over the steps removes it."""
+    from drehzyklen.cycles import FinishContour
+    turning = LongTurning({"tool": 1, "d_start": 64, "d_end": 40, "z_start": 0, "z_end": -30,
+                           "allow_x": 0.4, "do_finish": False})
+    stock = Stock({"D": 64, "L": 70})
+
+    def outer(material, z):
+        return material.outer[min(range(material.count), key=lambda i: abs(material.z[i] - z))]
+    assert abs(outer(simulate(stock, [turning], None), -10) - 20.2) < 1e-6
+    finish = FinishContour({"tool": 1, "first": 1, "last": 1})
+    program = Program(Machine(), [turning, finish], stock=stock)
+    assert not program.generate().errors
+    assert abs(outer(simulate(stock, program.ops, None), -10) - 20.0) < 1e-6
+
+
 if __name__ == "__main__":
     for name, function in list(globals().items()):
         if name.startswith("test_"):

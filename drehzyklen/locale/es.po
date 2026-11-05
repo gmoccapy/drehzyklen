@@ -269,7 +269,7 @@ msgstr "¿Borrar el bloque de texto »{name}«?"
 msgid "(step {number})"
 msgstr "(paso {number})"
 
-#: drehzyklen/gui.py:484 drehzyklen/gui.py:1284 drehzyklen/gui.py:1714 drehzyklen/gui.py:1995
+#: drehzyklen/gui.py:484 drehzyklen/gui.py:1284 drehzyklen/gui.py:1714 drehzyklen/gui.py:2025
 msgid "Stock and clamping"
 msgstr "Pieza en bruto y sujeción"
 
@@ -384,8 +384,8 @@ msgstr "Pieza en bruto"
 msgid "Variables"
 msgstr "Variables"
 
-#: drehzyklen/gui.py:1375 drehzyklen/gui.py:1847 drehzyklen/gui.py:2019 drehzyklen/gui.py:2322
-#: drehzyklen/gui.py:2343
+#: drehzyklen/gui.py:1375 drehzyklen/gui.py:1847 drehzyklen/gui.py:2049 drehzyklen/gui.py:2352
+#: drehzyklen/gui.py:2373
 msgid "Cancel"
 msgstr "Cancelar"
 
@@ -406,7 +406,7 @@ msgstr "Para {numbers} no se pueden deducir tipo y dirección de corte de la too
 msgid "No messages"
 msgstr "Sin mensajes"
 
-#: drehzyklen/gui.py:1647 drehzyklen/gui.py:2322
+#: drehzyklen/gui.py:1647 drehzyklen/gui.py:2352
 msgid "OK"
 msgstr "Aceptar"
 
@@ -456,200 +456,214 @@ msgstr "Unir en un contorno – los pasos se sustituyen por un paso de contorno"
 msgid "Add a finishing step - the steps stay, a finishing pass over the whole contour follows them"
 msgstr "Añadir un paso de acabado – los pasos se mantienen, después sigue una pasada de acabado sobre todo el contorno"
 
-#: drehzyklen/gui.py:1891
+#: drehzyklen/gui.py:1878
+msgid "Switch off the finishing passes of these steps - they leave the finishing allowance (aX, aZ), the finishing step removes it"
+msgstr "Desactivar las pasadas de acabado de estos pasos – dejan la creces de acabado (aX, aZ), el paso de acabado la quita"
+
+#: drehzyklen/gui.py:1901
 msgid "»From step« is after »to step«"
 msgstr "»Desde el paso« está después de »hasta el paso«"
 
-#: drehzyklen/gui.py:1898
+#: drehzyklen/gui.py:1908
 #, python-brace-format
 msgid "Steps {first}–{last}: one contour with {count} points."
 msgstr "Pasos {first}–{last}: un contorno con {count} puntos."
 
-#: drehzyklen/gui.py:1903
+#: drehzyklen/gui.py:1913
 msgid "Calculations with $variables of these steps become numbers in the contour."
 msgstr "Los cálculos con $variables de estos pasos se convierten en números en el contorno."
 
-#: drehzyklen/gui.py:1933
+#: drehzyklen/gui.py:1920
+#, python-brace-format
+msgid "Finishing allowance left: {values}"
+msgstr "Creces de acabado que quedan: {values}"
+
+#: drehzyklen/gui.py:1952
 #, python-brace-format
 msgid "Steps {first}–{last} merged into one contour (step {number})"
 msgstr "Pasos {first}–{last} unidos en un contorno (paso {number})"
 
-#: drehzyklen/gui.py:1948
+#: drehzyklen/gui.py:1975
 #, python-brace-format
 msgid "Finishing step for steps {first}–{last} added as step {number}"
 msgstr "Paso de acabado para los pasos {first}–{last} añadido como paso {number}"
 
-#: drehzyklen/gui.py:1981
+#: drehzyklen/gui.py:1978
+#, python-brace-format
+msgid "finishing switched off in step(s) {numbers}"
+msgstr "acabado desactivado en el/los paso(s) {numbers}"
+
+#: drehzyklen/gui.py:2011
 #, python-brace-format
 msgid "{steps} step(s), {tools} tool(s)"
 msgstr "{steps} paso(s), {tools} herramienta(s)"
 
-#: drehzyklen/gui.py:1983
+#: drehzyklen/gui.py:2013
 #, python-brace-format
 msgid "{count} error(s)"
 msgstr "{count} error(es)"
 
-#: drehzyklen/gui.py:2009
+#: drehzyklen/gui.py:2039
 msgid "The program does not contain any cycles yet."
 msgstr "El programa aún no contiene ciclos."
 
-#: drehzyklen/gui.py:2017
+#: drehzyklen/gui.py:2047
 msgid "Program with errors"
 msgstr "Programa con errores"
 
-#: drehzyklen/gui.py:2020
+#: drehzyklen/gui.py:2050
 msgid "Send anyway"
 msgstr "Enviar de todos modos"
 
-#: drehzyklen/gui.py:2031
+#: drehzyklen/gui.py:2061
 #, python-brace-format
 msgid "The program contains {count} error(s):"
 msgstr "El programa contiene {count} error(es):"
 
-#: drehzyklen/gui.py:2045
+#: drehzyklen/gui.py:2075
 msgid "Steps with errors are left out of the G-code or may be wrong. Better correct the red steps in the program list."
 msgstr "Los pasos con errores faltan en el código G o pueden ser incorrectos. Mejor corregir los pasos rojos en la lista del programa."
 
-#: drehzyklen/gui.py:2050
+#: drehzyklen/gui.py:2080
 msgid "I have read the errors and want to send the program anyway"
 msgstr "He leído los errores y quiero enviar el programa de todos modos"
 
-#: drehzyklen/gui.py:2080
+#: drehzyklen/gui.py:2110
 msgid "G-code - show and complete"
 msgstr "Código G – mostrar y completar"
 
-#: drehzyklen/gui.py:2084
+#: drehzyklen/gui.py:2114
 msgid "Close"
 msgstr "Cerrar"
 
-#: drehzyklen/gui.py:2084
+#: drehzyklen/gui.py:2114
 msgid "Save as …"
 msgstr "Guardar como …"
 
-#: drehzyklen/gui.py:2085
+#: drehzyklen/gui.py:2115
 msgid "Send to LinuxCNC"
 msgstr "Enviar a LinuxCNC"
 
-#: drehzyklen/gui.py:2092
+#: drehzyklen/gui.py:2122
 msgid "LinuxCNC is not running"
 msgstr "LinuxCNC no está en marcha"
 
-#: drehzyklen/gui.py:2094
+#: drehzyklen/gui.py:2124
 msgid "Additions here apply to this file only. Code that should stay between two cycles belongs in a »G-code« step (with snippets)."
 msgstr "Lo que se añada aquí solo vale para este archivo. El código que deba quedar entre dos ciclos va en un paso »Código G« (con bloques de texto)."
 
-#: drehzyklen/gui.py:2111
+#: drehzyklen/gui.py:2141
 msgid "Save G-code"
 msgstr "Guardar código G"
 
-#: drehzyklen/gui.py:2112 drehzyklen/cycles/gcodeblock.py:36 drehzyklen/cycles/gcodeblock.py:37 drehzyklen/cycles/gcodeblock.py:42
+#: drehzyklen/gui.py:2142 drehzyklen/cycles/gcodeblock.py:36 drehzyklen/cycles/gcodeblock.py:37 drehzyklen/cycles/gcodeblock.py:42
 #: drehzyklen/ui/drehzyklen.ui:750
 msgid "G-code"
 msgstr "Código G"
 
-#: drehzyklen/gui.py:2130
+#: drehzyklen/gui.py:2160
 #, python-brace-format
 msgid "Saved as\n{path}\n\nLinuxCNC Python module not found - please open the file by hand."
 msgstr "Guardado como\n{path}\n\nNo se encontró el módulo Python de LinuxCNC – abra el archivo manualmente."
 
-#: drehzyklen/gui.py:2138
+#: drehzyklen/gui.py:2168
 msgid "LinuxCNC is running a program - loading is not possible."
 msgstr "LinuxCNC está ejecutando un programa – no es posible cargar."
 
-#: drehzyklen/gui.py:2145
+#: drehzyklen/gui.py:2175
 #, python-brace-format
 msgid "Loaded into LinuxCNC: {path}"
 msgstr "Cargado en LinuxCNC: {path}"
 
-#: drehzyklen/gui.py:2148
+#: drehzyklen/gui.py:2178
 msgid "Program loaded. Please note the hints in the »Program« view."
 msgstr "Programa cargado. Tenga en cuenta los avisos de la vista »Programa«."
 
-#: drehzyklen/gui.py:2152
+#: drehzyklen/gui.py:2182
 #, python-brace-format
 msgid "LinuxCNC error: {error}\nThe file is at {path}"
 msgstr "Error de LinuxCNC: {error}\nEl archivo está en {path}"
 
-#: drehzyklen/gui.py:2162 drehzyklen/gui.py:2289
+#: drehzyklen/gui.py:2192 drehzyklen/gui.py:2319
 #, python-brace-format
 msgid "Saving failed: {error}"
 msgstr "Error al guardar: {error}"
 
-#: drehzyklen/gui.py:2165
+#: drehzyklen/gui.py:2195
 #, python-brace-format
 msgid "Saved: {path}"
 msgstr "Guardado: {path}"
 
-#: drehzyklen/gui.py:2170
+#: drehzyklen/gui.py:2200
 msgid "Discard the current program? (the stock stays)"
 msgstr "¿Descartar el programa actual? (la pieza en bruto se mantiene)"
 
-#: drehzyklen/gui.py:2192
+#: drehzyklen/gui.py:2222
 msgid "Open project"
 msgstr "Abrir proyecto"
 
-#: drehzyklen/gui.py:2193 drehzyklen/gui.py:2210
+#: drehzyklen/gui.py:2223 drehzyklen/gui.py:2240
 msgid "Drehzyklen project"
 msgstr "Proyecto Drehzyklen"
 
-#: drehzyklen/gui.py:2200
+#: drehzyklen/gui.py:2230
 #, python-brace-format
 msgid "The project cannot be read: {error}"
 msgstr "No se puede leer el proyecto: {error}"
 
-#: drehzyklen/gui.py:2208
+#: drehzyklen/gui.py:2238
 msgid "Save project"
 msgstr "Guardar proyecto"
 
-#: drehzyklen/gui.py:2232
+#: drehzyklen/gui.py:2262
 msgid "Please enter a program folder."
 msgstr "Indique una carpeta de programas."
 
-#: drehzyklen/gui.py:2235
+#: drehzyklen/gui.py:2265
 #, python-brace-format
 msgid "The program folder\n{folder}\ndoes not exist. Create it now?"
 msgstr "La carpeta de programas\n{folder}\nno existe. ¿Crearla ahora?"
 
-#: drehzyklen/gui.py:2237
+#: drehzyklen/gui.py:2267
 msgid "Program folder not applied - please enter an existing folder."
 msgstr "Carpeta de programas no aplicada – indique una carpeta existente."
 
-#: drehzyklen/gui.py:2243
+#: drehzyklen/gui.py:2273
 #, python-brace-format
 msgid "The folder cannot be created: {error}"
 msgstr "No se puede crear la carpeta: {error}"
 
-#: drehzyklen/gui.py:2249
+#: drehzyklen/gui.py:2279
 #, python-brace-format
 msgid "The INI file\n{path}\ndoes not exist."
 msgstr "El archivo INI\n{path}\nno existe."
 
-#: drehzyklen/gui.py:2257
+#: drehzyklen/gui.py:2287
 msgid "settings"
 msgstr "ajustes"
 
-#: drehzyklen/gui.py:2266
+#: drehzyklen/gui.py:2296
 msgid "LinuxCNC already passed an INI at the start - the entered INI is only used without a running LinuxCNC."
 msgstr "LinuxCNC ya entregó un INI al arrancar – el INI indicado solo se usa sin LinuxCNC en marcha."
 
-#: drehzyklen/gui.py:2286
+#: drehzyklen/gui.py:2316
 #, python-brace-format
 msgid "Machine data saved: {path}"
 msgstr "Datos de la máquina guardados: {path}"
 
-#: drehzyklen/gui.py:2340 drehzyklen/ui/drehzyklen.ui:162 drehzyklen/ui/drehzyklen.ui:1031
+#: drehzyklen/gui.py:2370 drehzyklen/ui/drehzyklen.ui:162 drehzyklen/ui/drehzyklen.ui:1031
 msgid "Save"
 msgstr "Guardar"
 
-#: drehzyklen/gui.py:2342 drehzyklen/ui/drehzyklen.ui:118
+#: drehzyklen/gui.py:2372 drehzyklen/ui/drehzyklen.ui:118
 msgid "Open"
 msgstr "Abrir"
 
-#: drehzyklen/gui.py:2423
+#: drehzyklen/gui.py:2453
 msgid "Drehzyklen - LinuxCNC"
 msgstr "Drehzyklen – LinuxCNC"
 
-#: drehzyklen/gui.py:2468
+#: drehzyklen/gui.py:2498
 #, python-brace-format
 msgid "Project {path} cannot be read: {error}"
 msgstr "No se puede leer el proyecto {path}: {error}"
@@ -2603,7 +2617,7 @@ msgstr "Desbaste: {count} niveles"
 msgid "Contour with arcs in radius mode G8: X = radius, I/K = centre relative"
 msgstr "Contorno con arcos en modo radio G8: X = radio, I/K = centro relativo"
 
-#: drehzyklen/cycles/turning.py:299
+#: drehzyklen/cycles/turning.py:306
 #, python-brace-format
 msgid "There is no pre-drilled hole between Z{low:g} and Z{high:g} - drill first (drilling tab) or enter an inner Ø for the stock"
 msgstr "Entre Z{low:g} y Z{high:g} falta un taladro previo – taladrar primero (pestaña Taladrado) o indicar un Ø interior en la pieza en bruto"

@@ -1873,6 +1873,15 @@ class DrehzyklenPanel(Gtk.Box):
         for radio in (merge_radio, finish_radio):
             radio.get_child().set_line_wrap(True)
             content.pack_start(radio, False, False, 0)
+        # without their own finishing pass the steps leave the finishing allowance, the
+        # finishing step removes it (otherwise it finishes again with 0)
+        no_finish_check = Gtk.CheckButton(label=_(
+            "Switch off the finishing passes of these steps - they leave the finishing "
+            "allowance (aX, aZ), the finishing step removes it"))
+        no_finish_check.get_child().set_line_wrap(True)
+        no_finish_check.set_margin_start(24)
+        no_finish_check.set_active(True)
+        content.pack_start(no_finish_check, False, False, 0)
         finish_radio.set_active(True)
         status = Gtk.Label(xalign=0)
         status.set_line_wrap(True)
@@ -1885,6 +1894,7 @@ class DrehzyklenPanel(Gtk.Box):
             return list(range(low, high + 1))
 
         def check(*_args):
+            no_finish_check.set_sensitive(finish_radio.get_active())
             steps = numbers()
             try:
                 if not steps:
@@ -1902,17 +1912,26 @@ class DrehzyklenPanel(Gtk.Box):
                     for value in ops[number - 1].raw.values()):
                 message += "\n" + _("Calculations with $variables of these steps become "
                                      "numbers in the contour.")
+            if finish_radio.get_active() and no_finish_check.get_active():
+                allowances = sorted({(number_text(ops[number - 1].v.get("allow_x", 0)),
+                                      number_text(ops[number - 1].v.get("allow_z", 0)))
+                                     for number in steps if "do_finish" in ops[number - 1].v})
+                if allowances:
+                    message += "\n" + _("Finishing allowance left: {values}").format(
+                        values=", ".join(f"aX {x} / aZ {z}" for x, z in allowances))
             status.set_text(message)
             apply_button.set_sensitive(True)
 
         for widget in spins:
             widget.connect("value-changed", check)
         merge_radio.connect("toggled", check)
+        no_finish_check.connect("toggled", check)
         check()
         dialog.show_all()
         response = dialog.run()
         steps = numbers()
         merge = merge_radio.get_active()
+        switch_off_finishing = no_finish_check.get_active()
         dialog.destroy()
         if response != Gtk.ResponseType.OK or not steps:
             return
@@ -1941,12 +1960,23 @@ class DrehzyklenPanel(Gtk.Box):
             finish_values.update(first=low, last=high,
                                  f_finish=source.v.get("f_finish", 0.1),
                                  comp=source.v.get("comp", "auto"))
+            switched_off = []
+            if switch_off_finishing:
+                for number in steps:
+                    op = ops[number - 1]
+                    # only steps that rough - otherwise the step would do nothing at all
+                    if op.v.get("do_finish") and op.v.get("do_rough", False):
+                        op.set("do_finish", False)
+                        switched_off.append(number)
             self.renumber_finish_steps(lambda number: number + 1 if number > high else number)
             new_op = cycle_from_dict({"cycle": "finish", "values": finish_values}, variables)
             ops.insert(high, new_op)
             index = high
             text = _("Finishing step for steps {first}–{last} added as step {number}").format(
                 first=low, last=high, number=high + 1)
+            if switched_off:
+                text += " · " + _("finishing switched off in step(s) {numbers}").format(
+                    numbers=", ".join(str(number) for number in switched_off))
         self.clear_edit()
         self.refresh_list(index)
         self.program_column.status.set_text(text)
