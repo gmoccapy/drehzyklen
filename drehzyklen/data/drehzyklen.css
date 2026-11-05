@@ -28,6 +28,7 @@
 .dz frame.column { margin: 2px; }
 .dz .msg { font-size: 92%; }
 .dz .numpad button { min-width: 54px; min-height: 46px; font-size: 16px; }
+.dz .varbutton { min-height: 40px; }
 .dz.compact button { min-height: 26px; padding: 1px 5px; }
 .dz.compact entry { min-height: 24px; }
 .dz.compact .buttonbar button { min-height: 40px; min-width: 56px; }

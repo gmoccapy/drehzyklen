@@ -81,6 +81,7 @@ class NumberField:
     def __init__(self, entry: Gtk.Entry, allow_empty=False, width=None):
         self.entry = entry
         self.allow_empty = allow_empty
+        self.variables: Optional[Callable] = None     # () -> Variables: $ in the keypad
         if width is not None:
             entry.set_width_chars(width)
         entry.set_alignment(1.0)
@@ -103,8 +104,16 @@ class NumberField:
     def set_value(self, value):
         self.entry.set_text(number_text(value))
 
+    # the extended keys (calculation, $variables) stay open for the next keypad once shown
+    extended = False
+
     def on_numpad(self, *_args):
         popover = Gtk.Popover.new(self.entry)
+        stack = Gtk.Stack()
+        stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
+        stack.set_homogeneous(False)
+        stack.set_vhomogeneous(False)
+        stack.set_interpolate_size(True)
         grid = Gtk.Grid(row_spacing=4, column_spacing=4, margin=6)
         grid.get_style_context().add_class("numpad")
         keys = ["7", "8", "9", "4", "5", "6", "1", "2", "3", "-", "0", "."]
@@ -121,9 +130,108 @@ class NumberField:
         ok_button = Gtk.Button(label="OK")
         ok_button.connect("clicked", self.on_numpad_ok, popover)
         grid.attach(ok_button, 3, 2, 1, 2)
-        popover.add(grid)
-        grid.show_all()
+
+        # extended keys: calculation and $variables, shown to the right
+        extra = Gtk.Grid(row_spacing=4, column_spacing=4, margin_start=4)
+        extra.get_style_context().add_class("numpad")
+        extra_keys = [("+", "+"), ("(", "("), ("×", "*"), (")", ")"), ("÷", "/")]
+        for index, (label, key) in enumerate(extra_keys):
+            button = Gtk.Button(label=label)
+            button.connect("clicked", self.on_numpad_key, key)
+            extra.attach(button, index % 2, index // 2, 1, 1)
+        variable_button = Gtk.Button(label="$")
+        if self.variables is None:
+            variable_button.set_sensitive(False)
+            variable_button.set_tooltip_text(_("No variables in this field"))
+        else:
+            variable_button.set_tooltip_text(_("Choose a variable"))
+            variable_button.connect("clicked", self.on_numpad_variables, stack)
+        extra.attach(variable_button, 1, 2, 1, 1)
+        revealer = Gtk.Revealer()
+        revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_RIGHT)
+        revealer.add(extra)
+        revealer.set_reveal_child(NumberField.extended)
+        grid.attach(revealer, 4, 0, 1, 4)
+        more = Gtk.ToggleButton(label=self.more_label())
+        more.set_tooltip_text(_("Calculation and $variables"))
+        more.set_active(NumberField.extended)
+        more.connect("toggled", self.on_numpad_more, revealer)
+        grid.attach(more, 0, 4, 5, 1)
+
+        stack.add_named(grid, "keys")
+        stack.add_named(Gtk.Box(), "variables")
+        popover.add(stack)
+        stack.show_all()
         popover.popup()
+
+    @staticmethod
+    def more_label():
+        return "◂" if NumberField.extended else "+ × ÷ ( ) $  ▸"
+
+    def on_numpad_more(self, button, revealer):
+        NumberField.extended = button.get_active()
+        revealer.set_reveal_child(NumberField.extended)
+        button.set_label(self.more_label())
+
+    def on_numpad_variables(self, _button, stack):
+        """Page with one large button per variable (value and meaning)."""
+        old_page = stack.get_child_by_name("variables")
+        if old_page is not None:
+            stack.remove(old_page)
+        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, margin=6)
+        page.set_size_request(300, -1)
+        back = Gtk.Button(label="◂ " + _("Back"))
+        back.connect("clicked", lambda _b: stack.set_visible_child_name("keys"))
+        page.pack_start(back, False, False, 0)
+        try:
+            variables = self.variables()
+        except Exception:                       # noqa: BLE001 - empty list, but never a crash
+            variables = None
+        names = variables.names() if variables is not None else []
+        if not names:
+            page.pack_start(Gtk.Label(label=_("No variables defined")), False, False, 0)
+        else:
+            values = variables.values()
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            for name in names:
+                button = Gtk.Button()
+                content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+                row = Gtk.Box(spacing=12)
+                name_label = Gtk.Label(xalign=0)
+                name_label.set_markup("<b>$" + GLib.markup_escape_text(name) + "</b>")
+                row.pack_start(name_label, False, False, 0)
+                value = values.get(name)
+                row.pack_end(Gtk.Label(label="?" if value is None else "= " + number_text(value)),
+                             False, False, 0)
+                content.pack_start(row, False, False, 0)
+                description = variables.description(name)
+                if description:
+                    # the meaning in a second, smaller line (wraps instead of being cut)
+                    hint = Gtk.Label(label=description, xalign=0)
+                    hint.set_line_wrap(True)
+                    hint.set_max_width_chars(34)
+                    hint.get_style_context().add_class("hint")
+                    content.pack_start(hint, False, False, 0)
+                button.add(content)
+                button.get_style_context().add_class("varbutton")
+                button.connect("clicked", self.on_numpad_variable, name, stack)
+                box.pack_start(button, False, False, 0)
+            scroller = Gtk.ScrolledWindow()
+            scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+            scroller.set_propagate_natural_height(True)
+            scroller.set_max_content_height(360)
+            scroller.add(box)
+            page.pack_start(scroller, True, True, 0)
+        page.show_all()
+        stack.add_named(page, "variables")
+        stack.set_visible_child_name("variables")
+
+    def on_numpad_variable(self, _button, name, stack):
+        text = "$" + name
+        position = self.entry.get_position()
+        self.entry.insert_text(text, position)
+        self.entry.set_position(position + len(text))
+        stack.set_visible_child_name("keys")
 
     def on_numpad_key(self, _button, key):
         position = self.entry.get_position()
@@ -1003,6 +1111,7 @@ class ParamForm(Gtk.Grid):
             entry.set_value(param.default)
             if self.variables is not None:
                 entry.completer = VariableCompleter(entry, self.variables)
+                entry.field.variables = self.variables
             entry.connect("changed", self.on_widget_changed, param.key)
             return entry
         if param.kind == "choice":

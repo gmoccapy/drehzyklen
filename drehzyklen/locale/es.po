@@ -239,7 +239,7 @@ msgstr "Guardar …"
 msgid "Save the current code as a snippet under a name"
 msgstr "Guardar el código actual como bloque de texto con un nombre"
 
-#: drehzyklen/gui.py:163 drehzyklen/widgets.py:436 drehzyklen/ui/drehzyklen.ui:534 drehzyklen/ui/drehzyklen.ui:1770
+#: drehzyklen/gui.py:163 drehzyklen/widgets.py:738 drehzyklen/ui/drehzyklen.ui:534 drehzyklen/ui/drehzyklen.ui:1770
 msgid "Delete"
 msgstr "Borrar"
 
@@ -269,7 +269,7 @@ msgstr "¿Borrar el bloque de texto »{name}«?"
 msgid "(step {number})"
 msgstr "(paso {number})"
 
-#: drehzyklen/gui.py:423 drehzyklen/gui.py:1220 drehzyklen/gui.py:1618
+#: drehzyklen/gui.py:423 drehzyklen/gui.py:1220 drehzyklen/gui.py:1644
 msgid "Stock and clamping"
 msgstr "Pieza en bruto y sujeción"
 
@@ -376,211 +376,211 @@ msgstr "máquina"
 msgid "The picture {path} cannot be read: {error}"
 msgstr "No se puede leer la imagen {path}: {error}"
 
-#: drehzyklen/gui.py:1220 drehzyklen/gui.py:1617
+#: drehzyklen/gui.py:1220 drehzyklen/gui.py:1643
 msgid "Stock"
 msgstr "Pieza en bruto"
 
-#: drehzyklen/gui.py:1290
+#: drehzyklen/gui.py:1309
 msgid "Variables"
 msgstr "Variables"
 
-#: drehzyklen/gui.py:1291 drehzyklen/gui.py:2014 drehzyklen/gui.py:2035
+#: drehzyklen/gui.py:1310 drehzyklen/gui.py:2040 drehzyklen/gui.py:2061
 msgid "Cancel"
 msgstr "Cancelar"
 
-#: drehzyklen/gui.py:1291 drehzyklen/ui/drehzyklen.ui:998
+#: drehzyklen/gui.py:1310 drehzyklen/ui/drehzyklen.ui:998
 msgid "Apply"
 msgstr "Aplicar"
 
-#: drehzyklen/gui.py:1295
+#: drehzyklen/gui.py:1314
 msgid "One variable per line: Name = value or calculation ; comment. Use them in every number field as $Name or as a calculation like $StockDiameter - 2, in the contour as X[$Diameter - 2]. Changing a value gives a variant of the part."
 msgstr "Una variable por línea: Nombre = valor o cálculo ; comentario. Se usan en cualquier campo numérico como $Nombre o como cálculo, p. ej. $StockDiameter - 2; en el contorno como X[$Diameter - 2]. Cambiar un valor da una variante de la pieza."
 
-#: drehzyklen/gui.py:1469
+#: drehzyklen/gui.py:1495
 #, python-brace-format
 msgid "For {numbers} type and cutting direction cannot be derived from the tool.tbl - please enter and apply type, hand and position."
 msgstr "Para {numbers} no se pueden deducir tipo y dirección de corte de la tool.tbl – indique y aplique tipo, mano y posición."
 
-#: drehzyklen/gui.py:1532
+#: drehzyklen/gui.py:1558
 msgid "No messages"
 msgstr "Sin mensajes"
 
-#: drehzyklen/gui.py:1555 drehzyklen/gui.py:2014
+#: drehzyklen/gui.py:1581 drehzyklen/gui.py:2040
 msgid "OK"
 msgstr "Aceptar"
 
-#: drehzyklen/gui.py:1599
+#: drehzyklen/gui.py:1625
 msgid "The tool table was changed - read again"
 msgstr "La tabla de herramientas cambió – leída de nuevo"
 
-#: drehzyklen/gui.py:1627 drehzyklen/tools.py:82 drehzyklen/cycles/base.py:156
+#: drehzyklen/gui.py:1653 drehzyklen/tools.py:82 drehzyklen/cycles/base.py:156
 msgid "inside"
 msgstr "interior"
 
-#: drehzyklen/gui.py:1641
+#: drehzyklen/gui.py:1667
 #, python-brace-format
 msgid "{title} added as step {number}"
 msgstr "{title} añadido como paso {number}"
 
-#: drehzyklen/gui.py:1650
+#: drehzyklen/gui.py:1676
 #, python-brace-format
 msgid "Step {number} changed"
 msgstr "Paso {number} modificado"
 
-#: drehzyklen/gui.py:1734
+#: drehzyklen/gui.py:1760
 #, python-brace-format
 msgid "{steps} step(s), {tools} tool(s)"
 msgstr "{steps} paso(s), {tools} herramienta(s)"
 
-#: drehzyklen/gui.py:1736
+#: drehzyklen/gui.py:1762
 #, python-brace-format
 msgid "{count} error(s)"
 msgstr "{count} error(es)"
 
-#: drehzyklen/gui.py:1743
+#: drehzyklen/gui.py:1769
 msgid "The program does not contain any cycles yet."
 msgstr "El programa aún no contiene ciclos."
 
-#: drehzyklen/gui.py:1746
+#: drehzyklen/gui.py:1772
 msgid "The program contains errors:"
 msgstr "El programa contiene errores:"
 
-#: drehzyklen/gui.py:1772
+#: drehzyklen/gui.py:1798
 msgid "G-code - show and complete"
 msgstr "Código G – mostrar y completar"
 
-#: drehzyklen/gui.py:1776
+#: drehzyklen/gui.py:1802
 msgid "Close"
 msgstr "Cerrar"
 
-#: drehzyklen/gui.py:1776
+#: drehzyklen/gui.py:1802
 msgid "Save as …"
 msgstr "Guardar como …"
 
-#: drehzyklen/gui.py:1777
+#: drehzyklen/gui.py:1803
 msgid "Send to LinuxCNC"
 msgstr "Enviar a LinuxCNC"
 
-#: drehzyklen/gui.py:1784
+#: drehzyklen/gui.py:1810
 msgid "LinuxCNC is not running"
 msgstr "LinuxCNC no está en marcha"
 
-#: drehzyklen/gui.py:1786
+#: drehzyklen/gui.py:1812
 msgid "Additions here apply to this file only. Code that should stay between two cycles belongs in a »G-code« step (with snippets)."
 msgstr "Lo que se añada aquí solo vale para este archivo. El código que deba quedar entre dos ciclos va en un paso »Código G« (con bloques de texto)."
 
-#: drehzyklen/gui.py:1803
+#: drehzyklen/gui.py:1829
 msgid "Save G-code"
 msgstr "Guardar código G"
 
-#: drehzyklen/gui.py:1804 drehzyklen/cycles/gcodeblock.py:36 drehzyklen/cycles/gcodeblock.py:37 drehzyklen/cycles/gcodeblock.py:42
+#: drehzyklen/gui.py:1830 drehzyklen/cycles/gcodeblock.py:36 drehzyklen/cycles/gcodeblock.py:37 drehzyklen/cycles/gcodeblock.py:42
 #: drehzyklen/ui/drehzyklen.ui:730
 msgid "G-code"
 msgstr "Código G"
 
-#: drehzyklen/gui.py:1822
+#: drehzyklen/gui.py:1848
 #, python-brace-format
 msgid "Saved as\n{path}\n\nLinuxCNC Python module not found - please open the file by hand."
 msgstr "Guardado como\n{path}\n\nNo se encontró el módulo Python de LinuxCNC – abra el archivo manualmente."
 
-#: drehzyklen/gui.py:1830
+#: drehzyklen/gui.py:1856
 msgid "LinuxCNC is running a program - loading is not possible."
 msgstr "LinuxCNC está ejecutando un programa – no es posible cargar."
 
-#: drehzyklen/gui.py:1837
+#: drehzyklen/gui.py:1863
 #, python-brace-format
 msgid "Loaded into LinuxCNC: {path}"
 msgstr "Cargado en LinuxCNC: {path}"
 
-#: drehzyklen/gui.py:1840
+#: drehzyklen/gui.py:1866
 msgid "Program loaded. Please note the hints in the »Program« view."
 msgstr "Programa cargado. Tenga en cuenta los avisos de la vista »Programa«."
 
-#: drehzyklen/gui.py:1844
+#: drehzyklen/gui.py:1870
 #, python-brace-format
 msgid "LinuxCNC error: {error}\nThe file is at {path}"
 msgstr "Error de LinuxCNC: {error}\nEl archivo está en {path}"
 
-#: drehzyklen/gui.py:1854 drehzyklen/gui.py:1981
+#: drehzyklen/gui.py:1880 drehzyklen/gui.py:2007
 #, python-brace-format
 msgid "Saving failed: {error}"
 msgstr "Error al guardar: {error}"
 
-#: drehzyklen/gui.py:1857
+#: drehzyklen/gui.py:1883
 #, python-brace-format
 msgid "Saved: {path}"
 msgstr "Guardado: {path}"
 
-#: drehzyklen/gui.py:1862
+#: drehzyklen/gui.py:1888
 msgid "Discard the current program? (the stock stays)"
 msgstr "¿Descartar el programa actual? (la pieza en bruto se mantiene)"
 
-#: drehzyklen/gui.py:1884
+#: drehzyklen/gui.py:1910
 msgid "Open project"
 msgstr "Abrir proyecto"
 
-#: drehzyklen/gui.py:1885 drehzyklen/gui.py:1902
+#: drehzyklen/gui.py:1911 drehzyklen/gui.py:1928
 msgid "Drehzyklen project"
 msgstr "Proyecto Drehzyklen"
 
-#: drehzyklen/gui.py:1892
+#: drehzyklen/gui.py:1918
 #, python-brace-format
 msgid "The project cannot be read: {error}"
 msgstr "No se puede leer el proyecto: {error}"
 
-#: drehzyklen/gui.py:1900
+#: drehzyklen/gui.py:1926
 msgid "Save project"
 msgstr "Guardar proyecto"
 
-#: drehzyklen/gui.py:1924
+#: drehzyklen/gui.py:1950
 msgid "Please enter a program folder."
 msgstr "Indique una carpeta de programas."
 
-#: drehzyklen/gui.py:1927
+#: drehzyklen/gui.py:1953
 #, python-brace-format
 msgid "The program folder\n{folder}\ndoes not exist. Create it now?"
 msgstr "La carpeta de programas\n{folder}\nno existe. ¿Crearla ahora?"
 
-#: drehzyklen/gui.py:1929
+#: drehzyklen/gui.py:1955
 msgid "Program folder not applied - please enter an existing folder."
 msgstr "Carpeta de programas no aplicada – indique una carpeta existente."
 
-#: drehzyklen/gui.py:1935
+#: drehzyklen/gui.py:1961
 #, python-brace-format
 msgid "The folder cannot be created: {error}"
 msgstr "No se puede crear la carpeta: {error}"
 
-#: drehzyklen/gui.py:1941
+#: drehzyklen/gui.py:1967
 #, python-brace-format
 msgid "The INI file\n{path}\ndoes not exist."
 msgstr "El archivo INI\n{path}\nno existe."
 
-#: drehzyklen/gui.py:1949
+#: drehzyklen/gui.py:1975
 msgid "settings"
 msgstr "ajustes"
 
-#: drehzyklen/gui.py:1958
+#: drehzyklen/gui.py:1984
 msgid "LinuxCNC already passed an INI at the start - the entered INI is only used without a running LinuxCNC."
 msgstr "LinuxCNC ya entregó un INI al arrancar – el INI indicado solo se usa sin LinuxCNC en marcha."
 
-#: drehzyklen/gui.py:1978
+#: drehzyklen/gui.py:2004
 #, python-brace-format
 msgid "Machine data saved: {path}"
 msgstr "Datos de la máquina guardados: {path}"
 
-#: drehzyklen/gui.py:2032 drehzyklen/ui/drehzyklen.ui:160 drehzyklen/ui/drehzyklen.ui:1011
+#: drehzyklen/gui.py:2058 drehzyklen/ui/drehzyklen.ui:160 drehzyklen/ui/drehzyklen.ui:1011
 msgid "Save"
 msgstr "Guardar"
 
-#: drehzyklen/gui.py:2034 drehzyklen/ui/drehzyklen.ui:116
+#: drehzyklen/gui.py:2060 drehzyklen/ui/drehzyklen.ui:116
 msgid "Open"
 msgstr "Abrir"
 
-#: drehzyklen/gui.py:2115
+#: drehzyklen/gui.py:2141
 msgid "Drehzyklen - LinuxCNC"
 msgstr "Drehzyklen – LinuxCNC"
 
-#: drehzyklen/gui.py:2160
+#: drehzyklen/gui.py:2186
 #, python-brace-format
 msgid "Project {path} cannot be read: {error}"
 msgstr "No se puede leer el proyecto {path}: {error}"
@@ -605,11 +605,11 @@ msgstr "no"
 msgid "Chamfer"
 msgstr "Chaflán"
 
-#: drehzyklen/helpdraw.py:404 drehzyklen/widgets.py:315 drehzyklen/cycles/params.py:75
+#: drehzyklen/helpdraw.py:404 drehzyklen/widgets.py:617 drehzyklen/cycles/params.py:75
 msgid "Radius"
 msgstr "Radio"
 
-#: drehzyklen/helpdraw.py:409 drehzyklen/widgets.py:318 drehzyklen/cycles/params.py:74
+#: drehzyklen/helpdraw.py:409 drehzyklen/widgets.py:620 drehzyklen/cycles/params.py:74
 msgid "none"
 msgstr "ninguna"
 
@@ -625,7 +625,7 @@ msgstr "Diámetro final"
 msgid "Given by"
 msgstr "Indicado por"
 
-#: drehzyklen/helpdraw.py:582 drehzyklen/widgets.py:327
+#: drehzyklen/helpdraw.py:582 drehzyklen/widgets.py:629
 msgid "Start"
 msgstr "Inicio"
 
@@ -948,7 +948,7 @@ msgstr "Sin vista previa"
 msgid "Thread"
 msgstr "Rosca"
 
-#: drehzyklen/render.py:267 drehzyklen/widgets.py:378 drehzyklen/widgets.py:415
+#: drehzyklen/render.py:267 drehzyklen/widgets.py:680 drehzyklen/widgets.py:717
 msgid "Arc"
 msgstr "Arco"
 
@@ -1265,177 +1265,197 @@ msgstr "Línea {line}: ${name} es una variable de la pieza en bruto – se ajust
 msgid "Line {line}: ${name} is defined twice"
 msgstr "Línea {line}: ${name} está definida dos veces"
 
-#: drehzyklen/variables.py:137
+#: drehzyklen/variables.py:145
 #, python-brace-format
 msgid "unknown variable ${name}"
 msgstr "variable desconocida ${name}"
 
-#: drehzyklen/variables.py:140
+#: drehzyklen/variables.py:148
 #, python-brace-format
 msgid "the variables refer to each other: {loop}"
 msgstr "las variables se refieren unas a otras: {loop}"
 
-#: drehzyklen/widgets.py:88
+#: drehzyklen/widgets.py:90
 msgid "Keypad"
 msgstr "Teclado numérico"
 
-#: drehzyklen/widgets.py:315
+#: drehzyklen/widgets.py:145
+msgid "No variables in this field"
+msgstr "No hay variables en este campo"
+
+#: drehzyklen/widgets.py:147
+msgid "Choose a variable"
+msgstr "Elegir una variable"
+
+#: drehzyklen/widgets.py:156
+msgid "Calculation and $variables"
+msgstr "Cálculo y $variables"
+
+#: drehzyklen/widgets.py:183
+msgid "Back"
+msgstr "Atrás"
+
+#: drehzyklen/widgets.py:192
+msgid "No variables defined"
+msgstr "No hay variables definidas"
+
+#: drehzyklen/widgets.py:617
 msgid "Radius, arc > 180°"
 msgstr "Radio, arco > 180°"
 
-#: drehzyklen/widgets.py:316
+#: drehzyklen/widgets.py:618
 msgid "tangential at the start"
 msgstr "tangente al inicio"
 
-#: drehzyklen/widgets.py:316
+#: drehzyklen/widgets.py:618
 msgid "tangential at the end"
 msgstr "tangente al final"
 
-#: drehzyklen/widgets.py:317
+#: drehzyklen/widgets.py:619
 msgid "Centre I/K"
 msgstr "Centro I/K"
 
-#: drehzyklen/widgets.py:318
+#: drehzyklen/widgets.py:620
 msgid "Default (all other corners)"
 msgstr "Por defecto (todas las demás)"
 
-#: drehzyklen/widgets.py:319
+#: drehzyklen/widgets.py:621
 msgid "Radius R"
 msgstr "Radio R"
 
-#: drehzyklen/widgets.py:319
+#: drehzyklen/widgets.py:621
 msgid "Chamfer 45°"
 msgstr "Chaflán 45°"
 
-#: drehzyklen/widgets.py:320
+#: drehzyklen/widgets.py:622
 msgid "Chamfer L × angle to the incoming edge"
 msgstr "Chaflán L × ángulo respecto a la arista entrante"
 
-#: drehzyklen/widgets.py:321
+#: drehzyklen/widgets.py:623
 msgid "Chamfer L × angle to the outgoing edge"
 msgstr "Chaflán L × ángulo respecto a la arista saliente"
 
-#: drehzyklen/widgets.py:322
+#: drehzyklen/widgets.py:624
 #, python-brace-format
 msgid "R{} >180°"
 msgstr "R{} >180°"
 
-#: drehzyklen/widgets.py:322
+#: drehzyklen/widgets.py:624
 msgid "tang. start"
 msgstr "tang. inicio"
 
-#: drehzyklen/widgets.py:322
+#: drehzyklen/widgets.py:624
 msgid "tang. end"
 msgstr "tang. final"
 
-#: drehzyklen/widgets.py:340
+#: drehzyklen/widgets.py:642
 msgid "sharp"
 msgstr "viva"
 
-#: drehzyklen/widgets.py:360
+#: drehzyklen/widgets.py:662
 msgid "List"
 msgstr "Lista"
 
-#: drehzyklen/widgets.py:360
+#: drehzyklen/widgets.py:662
 msgid "Edit point by point"
 msgstr "Editar punto a punto"
 
-#: drehzyklen/widgets.py:361
+#: drehzyklen/widgets.py:663
 msgid "Text"
 msgstr "Texto"
 
-#: drehzyklen/widgets.py:361
+#: drehzyklen/widgets.py:663
 msgid "Edit the contour text directly"
 msgstr "Editar directamente el texto del contorno"
 
-#: drehzyklen/widgets.py:378 drehzyklen/cycles/edgebreak.py:49
+#: drehzyklen/widgets.py:680 drehzyklen/cycles/edgebreak.py:49
 msgid "Kind"
 msgstr "Tipo"
 
-#: drehzyklen/widgets.py:378 drehzyklen/widgets.py:425
+#: drehzyklen/widgets.py:680 drehzyklen/widgets.py:727
 msgid "Corner"
 msgstr "Esquina"
 
-#: drehzyklen/widgets.py:393
+#: drehzyklen/widgets.py:695
 msgid "Line G1"
 msgstr "Recta G1"
 
-#: drehzyklen/widgets.py:393
+#: drehzyklen/widgets.py:695
 msgid "Arc G2"
 msgstr "Arco G2"
 
-#: drehzyklen/widgets.py:393
+#: drehzyklen/widgets.py:695
 msgid "Arc G3"
 msgstr "Arco G3"
 
-#: drehzyklen/widgets.py:406 drehzyklen/cycles/thread.py:96
+#: drehzyklen/widgets.py:708 drehzyklen/cycles/thread.py:96
 msgid "Size"
 msgstr "Tamaño"
 
-#: drehzyklen/widgets.py:407
+#: drehzyklen/widgets.py:709
 msgid "Angle °"
 msgstr "Ángulo °"
 
-#: drehzyklen/widgets.py:409
+#: drehzyklen/widgets.py:711
 msgid "Element"
 msgstr "Elemento"
 
-#: drehzyklen/widgets.py:434
+#: drehzyklen/widgets.py:736
 msgid "＋ Append"
 msgstr "＋ Añadir"
 
-#: drehzyklen/widgets.py:434
+#: drehzyklen/widgets.py:736
 msgid "Insert a new element after the marked one"
 msgstr "Insertar un elemento nuevo detrás del marcado"
 
-#: drehzyklen/widgets.py:435
+#: drehzyklen/widgets.py:737
 msgid "✔ Change"
 msgstr "✔ Modificar"
 
-#: drehzyklen/widgets.py:435
+#: drehzyklen/widgets.py:737
 msgid "Overwrite the marked element with the fields"
 msgstr "Sobrescribir el elemento marcado con los campos"
 
-#: drehzyklen/widgets.py:475
+#: drehzyklen/widgets.py:779
 msgid "X Z · R5 · C2 · C2 A30 / B30 · G2/G3 X Z R|LA|I K|TS|TE · RND/CHR · R0  (the »Picture« view shows the contour)"
 msgstr "X Z · R5 · C2 · C2 A30 / B30 · G2/G3 X Z R|LA|I K|TS|TE · RND/CHR · R0  (la vista »Imagen« muestra el contorno)"
 
-#: drehzyklen/widgets.py:516
+#: drehzyklen/widgets.py:820
 msgid "Contour with $variables - the list shows the calculated values, change it as text"
 msgstr "Contorno con $variables – la lista muestra los valores calculados, modifíquelo como texto"
 
-#: drehzyklen/widgets.py:623 drehzyklen/widgets.py:626
+#: drehzyklen/widgets.py:927 drehzyklen/widgets.py:930
 msgid "Arc radius R is missing"
 msgstr "Falta el radio del arco R"
 
-#: drehzyklen/widgets.py:642
+#: drehzyklen/widgets.py:946
 msgid "The size of the corner is missing"
 msgstr "Falta el tamaño de la esquina"
 
-#: drehzyklen/widgets.py:651
+#: drehzyklen/widgets.py:955
 msgid "The chamfer angle is missing (0…180°)"
 msgstr "Falta el ángulo del chaflán (0…180°)"
 
-#: drehzyklen/widgets.py:658
+#: drehzyklen/widgets.py:962
 msgid "Enter X and Z"
 msgstr "Indicar X y Z"
 
-#: drehzyklen/widgets.py:849
+#: drehzyklen/widgets.py:1156
 #, python-brace-format
 msgid "T{number}  (not in the tool table)"
 msgstr "T{number}  (no está en la tabla de herramientas)"
 
-#: drehzyklen/widgets.py:1043
+#: drehzyklen/widgets.py:1350
 #, python-brace-format
 msgid "{field}: invalid number"
 msgstr "{field}: número no válido"
 
-#: drehzyklen/widgets.py:1055
+#: drehzyklen/widgets.py:1362
 #, python-brace-format
 msgid "{field}: at least {limit}"
 msgstr "{field}: como mínimo {limit}"
 
-#: drehzyklen/widgets.py:1058
+#: drehzyklen/widgets.py:1365
 #, python-brace-format
 msgid "{field}: at most {limit}"
 msgstr "{field}: como máximo {limit}"
