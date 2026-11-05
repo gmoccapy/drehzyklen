@@ -1222,8 +1222,12 @@ class DrehzyklenPanel(Gtk.Box):
             items.append((cycle_class.KEY, cycle_class.short(), cycle_class.KEY,
                           cycle_class.title()))
         cycle_buttons = RadioBar(items, "cycles", self.show_page, icon_size=24, buttons=True,
-                                 spacing=6)
+                                 spacing=8)
         get("cycle_bar").pack_start(cycle_buttons, False, False, 0)
+        # the scrollbar (and the room for it) only when the buttons do not fit into the width
+        self.cycle_buttons = cycle_buttons
+        self.cycle_scroller = get("cycle_scroller")
+        self.cycle_scroller.connect("size-allocate", self.on_cycle_scroller_allocate)
         page_tools = get("page_tools")
         buttons = {}
         for key, button in cycle_buttons.buttons.items():
@@ -1438,6 +1442,12 @@ class DrehzyklenPanel(Gtk.Box):
         if layout != self.layout_state:
             self.layout_state = layout
             GLib.idle_add(self.apply_layout, layout)
+
+    def on_cycle_scroller_allocate(self, scroller, allocation):
+        _minimum, natural = self.cycle_buttons.get_preferred_width()
+        policy = Gtk.PolicyType.EXTERNAL if natural <= allocation.width else Gtk.PolicyType.AUTOMATIC
+        if scroller.get_policy()[0] != policy:
+            GLib.idle_add(scroller.set_policy, policy, Gtk.PolicyType.NEVER)
 
     def set_positions(self, left, middle):
         self.outer_paned.set_position(left)
