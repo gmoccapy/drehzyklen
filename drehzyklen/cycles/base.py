@@ -55,6 +55,9 @@ class Cycle:
     HAS_TOOL = True
     FORCE_G97 = False
     RENAMES: Dict[str, str] = {}        # keys of older projects -> current keys
+    # chaining: a new cycle starts where the step before it ended
+    END_KEYS: Optional[Tuple[str, str]] = None    # (Ø, Z) fields of the end point
+    START_KEYS: Optional[Tuple[str, str]] = None  # (Ø, Z) fields the end point is put into
 
     def __init__(self, values: Optional[Dict[str, Any]] = None, variables=None):
         self.v: Dict[str, Any] = {}
@@ -97,6 +100,16 @@ class Cycle:
             defaults = {param.key: param.default for param in self.all_params()}
             self.v = {key: defaults.get(key, value) if is_expression(value) else value
                       for key, value in self.raw.items()}
+
+    def end_point(self) -> Optional[Tuple[float, float]]:
+        """(Ø, Z) where the cycle ends; None if it has no end point a next cycle starts at."""
+        if self.END_KEYS is None or self.resolve_error:
+            return None
+        diameter, z = (self.v.get(key) for key in self.END_KEYS)
+        if not all(isinstance(value, (int, float)) and not isinstance(value, bool)
+                   for value in (diameter, z)):
+            return None
+        return float(diameter), float(z)
 
     def limit_problems(self) -> List[str]:
         """Values outside the limits of their field (e.g. after a variable or the stock was

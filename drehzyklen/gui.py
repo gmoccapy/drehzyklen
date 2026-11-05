@@ -115,6 +115,7 @@ class CyclePage(Gtk.Box):
         self.errors = []
         self.help = (cycle_class.KEY, cycle_class().help_values(), False)
         self.edit_index: Optional[int] = None
+        self.chained_from = None                # end point taken over last (see chain_start)
         if cycle_class.HAS_SIDE:
             self.side_bar = RadioBar([(OUTSIDE, _("Outside"), "side_out", _("Outside machining")),
                                       (INSIDE, _("Inside"), "side_in", _("Inside machining"))],
@@ -263,7 +264,53 @@ class CyclePage(Gtk.Box):
         self.side = side
         self.form.set_side(side)
         self.restore_cutting()
+        self.chain_start()
         self.on_param("side", None)
+
+    def previous_step(self):
+        """The last step of the program with a position (G-code steps are skipped)."""
+        for op in reversed(self.panel.program.ops):
+            if op.KEY != "gcode":
+                return op
+        return None
+
+    def chain_start(self):
+        """A new cycle starts where the last step of the program ended: its end point (Ø, Z)
+        is put into the start fields. Only for a new cycle (not while a step is edited), on
+        the same side (outside/inside), once per end point - later changes stay; fields with
+        a $calculation are not overwritten."""
+        start_keys = self.cycle_class.START_KEYS
+        if start_keys is None or self.edit_index is not None:
+            return
+        previous = self.previous_step()
+        if previous is None:
+            return
+        end = previous.end_point()
+        if end is None:
+            return
+        if self.cycle_class.HAS_SIDE and previous.HAS_SIDE and \
+                previous.inside != (self.side == INSIDE):
+            return
+        marker = (len(self.panel.program.ops), id(previous), end, self.side)
+        if marker == self.chained_from:
+            return
+        self.chained_from = marker
+        changed = False
+        z_key = start_keys[1]
+        old_z = self.form._number(z_key)
+        for key, value in zip(start_keys, end):
+            if key in self.form.widgets and not self.form._has_variable(key):
+                self.form._set(key, value)
+                changed = True
+        # Z end moves along: the length of the cycle stays (no cycle running backwards)
+        new_z = self.form._number(z_key)
+        if (z_key == "z_start" and "z_end" in self.form.widgets and old_z is not None
+                and new_z is not None and not self.form._has_variable("z_end")):
+            old_end = self.form._number("z_end")
+            if old_end is not None:
+                self.form._set("z_end", old_end + new_z - old_z)
+        if changed:
+            self.schedule_update()
 
     def on_param(self, key=None, old_value=None):
         if key:
@@ -1527,6 +1574,7 @@ class DrehzyklenPanel(Gtk.Box):
             self.clear_edit()
             self.program_column.unselect()
         if page is not None:
+            page.chain_start()
             page.update()
         else:
             self.update_view()
@@ -1673,6 +1721,10 @@ class DrehzyklenPanel(Gtk.Box):
         self.refresh_list(len(self.program.ops) - 1)
         self.program_column.status.set_text(_("{title} added as step {number}").format(
             title=op.title(), number=len(self.program.ops)))
+        # the next cycle on this page starts where the new step ends
+        page = self.pages.get(self.current)
+        if page is not None:
+            page.chain_start()
 
     def replace_op(self, index: int, op: Cycle):
         if index >= len(self.program.ops):

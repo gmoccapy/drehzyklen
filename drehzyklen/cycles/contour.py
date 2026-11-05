@@ -27,6 +27,8 @@ from ..i18n import N_, _
 from .params import CORNER_CHAMFER, CORNER_LABELS, CORNER_NONE, CORNER_RADIUS, ROUGH, P
 from .turning import TurningCycle
 
+CHECKED_CONTOUR_ERRORS = (ContourError, ValueError, TypeError)
+
 DEFAULT_CONTOUR = "X0 Z0\nX50 Z0 C2 A30\nX50 Z-20\nX60 Z-20 R5\nX60 Z-50\nX64 Z-50"
 
 
@@ -44,6 +46,18 @@ class Contour(TurningCycle):
 
     def rows(self):
         return parse_rows(self.contour)
+
+    def end_point(self):
+        """The last point of the contour."""
+        if self.resolve_error:
+            return None
+        try:
+            rows = self.rows()
+        except CHECKED_CONTOUR_ERRORS:
+            return None
+        if not rows:
+            return None
+        return float(rows[-1].x), float(rows[-1].z)
 
     def z_sign(self):
         rows = self.rows()

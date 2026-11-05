@@ -47,6 +47,7 @@ STEP_SHARE = 0.8              # shift between two plunges as share of the tool w
 
 class Groove(Cycle):
     KEY = "groove"
+    START_KEYS = ("d_start", "z_start")
     TITLE = N_("Grooving")
     SHORT = N_("Groove")
     PARAMS = [

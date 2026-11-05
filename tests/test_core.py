@@ -740,6 +740,17 @@ def test_variable_change_out_of_limits_is_an_error():
     assert 1 in program.errors_by_row(errors)
 
 
+def test_end_point_is_the_start_of_the_next_cycle():
+    """End points (Ø, Z) a following cycle starts at; the start fields they go into."""
+    assert LongTurning({"d_end": 50, "z_end": -30}).end_point() == (50, -30)
+    assert Taper({"d_end": 44, "z_end": -55}).end_point() == (44, -55)
+    assert EdgeBreak({"diameter": 40, "z_start": 0}).end_point() == (40, 0)
+    assert Contour({"contour": "X0 Z0\nX40 Z0\nX40 Z-20"}).end_point() == (40, -20)
+    assert Facing({}).end_point() is None            # ends in the centre - no start point
+    assert LongTurning.START_KEYS == ("d_start", "z_start")
+    assert Facing.START_KEYS is None
+
+
 if __name__ == "__main__":
     for name, function in list(globals().items()):
         if name.startswith("test_"):

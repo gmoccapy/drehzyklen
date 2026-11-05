@@ -51,6 +51,7 @@ from .toolcheck import tool_name
 
 class Thread(Cycle):
     KEY = "thread"
+    END_KEYS = ("diameter", "z_end")
     TITLE = N_("Thread")
     SHORT = N_("Thread")
     TECH_PARAMS = TECH_THREAD
