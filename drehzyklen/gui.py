@@ -1289,6 +1289,21 @@ class DrehzyklenPanel(Gtk.Box):
                     break
 
     # ---------------------------------------------------------------- variables
+    def dialog_variables(self, text_view):
+        """Variables for the completion in the dialog: the lines typed so far (as far as they
+        can be read) plus the stock variables."""
+        def variables():
+            buffer = text_view.get_buffer()
+            text = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), True)
+            definitions = []
+            for line in text.splitlines():
+                try:
+                    definitions.extend(parse_definitions(line))
+                except VariableError:
+                    continue
+            return Variables(definitions, self.program.stock.raw)
+        return variables
+
     def on_variables(self, _button):
         """Edit the own variables of the program (variants of the part)."""
         dialog = Gtk.Dialog(title=_("Variables"), transient_for=self.get_toplevel(), modal=True)
@@ -1304,6 +1319,7 @@ class DrehzyklenPanel(Gtk.Box):
         content.pack_start(info, False, False, 0)
         text_view = Gtk.TextView(monospace=True)
         text_view.get_buffer().set_text(definitions_text(self.program.variables))
+        text_view.completer = widgets.VariableCompleter(text_view, self.dialog_variables(text_view))
         scroller = Gtk.ScrolledWindow()
         scroller.set_shadow_type(Gtk.ShadowType.IN)
         scroller.set_min_content_height(140)

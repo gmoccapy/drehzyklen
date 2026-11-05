@@ -17,6 +17,7 @@
 drawing area with zoom and pan."""
 from __future__ import annotations
 
+import re
 from typing import Callable, Dict, List, Optional
 
 import gi
@@ -140,6 +141,199 @@ class NumberField:
     def on_numpad_ok(self, _button, popover):
         popover.popdown()
         self.entry.activate()
+
+
+TYPED_VARIABLE = re.compile(r"\$([A-Za-z0-9_]*)$")
+
+
+class VariableCompleter:
+    """Autocompletion for $variables in a Gtk.Entry or Gtk.TextView.
+
+    Typing $ opens a list of the variables under the field; every further letter narrows it
+    (names starting with the letters first, then names containing them). Up/Down choose,
+    Enter or Tab take the variable, Escape closes the list; a click takes it as well.
+    variables: () -> Variables (own variables of the program and the stock variables).
+    """
+
+    MAX_ROWS = 12
+
+    def __init__(self, widget: Gtk.Widget, variables: Callable):
+        self.widget = widget
+        self.variables = variables
+        self.names: List[str] = []
+        self.inserting = False
+        self.popover = Gtk.Popover.new(widget)
+        self.popover.set_modal(False)
+        self.popover.set_position(Gtk.PositionType.BOTTOM)
+        self.popover.get_style_context().add_class("varlist")
+        self.list_box = Gtk.ListBox()
+        self.list_box.set_selection_mode(Gtk.SelectionMode.BROWSE)
+        self.list_box.set_can_focus(False)
+        self.list_box.connect("row-activated", self.on_row_activated)
+        self.popover.add(self.list_box)
+        if isinstance(widget, Gtk.TextView):
+            widget.get_buffer().connect("changed", self.on_changed)
+            widget.get_buffer().connect("notify::cursor-position", self.on_cursor_moved)
+        else:
+            widget.connect("changed", self.on_changed)
+            widget.connect("notify::cursor-position", self.on_cursor_moved)
+        widget.connect("key-press-event", self.on_key_press)
+        widget.connect("focus-out-event", self.on_focus_out)
+
+    # ---------------------------------------------------------------- text access
+    def text_before_cursor(self) -> str:
+        if isinstance(self.widget, Gtk.TextView):
+            buffer = self.widget.get_buffer()
+            cursor = buffer.get_iter_at_mark(buffer.get_insert())
+            line_start = cursor.copy()
+            line_start.set_line_offset(0)
+            return buffer.get_text(line_start, cursor, True)
+        return self.widget.get_text()[:self.widget.get_position()]
+
+    def replace_typed(self, typed_length: int, text: str):
+        """Replace the typed '$abc' in front of the cursor by text."""
+        if isinstance(self.widget, Gtk.TextView):
+            buffer = self.widget.get_buffer()
+            end = buffer.get_iter_at_mark(buffer.get_insert())
+            start = end.copy()
+            start.backward_chars(typed_length)
+            buffer.begin_user_action()
+            buffer.delete(start, end)
+            buffer.insert(start, text)
+            buffer.end_user_action()
+            buffer.place_cursor(start)
+        else:
+            position = self.widget.get_position()
+            self.widget.delete_text(position - typed_length, position)
+            new_position = self.widget.insert_text(text, position - typed_length)
+            self.widget.set_position(new_position)
+
+    def cursor_rectangle(self) -> Gdk.Rectangle:
+        rectangle = Gdk.Rectangle()
+        if isinstance(self.widget, Gtk.TextView):
+            buffer = self.widget.get_buffer()
+            location = self.widget.get_iter_location(buffer.get_iter_at_mark(buffer.get_insert()))
+            x, y = self.widget.buffer_to_window_coords(Gtk.TextWindowType.WIDGET,
+                                                       location.x, location.y)
+            rectangle.x, rectangle.y = x, y
+            rectangle.width, rectangle.height = 1, location.height
+        else:
+            allocation = self.widget.get_allocation()
+            rectangle.x, rectangle.y = 0, 0
+            rectangle.width, rectangle.height = allocation.width, allocation.height
+        return rectangle
+
+    # ---------------------------------------------------------------- list
+    def on_changed(self, *_args):
+        if self.inserting:
+            return
+        GLib.idle_add(self.update)
+
+    def on_cursor_moved(self, *_args):
+        if self.popover.get_visible() and not self.inserting:
+            GLib.idle_add(self.update)
+
+    def update(self):
+        if not self.widget.has_focus():
+            self.popover.popdown()
+            return False
+        match = TYPED_VARIABLE.search(self.text_before_cursor())
+        if match is None:
+            self.popover.popdown()
+            return False
+        typed = match.group(1).lower()
+        try:
+            variables = self.variables()
+        except Exception:                       # noqa: BLE001 - no list, but never a crash
+            variables = None
+        if variables is None:
+            self.popover.popdown()
+            return False
+        names = variables.names()
+        starting = [name for name in names if name.lower().startswith(typed)]
+        containing = [name for name in names
+                      if typed in name.lower() and name not in starting]
+        self.names = (starting + containing)[:self.MAX_ROWS]
+        if not self.names or (len(self.names) == 1 and self.names[0].lower() == typed):
+            self.popover.popdown()
+            return False
+        values = variables.values()
+        for row in self.list_box.get_children():
+            self.list_box.remove(row)
+        for name in self.names:
+            self.list_box.add(self._row(name, values.get(name), variables.description(name)))
+        self.list_box.show_all()
+        self.list_box.select_row(self.list_box.get_row_at_index(0))
+        self.popover.set_pointing_to(self.cursor_rectangle())
+        if not self.popover.get_visible():
+            self.popover.popup()
+        return False
+
+    @staticmethod
+    def _row(name, value, description):
+        box = Gtk.Box(spacing=12, margin_start=6, margin_end=6, margin_top=3, margin_bottom=3)
+        name_label = Gtk.Label(xalign=0)
+        name_label.set_markup("<b>$" + GLib.markup_escape_text(name) + "</b>")
+        box.pack_start(name_label, False, False, 0)
+        value_text = "?" if value is None else "= " + number_text(value)
+        value_label = Gtk.Label(label=value_text, xalign=1)
+        box.pack_end(value_label, False, False, 0)
+        if description:
+            hint = Gtk.Label(label=description, xalign=0)
+            hint.set_ellipsize(Pango.EllipsizeMode.END)
+            hint.set_max_width_chars(30)
+            hint.get_style_context().add_class("hint")
+            box.pack_start(hint, True, True, 0)
+        row = Gtk.ListBoxRow()
+        row.set_can_focus(False)
+        row.add(box)
+        row.variable_name = name
+        return row
+
+    def take(self, name):
+        match = TYPED_VARIABLE.search(self.text_before_cursor())
+        if match is None:
+            return
+        self.inserting = True
+        try:
+            self.replace_typed(len(match.group(0)), "$" + name)
+        finally:
+            self.inserting = False
+        self.popover.popdown()
+        self.widget.grab_focus()
+        if isinstance(self.widget, Gtk.Entry):
+            # grab_focus selects the whole text of an entry - put the cursor back
+            position = self.widget.get_position()
+            self.widget.select_region(position, position)
+
+    def on_row_activated(self, _list_box, row):
+        self.take(row.variable_name)
+
+    def on_key_press(self, _widget, event):
+        if not self.popover.get_visible():
+            return False
+        key = event.keyval
+        if key in (Gdk.KEY_Down, Gdk.KEY_Up, Gdk.KEY_KP_Down, Gdk.KEY_KP_Up):
+            row = self.list_box.get_selected_row()
+            index = row.get_index() if row is not None else -1
+            step = 1 if key in (Gdk.KEY_Down, Gdk.KEY_KP_Down) else -1
+            index = max(0, min(len(self.names) - 1, index + step))
+            self.list_box.select_row(self.list_box.get_row_at_index(index))
+            return True
+        if key in (Gdk.KEY_Return, Gdk.KEY_KP_Enter, Gdk.KEY_Tab, Gdk.KEY_ISO_Enter):
+            row = self.list_box.get_selected_row()
+            if row is not None:
+                self.take(row.variable_name)
+                return True
+            return False
+        if key == Gdk.KEY_Escape:
+            self.popover.popdown()
+            return True
+        return False
+
+    def on_focus_out(self, *_args):
+        self.popover.popdown()
+        return False
 
 
 class NumEntry(Gtk.Entry):
@@ -466,6 +660,8 @@ class ContourEditor(Gtk.Box):
         self.text_view.set_left_margin(6)
         self.text_view.set_wrap_mode(Gtk.WrapMode.NONE)
         self.text_view.get_buffer().connect("changed", self.on_text_changed)
+        if self.variables is not None:
+            self.text_view.completer = VariableCompleter(self.text_view, self.variables)
         scroller = Gtk.ScrolledWindow()
         scroller.set_shadow_type(Gtk.ShadowType.IN)
         scroller.set_min_content_height(180)
@@ -805,6 +1001,8 @@ class ParamForm(Gtk.Grid):
         if param.kind in ("float", "int", "optfloat"):
             entry = NumEntry(allow_empty=param.kind == "optfloat")
             entry.set_value(param.default)
+            if self.variables is not None:
+                entry.completer = VariableCompleter(entry, self.variables)
             entry.connect("changed", self.on_widget_changed, param.key)
             return entry
         if param.kind == "choice":

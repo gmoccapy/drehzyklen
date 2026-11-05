@@ -119,8 +119,10 @@ class Variables:
     def __init__(self, definitions: Optional[List[Tuple[str, str, str]]] = None,
                  stock_values: Optional[Dict[str, Any]] = None):
         self.expressions: Dict[str, Any] = {}
-        for name, expression, _comment in definitions or []:
+        self.comments: Dict[str, str] = {}
+        for name, expression, comment in definitions or []:
             self.expressions[name] = expression
+            self.comments[name] = comment
         for name, key in STOCK_VARIABLES.items():
             if stock_values is not None and key in stock_values:
                 self.expressions[name] = stock_values[key]
@@ -129,6 +131,12 @@ class Variables:
 
     def names(self) -> List[str]:
         return list(self.expressions)
+
+    def description(self, name: str) -> str:
+        """Comment of an own variable or the meaning of a stock variable."""
+        if name in STOCK_VARIABLE_HELP:
+            return _(STOCK_VARIABLE_HELP[name])
+        return self.comments.get(name, "")
 
     def value(self, name: str) -> float:
         if name in self.cache:
