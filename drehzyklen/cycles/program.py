@@ -42,17 +42,19 @@ from ..i18n import N_, _
 from ..machine import Machine
 from ..material import Material, bounds
 from .base import Cycle
+from .toolcheck import bore_problem, usage_problems
 from .contour import Contour
 from .drill import Drill
 from .edgebreak import EdgeBreak
 from .facing import Facing
+from .groove import Groove
 from .gcodeblock import GCodeOp
 from .longturning import LongTurning
 from .stock import Stock
 from .taper import Taper
 from .thread import Thread
 
-CYCLES = [Facing, LongTurning, Taper, Thread, EdgeBreak, Contour, Drill, GCodeOp]
+CYCLES = [Facing, LongTurning, Taper, Thread, EdgeBreak, Contour, Groove, Drill, GCodeOp]
 CYCLE_BY_KEY = {cycle.KEY: cycle for cycle in CYCLES}
 CHECKED_ERRORS = (ContourError, ValueError, TypeError, ZeroDivisionError)
 NO_TOOL_CHANGE_WARNING = N_("No tool change position defined (INI [CHANGE_POSITION] or "
@@ -141,7 +143,10 @@ class Program:
                     limit=limit, feed=max(feeds)))
         if op.KEY == "thread":
             limit = min(limit, op.rpm_limit(machine))
-        direction = op.spindle_direction(machine)
+        tool = None
+        if self.tools is not None and op.HAS_TOOL:
+            tool = self.tools.get(op.tool)
+        direction = op.spindle_direction(machine, tool)
         rpm = None
         if op.KEY == "drill":
             if op.spindle_mode() == "G96":
@@ -203,7 +208,24 @@ class Program:
             errors.append(tag + _("T{number}: enter type, hand and position in the tools "
                                   "tab").format(number=tool.number))
             return
-        for problem in op.tool_problems(tool):
+        for problem in op.tool_problems(tool) + usage_problems(op, tool, self.stock):
+            if op.v.get("tool_ok"):
+                warnings.append(tag + _("released: ") + problem)
+            else:
+                errors.append(tag + problem + _(" (release: »Release tool despite warning«)"))
+
+    def _bore_check(self, op, tag, material, warnings, errors):
+        """Inside tool: does it fit into the bore that exists before this cycle?"""
+        if self.tools is None or not op.HAS_TOOL or not getattr(op, "inside", False):
+            return
+        tool = self.tools.get(op.tool)
+        if tool is None:
+            return
+        low, high = op.z_range()
+        radius = material.min_inner(low, high)
+        if radius is None:
+            return
+        for problem in bore_problem(tool, 2 * radius):
             if op.v.get("tool_ok"):
                 warnings.append(tag + _("released: ") + problem)
             else:
@@ -376,6 +398,9 @@ class Program:
         elif not op.coolant and state.coolant:
             emitter.emit("M9")
             state.coolant = False
+        self._bore_check(op, tag, material, warnings, errors)
+        if self.tools is not None:
+            op_limited.prepare(self.tools.get(op.tool))
         path_start = len(emitter.path)
         op_limited.body(emitter, machine, material)
         if op.inside:

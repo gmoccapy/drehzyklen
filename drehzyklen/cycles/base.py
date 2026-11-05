@@ -200,10 +200,14 @@ class Cycle:
     def feed_mode(self) -> str:
         return feed_mode_of(self.v.get("speed_feed", SPEED_FEED_MODES[0]))
 
-    def spindle_direction(self, machine: Machine) -> str:
+    def spindle_direction(self, machine: Machine, tool=None) -> str:
+        """M3/M4 of the cycle; »auto«: the direction set for the tool, otherwise the machine
+        rule (tool in front of the centre line M3, behind it M4)."""
         direction = self.v.get("spindle_dir", "auto")
         if direction in ("M3", "M4"):
             return direction
+        if tool is not None and getattr(tool, "spindle", "auto") in ("M3", "M4"):
+            return tool.spindle
         return machine.default_spindle_dir
 
     def feed_keys(self) -> List[str]:
@@ -246,6 +250,9 @@ class Cycle:
 
     def tool_problems(self, tool) -> List[str]:
         return []
+
+    def prepare(self, tool):
+        """Called with the tool (or None) before body() - for cycles that need tool data."""
 
     def body(self, emitter: Emitter, machine: Machine, material: Optional[Material]):
         raise NotImplementedError

@@ -46,11 +46,14 @@ from . import i18n, threads, widgets  # noqa: E402
 from .cycles import (CYCLES, INSIDE, OUTSIDE, STOCK_PARAMS, Cycle, P, Program, Stock,  # noqa: E402
                      cycle_from_dict)
 from .cycles.program import NO_TOOL_CHANGE_WARNING  # noqa: E402
+from .cycles.toolcheck import corner_radius_problems, usage_problems  # noqa: E402
+from .geometry import ContourError  # noqa: E402
 from .i18n import N_, _  # noqa: E402
 from .machine import MACHINE_FIELDS, MACHINE_HELP, Machine  # noqa: E402
 from .material import simulate  # noqa: E402
 from .settings import Settings  # noqa: E402
 from .tools import (HAND_LABELS, HANDS, KIND_LABELS, NEW_SOURCE, POSITION_LABELS,  # noqa: E402
+                    REFERENCE_CHOICES, REFERENCE_LABELS, SPINDLE_CHOICES, SPINDLE_LABELS,
                     NEUTRAL, POSITIONS, RIGHT, Tool, ToolTable, lead_angle_problem,
                     table_angles)
 from .widgets import (NumberField, ParamForm, RadioBar, ViewArea,  # noqa: E402
@@ -120,7 +123,7 @@ class CyclePage(Gtk.Box):
         if cycle_class.KEY == "gcode":
             self.pack_start(self._snippet_bar(), False, False, 0)
         self.form = ParamForm(cycle_class.all_params(), panel.machine, self.on_param,
-                              panel.tool_choices)
+                              panel.tool_choices, panel.tools.get)
         self.pack_start(scrolled(self.form), True, True, 0)
         self.restore_cutting()
         button_box = Gtk.Box(spacing=4)
@@ -166,7 +169,7 @@ class CyclePage(Gtk.Box):
         box.attach(buttons, 0, 1, 2, 1)
         return box
 
-    def fill_snippets(self, active_name=None):
+    def fill_snippets(self, active_name=None, select_first=True):
         self.snippet_filling = True
         try:
             self.snippet_combo.remove_all()
@@ -174,7 +177,7 @@ class CyclePage(Gtk.Box):
                 self.snippet_combo.append(snippet["name"], _(snippet["name"]))
             if active_name is not None:
                 self.snippet_combo.set_active_id(active_name)
-            elif self.panel.settings.snippets:
+            elif self.panel.settings.snippets and select_first:
                 self.snippet_combo.set_active(0)
         finally:
             self.snippet_filling = False
@@ -222,7 +225,9 @@ class CyclePage(Gtk.Box):
         name = self.snippet_combo.get_active_id()
         if name and self.panel.confirm(_("Delete the snippet »{name}«?").format(name=name)):
             self.panel.settings.remove_snippet(name)
-            self.fill_snippets()
+            # the deleted snippet is gone - also from the code field, nothing is chosen
+            self.fill_snippets(select_first=False)
+            self.on_clear_code(None)
 
     # ---- last used cutting data (per cycle and outside/inside)
     def cutting_key(self):
@@ -291,6 +296,8 @@ class CyclePage(Gtk.Box):
             values["side"] = self.side
         lenient_op = self.cycle_class(values)
         self.help = (self.cycle_class.KEY, lenient_op.help_values(), lenient_op.inside)
+        if lenient_op.HAS_TOOL:
+            self.form.set_tool_status(self.tool_status(lenient_op))
         op = self.build()
         if op is not None:
             self.remember_cutting(op.v)
@@ -321,6 +328,21 @@ class CyclePage(Gtk.Box):
             self.errors = [error.replace(prefix, "") for error in result.errors]
         self.panel.page_updated(self)
         return False
+
+    def tool_status(self, op) -> Dict[int, bool]:
+        """Which tools fit this operation (with the current values)? {number: fits}"""
+        status = {}
+        stock = self.panel.program.stock
+        for tool in self.panel.tools.sorted_tools():
+            if tool.needs_input:
+                status[tool.number] = False
+                continue
+            try:
+                problems = op.tool_problems(tool) + usage_problems(op, tool, stock)
+            except (ContourError, ValueError, TypeError, ZeroDivisionError, AttributeError):
+                continue
+            status[tool.number] = not problems
+        return status
 
     def set_title(self):
         title = f"<b>{GLib.markup_escape_text(self.cycle_class.title())}</b>"
@@ -446,6 +468,7 @@ class ToolPage:
             self.hand_combo.append(hand, _(HAND_LABELS[hand]))
         for position in POSITIONS:
             self.position_combo.append(position, _(POSITION_LABELS[position]))
+        self.position_combo.connect("changed", self.on_kind_changed)
         self.lead_entry = NumberField(get("tool_lead"))
         self.radius_entry = NumberField(get("tool_radius"))
         self.width_entry = NumberField(get("tool_width"))
@@ -465,6 +488,28 @@ class ToolPage:
                                            "the spindle axis. Empty = bisector of the insert. "
                                            "Independent of κ, e.g. ISO C with κ 95° in a holder "
                                            "at 90°"))
+        self.length_entry = NumberField(get("tool_length"))
+        self.length_entry.set_tooltip_text(_("Drill: usable flute length. Inside tool: how deep "
+                                             "it can reach into the bore. 0 = not checked"))
+        self.min_bore_entry = NumberField(get("tool_min_bore"))
+        self.min_bore_entry.set_tooltip_text(_("Inside tool: smallest bore Ø the tool fits "
+                                               "into. 0 = not checked"))
+        self.groove_depth_entry = NumberField(get("tool_groove_depth"))
+        self.groove_depth_entry.set_tooltip_text(_("Grooving tool: largest grooving depth "
+                                                   "(radial). 0 = not checked"))
+        self.reference_combo = get("tool_reference")
+        self.reference_combo.set_tooltip_text(_("Grooving tool: the corner (or the centre) "
+                                                "used for touching off - the programmed point"))
+        self.spindle_combo = get("tool_spindle")
+        self.spindle_combo.set_tooltip_text(_("Spindle direction for this tool; cycles with "
+                                              "»auto« use it. auto = rule of the machine "
+                                              "(in front of the centre line M3, behind M4)"))
+        for combo in (self.reference_combo, self.spindle_combo):
+            ellipsize_combo(combo)
+        for key in REFERENCE_CHOICES:
+            self.reference_combo.append(key, _(REFERENCE_LABELS[key]))
+        for key in SPINDLE_CHOICES:
+            self.spindle_combo.append(key, _(SPINDLE_LABELS[key]))
         self.comment_entry = get("tool_comment")
         self.apply_button = get("tool_apply")
         self.new_button = get("tool_new")
@@ -475,6 +520,22 @@ class ToolPage:
         mirror_label = self.mirror_check.get_child()
         if isinstance(mirror_label, Gtk.Label):
             mirror_label.set_line_wrap(True)
+        # Enter moves on to the next field
+        self.entry_order = [field.entry if isinstance(field, NumberField) else field
+                            for field in (self.lead_entry, self.radius_entry, self.width_entry,
+                                          self.diameter_entry, self.length_entry,
+                                          self.min_bore_entry, self.groove_depth_entry,
+                                          self.tip_entry, self.front_entry, self.back_entry,
+                                          self.axis_entry, self.comment_entry)]
+        for entry in self.entry_order:
+            entry.connect("activate", self.on_entry_activate)
+
+    def on_entry_activate(self, entry):
+        position = self.entry_order.index(entry)
+        for next_entry in self.entry_order[position + 1:]:
+            if next_entry.get_visible() and next_entry.get_sensitive():
+                next_entry.grab_focus()
+                return
 
     def handlers(self):
         """Signal handlers named in the Glade file."""
@@ -555,6 +616,11 @@ class ToolPage:
         self.width_entry.set_value(tool.width)
         self.diameter_entry.set_value(tool.diameter)
         self.tip_entry.set_value(round(tool.insert_angle, 1))
+        self.length_entry.set_value(tool.usable_length)
+        self.min_bore_entry.set_value(tool.min_bore)
+        self.groove_depth_entry.set_value(tool.groove_depth)
+        self.reference_combo.set_active_id(tool.reference)
+        self.spindle_combo.set_active_id(tool.spindle)
         self.show_angles(tool)
         self.comment_entry.set_text(tool.comment)
         # values from the tool.tbl (radius, comment) are maintained in LinuxCNC; newly created
@@ -613,6 +679,12 @@ class ToolPage:
         self.front_entry.set_sensitive(special)
         self.back_entry.set_sensitive(special)
         self.axis_entry.set_sensitive(self.axis_editable(kind, tool))
+        inside = self.position_combo.get_active_id() == INSIDE
+        self.length_entry.set_sensitive(kind == "drill" or inside)
+        self.min_bore_entry.set_sensitive(inside and kind != "drill")
+        self.groove_depth_entry.set_sensitive(kind == "groove")
+        self.reference_combo.set_sensitive(kind == "groove")
+        self.spindle_combo.set_sensitive(kind is not None)
 
     def axis_editable(self, kind, tool) -> bool:
         """The holder direction can be entered for every tool except drills, as long as the
@@ -678,9 +750,23 @@ class ToolPage:
             self.panel.message(_("Point angle of the threading tool: 20° … 90°."),
                                Gtk.MessageType.ERROR)
             return
+        try:
+            usable_length = self.length_entry.get_value()
+            min_bore = self.min_bore_entry.get_value()
+            groove_depth = self.groove_depth_entry.get_value()
+        except (ValueError, SyntaxError, ZeroDivisionError):
+            self.panel.message(_("Please enter valid numbers."), Gtk.MessageType.ERROR)
+            return
         self.panel.tools.assign(tool, kind, hand, position, lead, radius, width, diameter,
                                 self.comment_entry.get_text(), tip_angle, special_angles, axis)
+        self.panel.tools.set_extras(tool, usable_length=max(usable_length, 0.0),
+                                    min_bore=max(min_bore, 0.0),
+                                    groove_depth=max(groove_depth, 0.0),
+                                    reference=self.reference_combo.get_active_id() or "left",
+                                    spindle=self.spindle_combo.get_active_id() or "auto")
         self.panel.tools_changed(tool.number)
+        for problem in corner_radius_problems(tool):
+            self.panel.message(problem, Gtk.MessageType.WARNING)
 
     def on_new(self, _button):
         table = self.panel.tools
@@ -950,6 +1036,8 @@ REQUIRED_OBJECTS = ("main_box", "main_stack", "outer_paned", "inner_paned", "pag
                     "tool_paned", "tool_kind", "tool_hand", "tool_position", "tool_lead",
                     "tool_radius", "tool_width", "tool_diameter", "tool_tip", "tool_front",
                     "tool_back", "tool_axis", "tool_comment", "tool_apply", "tool_new",
+                    "tool_length", "tool_min_bore", "tool_groove_depth", "tool_reference",
+                    "tool_spindle",
                     "tool_delete", "tool_reload", "tool_write", "tool_mirror", "tool_source")
 
 

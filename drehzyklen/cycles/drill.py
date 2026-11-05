@@ -136,6 +136,11 @@ class Drill(Cycle):
         if tool.diameter and abs(tool.diameter - self.diameter) > 0.01:
             return [_("T{number}: drill Ø {tool_diameter:g} does not fit D {diameter:g}").format(
                 number=tool.number, tool_diameter=tool.diameter, diameter=self.diameter)]
+        depth = self.z_start - self.tip_z()
+        if tool.usable_length > 0 and depth > tool.usable_length + 1e-6:
+            return [_("T{number}: drilling depth {depth:.1f} mm (with the tip) is longer than the "
+                      "usable length {length:g} mm").format(number=tool.number, depth=depth,
+                                                            length=tool.usable_length)]
         return []
 
     def body(self, emitter, machine, material):

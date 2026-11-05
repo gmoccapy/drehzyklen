@@ -65,6 +65,13 @@ INSERT_ANGLES = {"C": 80.0, "D": 55.0, "T": 60.0, "V": 35.0, "W": 80.0, "thread"
                  "groove": 6.0, "R": 90.0}
 RIGHT = "right"
 LEFT = "left"
+# extra data per tool that the tool.tbl cannot hold
+EXTRA_FIELDS = ("usable_length", "min_bore", "groove_depth", "spindle", "reference")
+SPINDLE_CHOICES = ("auto", "M3", "M4")
+SPINDLE_LABELS = {"auto": N_("auto (machine)"), "M3": "M3", "M4": "M4"}
+REFERENCE_CHOICES = ("left", "centre", "right")
+REFERENCE_LABELS = {"left": N_("left corner"), "centre": N_("centre"),
+                    "right": N_("right corner")}
 NEUTRAL = "neutral"
 OUTSIDE = "outside"
 INSIDE = "inside"
@@ -149,6 +156,12 @@ class Tool:
     shank_angle: Optional[float] = None  # shank direction in the model from Q of the tool.tbl
     entered_angles: bool = False      # special shape: I/J entered in the tools tab
     entered_axis: bool = False        # holder direction entered in the tools tab
+    # data that are not in the tool.tbl (kept per tool number in werkzeuge.json)
+    usable_length: float = 0.0        # drill: flute length, inside tool: reach (0 = no check)
+    min_bore: float = 0.0             # inside tool: smallest bore Ø it fits into (0 = no check)
+    groove_depth: float = 0.0         # grooving tool: largest grooving depth (0 = no check)
+    spindle: str = "auto"             # spindle direction of this tool: auto | M3 | M4
+    reference: str = "left"           # grooving tool: touched off at left | centre | right
 
     @property
     def angles_from_table(self) -> bool:
@@ -272,16 +285,16 @@ def preset_tools() -> List[Tool]:
                               comment=f"{name} {hand}"))
             number += 1
     tools.append(Tool(number, number, "groove", NEUTRAL, OUTSIDE, 0.2, 90.0, width=3.0,
-                      comment="Grooving tool 3 mm"))
+                      comment="Grooving tool 3 mm", groove_depth=6.0))
     number += 1
     tools.append(Tool(number, number, "thread", NEUTRAL, OUTSIDE, 0.1, 90.0,
                       comment="Threading tool 60° outside"))
     number += 1
     tools.append(Tool(number, number, "drill", NEUTRAL, CENTER, 0.0, 118.0, diameter=10.0,
-                      comment="Drill Ø10"))
+                      comment="Drill Ø10", usable_length=87.0))
     number += 1
     tools.append(Tool(number, number, "D", RIGHT, INSIDE, 0.4, 93.0,
-                      comment="Boring bar DNMG right"))
+                      comment="Boring bar DNMG right", usable_length=50.0, min_bore=10.0))
     return tools
 
 
@@ -678,6 +691,7 @@ class ToolTable:
 
     def _load_tbl(self, path: str):
         assignments = self._stored().get("assignments", {})
+        extras = self._stored().get("extras", {})
         try:
             with open(path, encoding="utf-8", errors="replace") as file:
                 lines = file.readlines()
@@ -692,6 +706,7 @@ class ToolTable:
             stored = assignments.get(str(tool.number))
             if stored and stored.get("fingerprint") == tool.fingerprint:
                 self._apply_assignment(tool, stored)
+            self._apply_extras(tool, extras.get(str(tool.number)))
             self.tools[tool.number] = tool
         pending = [tool for tool in self.tools.values() if tool.needs_input]
         self.set_message(N_("{count} tools from {path}"), count=len(self.tools), path=path)
@@ -705,6 +720,21 @@ class ToolTable:
             return None
         return round(normalize_angle(model_angle(tool.shank_angle, self.machine.back_tool,
                                                  self.mirror_table_angles)), 3)
+
+    @staticmethod
+    def _apply_extras(tool: Tool, stored: Optional[dict]):
+        if not stored:
+            return
+        for name in EXTRA_FIELDS:
+            if name in stored:
+                setattr(tool, name, stored[name])
+
+    def set_extras(self, tool: Tool, **values):
+        """Data that are not in the tool.tbl (length, bore, grooving depth, spindle, reference)."""
+        for name, value in values.items():
+            if name in EXTRA_FIELDS:
+                setattr(tool, name, value)
+        self.save()
 
     def _apply_assignment(self, tool: Tool, stored: dict):
         migrated = {}
@@ -754,6 +784,10 @@ class ToolTable:
                                                and tool.shank_angle is not None):
                         assignments[str(tool.number)]["shank_angle"] = tool.shank_angle
             data["assignments"] = assignments
+            # length, bore, grooving depth, spindle: independent of the tool.tbl line
+            data["extras"] = {str(tool.number): {name: getattr(tool, name)
+                                                 for name in EXTRA_FIELDS}
+                              for tool in self.tools.values()}
         else:
             data["tools"] = [tool.to_dict() for tool in sorted(self.tools.values(),
                                                                 key=attrgetter("number"))]

@@ -232,6 +232,75 @@ def ellipsize_combo(combo):
     return combo
 
 
+SUITABLE_COLOR = "#cdebc4"         # light green: the tool fits this operation
+UNSUITABLE_COLOR = "#fbe7a0"       # light yellow: only with »Release tool despite warning«
+STATUS_TEXT_COLOR = "#1e1e1e"
+
+
+class ToolCombo(Gtk.ComboBox):
+    """Tool selection whose entries are coloured: green = fits the operation, yellow = not
+    suitable (can only be used with »Release tool despite warning«)."""
+
+    def __init__(self):
+        self.store = Gtk.ListStore(str, str, str, str)   # id, text, background, foreground
+        super().__init__(model=self.store)
+        self.set_id_column(0)
+        renderer = Gtk.CellRendererText()
+        renderer.set_property("ellipsize", Pango.EllipsizeMode.END)
+        self.pack_start(renderer, True)
+        self.add_attribute(renderer, "text", 1)
+        self.add_attribute(renderer, "cell-background", 2)
+        self.add_attribute(renderer, "foreground", 3)
+        self.set_hexpand(True)
+
+    def append(self, key, text):
+        self.store.append([key, text, None, None])
+
+    def remove_all(self):
+        self.store.clear()
+
+    def set_status(self, status):
+        """status: {tool number: True (fits) / False (not suitable)}; missing = no colour."""
+        for row in self.store:
+            try:
+                fits = status.get(int(row[0]))
+            except (TypeError, ValueError):
+                fits = None
+            if fits is None:
+                row[2] = None
+                row[3] = None
+            elif fits:
+                row[2] = SUITABLE_COLOR
+                row[3] = STATUS_TEXT_COLOR
+            else:
+                row[2] = UNSUITABLE_COLOR
+                row[3] = STATUS_TEXT_COLOR
+
+
+class ToolPicture(Gtk.DrawingArea):
+    """Small picture of the chosen tool (in the cycles, next to the tool selection)."""
+
+    def __init__(self, lookup: Callable, width=84, height=64):
+        super().__init__()
+        self.lookup = lookup
+        self.number = None
+        self.set_size_request(width, height)
+        self.set_halign(Gtk.Align.START)
+        self.connect("draw", self.on_draw)
+
+    def show_tool(self, number):
+        self.number = number
+        self.queue_draw()
+
+    def on_draw(self, widget, cr):
+        tool = None
+        if self.number is not None:
+            tool = self.lookup(self.number)
+        tooldraw.draw_tool(cr, widget.get_allocated_width(), widget.get_allocated_height(), tool,
+                           flip=ICON_STATE["flipped"](), compact=True)
+        return False
+
+
 def short_combo():
     return ellipsize_combo(Gtk.ComboBoxText())
 
@@ -622,7 +691,7 @@ class ParamForm(Gtk.Grid):
     """
 
     def __init__(self, params: List[P], machine: Optional[Machine] = None, on_change=None,
-                 tool_choices: Optional[Callable] = None):
+                 tool_choices: Optional[Callable] = None, tool_lookup: Optional[Callable] = None):
         super().__init__(row_spacing=5, column_spacing=8, margin=6)
         self.params = [param for param in params if param.kind != "side"]
         self.machine = machine
@@ -630,6 +699,8 @@ class ParamForm(Gtk.Grid):
         self.labels: Dict[str, Gtk.Label] = {}
         self.on_change = on_change
         self.tool_choices = tool_choices
+        self.tool_lookup = tool_lookup
+        self.tool_picture: Optional[ToolPicture] = None
         self.side = OUTSIDE
         self.stock = None
         self.locked = False
@@ -650,14 +721,39 @@ class ParamForm(Gtk.Grid):
                 self.attach(label, 0, row, 2, 1)
                 self.attach(widget.scroller, 0, row + 1, 2, 1)
                 row += 2
+            elif param.kind == "tool" and tool_lookup is not None:
+                # pictogram of the chosen tool under the label
+                self.tool_picture = ToolPicture(tool_lookup)
+                label_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+                label_box.pack_start(label, False, False, 0)
+                label_box.pack_start(self.tool_picture, False, False, 0)
+                self.attach(label_box, 0, row, 1, 1)
+                widget.set_valign(Gtk.Align.START)
+                self.attach(widget, 1, row, 1, 1)
+                row += 1
             else:
                 self.attach(label, 0, row, 1, 1)
                 self.attach(widget, 1, row, 1, 1)
                 row += 1
             if param.help and param.kind not in ("contour", "text"):
                 widget.set_tooltip_text(_(param.help))
+            if isinstance(widget, Gtk.Entry):
+                # Enter moves on to the next field
+                widget.connect("activate", self.on_entry_activate, param.key)
             self.widgets[param.key] = widget
         self.update_labels()
+
+    def on_entry_activate(self, _entry, key):
+        """Enter in a field: focus the next visible and usable field of the form."""
+        keys = [param.key for param in self.params]
+        start = keys.index(key) + 1
+        for next_key in keys[start:]:
+            widget = self.widgets.get(next_key)
+            if widget is None or isinstance(widget, ContourEditor):
+                continue
+            if widget.get_visible() and widget.get_sensitive() and widget.get_can_focus():
+                widget.grab_focus()
+                return
 
     def _create_widget(self, param: P):
         if param.kind == "contour":
@@ -695,7 +791,7 @@ class ParamForm(Gtk.Grid):
             combo.connect("changed", self.on_widget_changed, param.key)
             return combo
         if param.kind == "tool":
-            combo = short_combo()
+            combo = ToolCombo()
             self._fill_tools(combo, param.default)
             combo.connect("changed", self.on_widget_changed, param.key)
             return combo
@@ -727,6 +823,14 @@ class ParamForm(Gtk.Grid):
             combo.append(str(selected_number),
                          _("T{number}  (not in the tool table)").format(number=selected_number))
         combo.set_active_id(str(selected_number))
+        if self.tool_picture is not None:
+            self.tool_picture.show_tool(selected_number)
+
+    def set_tool_status(self, status):
+        """Colour the tool selection: {tool number: fits}."""
+        for param in self.params:
+            if param.kind == "tool":
+                self.widgets[param.key].set_status(status)
 
     def refresh_tools(self):
         self.locked = True
@@ -843,7 +947,12 @@ class ParamForm(Gtk.Grid):
     def on_contour_changed(self):
         self._changed("contour")
 
-    def on_widget_changed(self, _widget, key):
+    def on_widget_changed(self, widget, key):
+        if isinstance(widget, ToolCombo) and self.tool_picture is not None:
+            try:
+                self.tool_picture.show_tool(int(widget.get_active_id()))
+            except (TypeError, ValueError):
+                self.tool_picture.show_tool(None)
         self._changed(key)
 
     def on_switch_changed(self, _switch, _property, key):

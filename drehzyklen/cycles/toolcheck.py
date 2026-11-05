@@ -80,3 +80,41 @@ def turning_tool_problems(tool, inside: bool, z_mirrored: bool, work_elements: L
                           "by {angle:.0f}°) - choose a tool with a sharper insert (e.g. ISO V) "
                           "or the matching hand").format(tool=name, angle=worst))
     return problems
+
+
+def corner_radius_problems(tool) -> List[str]:
+    """A corner radius larger than half the width of a grooving tool does not exist."""
+    if tool.kind == "groove" and tool.width > 0 and tool.nose_radius > tool.width / 2 + 1e-9:
+        return [_("{tool}: corner radius r{radius:g} is larger than half the width "
+                  "b{width:g}").format(tool=tool_name(tool), radius=tool.nose_radius,
+                                       width=tool.width)]
+    return []
+
+
+def usage_problems(op, tool, stock) -> List[str]:
+    """Checks that need the stock: reach of drills and inside tools, corner radius.
+
+    The reach of an inside tool is counted from the stock front to the deepest point of the
+    cycle; a drill is checked in the drilling cycle itself (from the drilling surface).
+    """
+    problems = corner_radius_problems(tool)
+    if tool.kind == "drill" or not getattr(op, "inside", False) or tool.usable_length <= 0:
+        return problems
+    low, _high = op.z_range()
+    reach = stock.z_front - low
+    if reach > tool.usable_length + 1e-6:
+        problems.append(_("{tool}: reaches {reach:.1f} mm into the bore, usable length only "
+                          "{length:g} mm").format(tool=tool_name(tool), reach=reach,
+                                                  length=tool.usable_length))
+    return problems
+
+
+def bore_problem(tool, bore_diameter) -> List[str]:
+    """Does the inside tool fit into the existing bore (Ø before the cycle)?"""
+    if tool.min_bore <= 0 or bore_diameter is None:
+        return []
+    if bore_diameter < tool.min_bore - 1e-6:
+        return [_("{tool}: needs a bore of at least Ø{needed:g}, the bore is only "
+                  "Ø{bore:.1f}").format(tool=tool_name(tool), needed=tool.min_bore,
+                                        bore=bore_diameter)]
+    return []

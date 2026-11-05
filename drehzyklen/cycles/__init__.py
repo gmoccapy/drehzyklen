@@ -20,7 +20,8 @@ One module per cycle; each module explains the tool path of its cycle at the top
     facing.py       Facing          longturning.py  LongTurning
     taper.py        Taper           edgebreak.py    EdgeBreak (chamfer / edge radius)
     contour.py      Contour         thread.py       Thread (G76)
-    drill.py        Drill           gcodeblock.py   GCodeOp (free G-code)
+    groove.py       Groove          drill.py        Drill
+    gcodeblock.py   GCodeOp (free G-code)
 
 Shared parts:
 
@@ -37,6 +38,7 @@ from .drill import Drill
 from .edgebreak import EdgeBreak
 from .facing import Facing
 from .gcodeblock import GCodeOp
+from .groove import Groove
 from .longturning import LongTurning
 from .params import (CORNER_KINDS, INSIDE, OUTSIDE, SIDE, SPEED_FEED_MODES, P, feed_mode_of,
                      spindle_mode_of)
@@ -48,6 +50,6 @@ from .turning import ContourTurner, TurningCycle
 
 __all__ = ["CORNER_KINDS", "CYCLES", "CYCLE_BY_KEY", "INSIDE", "OUTSIDE", "SIDE",
            "SPEED_FEED_MODES", "STOCK_PARAMS", "Contour", "ContourTurner", "Cycle", "Drill",
-           "EdgeBreak", "Facing", "GCodeOp", "LongTurning", "P", "Program", "Result",
+           "EdgeBreak", "Facing", "GCodeOp", "Groove", "LongTurning", "P", "Program", "Result",
            "SpindleState", "Stock", "Taper", "Thread", "TurningCycle", "cycle_from_dict",
            "feed_mode_of", "spindle_mode_of"]

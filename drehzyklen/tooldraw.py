@@ -21,10 +21,15 @@ import math
 from .drawtext import show_text
 from .helpdraw import (BACKGROUND, DIMENSION, EDGE, HINT, MATERIAL, PATH, TEXT, Sketch,
                        value_text)
+from .cycles.toolcheck import corner_radius_problems
 from .i18n import _
 from .tools import HAND_TEXT, INSIDE, LEFT, RIGHT, table_angles
 
 INSERT_COLOR = (0.95, 0.78, 0.30)
+# drawing scale (picture units per mm): inserts are drawn with an edge length of 10 units
+# (about a 12.7 mm insert), grooving blades with twice their width
+INSERT_SCALE = 10.0 / 12.7
+GROOVE_SCALE = 2.0
 HOLDER_COLOR = (0.48, 0.50, 0.56)
 
 
@@ -37,12 +42,18 @@ def _add(point, vector, length=1.0):
     return point[0] + vector[0] * length, point[1] + vector[1] * length
 
 
-def draw_tool(cr, width, height, tool, flip=False, font=None):
-    """Draws the tool with its cutting tip in the centre of the picture."""
+def draw_tool(cr, width, height, tool, flip=False, font=None, compact=False):
+    """Draws the tool with its cutting tip in the centre of the picture.
+
+    compact: small pictogram (insert, holder and workpiece only, no texts)."""
     if font is None:
         font = max(9.0, min(12.5, min(width / 46, height / 24)))
     cr.set_source_rgb(*BACKGROUND)
     cr.paint()
+    if compact:
+        if tool is not None:
+            _draw_pictogram(cr, width, height, tool, flip)
+        return
     if tool is None:
         cr.set_source_rgb(*HINT)
         cr.set_font_size(font)
@@ -69,6 +80,49 @@ def draw_tool(cr, width, height, tool, flip=False, font=None):
         _header(cr, font, tool, _("Enter type, hand and position (fields below) - only then "
                                   "can the tool be checked"))
         return
+    _draw_geometry(cr, sketch, tool, sector, compact=False)
+    tip = (0.0, 0.0)
+    low, high = sector
+    angles_text = _draw_table_angles(sketch, tool, tip, flip)
+
+    # main cutting direction
+    if tool.hand == RIGHT:
+        sketch.arrow((-3, -6), (-15, -6), PATH, 1.8)
+        sketch.label((-15, -9), _("Cut"), "-Z", anchor="l")
+    elif tool.hand == LEFT:
+        sketch.arrow((3, -6), (15, -6), PATH, 1.8)
+        sketch.label((15, -9), _("Cut"), "+Z", anchor="r")
+    if tool.kind not in ("groove", "thread", "R"):
+        sketch.label((-22, 22), "κ", value_text(tool.lead_angle, 1) + "°", anchor="l")
+    if tool.kind == "groove":
+        sketch.label((-22, 22), "b", value_text(tool.width), anchor="l")
+    sketch.label((-22, 18), "r", value_text(tool.nose_radius), anchor="l")
+    _header(cr, font, tool, _("{hand}, {position} · {angles} · source: {source}").format(
+        hand=_(HAND_TEXT.get(tool.hand, tool.hand)), position=tool.position_text(),
+        angles=angles_text, source=tool.source_text()))
+    problems = corner_radius_problems(tool)
+    if problems:
+        cr.set_source_rgb(1.0, 0.35, 0.3)
+        cr.set_font_size(font * 0.9)
+        cr.move_to(10, height - font * 0.8)
+        show_text(cr, "⚠ " + problems[0])
+
+
+def _screen_point(sketch, center, model_angle, radius_px):
+    """Screen point at radius_px from the model point center in the direction model_angle."""
+    center_x, center_y = sketch.to_screen(*center)
+    if sketch.flip:
+        screen_angle = model_angle
+    else:
+        screen_angle = -model_angle
+    return (center_x + radius_px * math.cos(screen_angle),
+            center_y + radius_px * math.sin(screen_angle))
+
+
+def _draw_geometry(cr, sketch, tool, sector, compact):
+    """Workpiece, insert (with corner radius), holder and the control point (red dot)."""
+    length = 10.0
+    tip = (0.0, 0.0)
     low, high = sector
     edge_low = _direction(low)
     edge_high = _direction(high)
@@ -87,8 +141,10 @@ def draw_tool(cr, width, height, tool, flip=False, font=None):
         (left_corner, left_edge), (right_corner, right_edge) = flanks
         left_end = _add(left_corner, _direction(left_edge), blade_length)
         right_end = _add(right_corner, _direction(right_edge), blade_length)
-        sketch.polygon([left_corner, right_corner, right_end, left_end], fill=INSERT_COLOR,
-                       stroke=EDGE)
+        corner_radius = min(tool.nose_radius, max(tool.width, 1.0) / 2) * GROOVE_SCALE
+        blade = rounded_polygon([left_corner, right_corner, right_end, left_end],
+                                {0: corner_radius, 1: corner_radius})
+        sketch.polygon(blade, fill=INSERT_COLOR, stroke=EDGE)
         holder_start = ((left_end[0] + right_end[0]) / 2, (left_end[1] + right_end[1]) / 2)
     elif tool.kind == "R":
         center = _add(tip, bisector, 4.0)
@@ -108,9 +164,12 @@ def draw_tool(cr, width, height, tool, flip=False, font=None):
                           corner_low[1] + corner_high[1] - tip[1])
             insert = [tip, corner_low, far_corner, corner_high]
             holder_start = ((tip[0] + far_corner[0]) / 2, (tip[1] + far_corner[1]) / 2)
+        # corner radius at the cutting tip; the red dot stays at the theoretical tip
+        insert = rounded_polygon(insert, {0: tool.nose_radius * INSERT_SCALE})
         sketch.polygon(insert, fill=INSERT_COLOR, stroke=EDGE)
-        sketch.angle(tip, math.radians(low), math.radians(high), 34, "ε",
-                     value_text(high - low, 1) + "°", label_distance=8)
+        if not compact:
+            sketch.angle(tip, math.radians(low), math.radians(high), 34, "ε",
+                         value_text(high - low, 1) + "°", label_distance=8)
 
     # holder: direction from the orientation Q of the tool.tbl, otherwise along the bisector
     shank = _direction(tool.shank_direction())
@@ -120,34 +179,25 @@ def draw_tool(cr, width, height, tool, flip=False, font=None):
               _add(shank_end, normal, -3.0), _add(shank_end, normal, 3.0)]
     sketch.polygon(holder, fill=HOLDER_COLOR, stroke=HINT, line_width=0.8)
     sketch.dot(tip, (1, 0.3, 0.3), 3.5)
-    angles_text = _draw_table_angles(sketch, tool, tip, flip)
-
-    # main cutting direction
-    if tool.hand == RIGHT:
-        sketch.arrow((-3, -6), (-15, -6), PATH, 1.8)
-        sketch.label((-15, -9), _("Cut"), "-Z", anchor="l")
-    elif tool.hand == LEFT:
-        sketch.arrow((3, -6), (15, -6), PATH, 1.8)
-        sketch.label((15, -9), _("Cut"), "+Z", anchor="r")
-    if tool.kind not in ("groove", "thread", "R"):
-        sketch.label((-22, 22), "κ", value_text(tool.lead_angle, 1) + "°", anchor="l")
-    if tool.kind == "groove":
-        sketch.label((-22, 22), "b", value_text(tool.width), anchor="l")
-    sketch.label((-22, 18), "r", value_text(tool.nose_radius), anchor="l")
-    _header(cr, font, tool, _("{hand}, {position} · {angles} · source: {source}").format(
-        hand=_(HAND_TEXT.get(tool.hand, tool.hand)), position=tool.position_text(),
-        angles=angles_text, source=tool.source_text()))
 
 
-def _screen_point(sketch, center, model_angle, radius_px):
-    """Screen point at radius_px from the model point center in the direction model_angle."""
-    center_x, center_y = sketch.to_screen(*center)
-    if sketch.flip:
-        screen_angle = model_angle
+def _draw_pictogram(cr, width, height, tool, flip):
+    """Small picture of the tool for the cycles: insert and holder, no texts."""
+    if tool.kind == "drill":
+        sketch = Sketch(cr, 0, 0, width, height, (-4, 26, -8, 8), flip, 8)
+        radius = 4.0
+        sketch.polygon([(0, 0), (4, radius), (24, radius), (24, -radius), (4, -radius)],
+                       fill=INSERT_COLOR, stroke=EDGE, line_width=0.8)
+        return
+    sector = tool.sector()
+    if sector is None:
+        return
+    if tool.position == INSIDE:
+        bounds = (-11, 11, -20, 3)
     else:
-        screen_angle = -model_angle
-    return (center_x + radius_px * math.cos(screen_angle),
-            center_y + radius_px * math.sin(screen_angle))
+        bounds = (-11, 11, -3, 20)
+    sketch = Sketch(cr, 0, 0, width, height, bounds, flip, 8)
+    _draw_geometry(cr, sketch, tool, sector, compact=True)
 
 
 def _groove_flanks(tool, sector):
@@ -157,13 +207,75 @@ def _groove_flanks(tool, sector):
     own corner and leans inwards (side clearance): the left flank towards +Z, the right one
     towards -Z - the blade gets narrower towards the back and does not jam in the groove.
     """
-    half = max(tool.width, 1.0)
+    blade_width = max(tool.width, 1.0) * GROOVE_SCALE
+    # the red dot (control point) sits where the tool was touched off
+    if tool.reference == "centre":
+        left_z = -blade_width / 2
+    elif tool.reference == "right":
+        left_z = -blade_width
+    else:
+        left_z = 0.0
     edge_one, edge_two = sector
     if math.cos(math.radians(edge_one)) > math.cos(math.radians(edge_two)):
         left_edge, right_edge = edge_one, edge_two
     else:
         left_edge, right_edge = edge_two, edge_one
-    return [((-half, 0.0), left_edge), ((half, 0.0), right_edge)]
+    return [((left_z, 0.0), left_edge), ((left_z + blade_width, 0.0), right_edge)]
+
+
+def rounded_polygon(points, radii, steps=10):
+    """Polygon with the corners at the given indices rounded (radius in model units).
+
+    The arc touches both neighbouring edges; a radius that does not fit is made smaller.
+    """
+    result = []
+    count = len(points)
+    for index, corner in enumerate(points):
+        radius = radii.get(index, 0.0)
+        if radius <= 1e-9:
+            result.append(corner)
+            continue
+        before = points[index - 1]
+        after = points[(index + 1) % count]
+        to_before = (before[0] - corner[0], before[1] - corner[1])
+        to_after = (after[0] - corner[0], after[1] - corner[1])
+        length_before = math.hypot(*to_before)
+        length_after = math.hypot(*to_after)
+        if length_before < 1e-9 or length_after < 1e-9:
+            result.append(corner)
+            continue
+        unit_before = (to_before[0] / length_before, to_before[1] / length_before)
+        unit_after = (to_after[0] / length_after, to_after[1] / length_after)
+        cosine = max(-1.0, min(1.0, unit_before[0] * unit_after[0]
+                               + unit_before[1] * unit_after[1]))
+        angle = math.acos(cosine)                       # inner angle of the corner
+        if angle < 1e-6 or abs(angle - math.pi) < 1e-6:
+            result.append(corner)
+            continue
+        tangent_length = radius / math.tan(angle / 2)
+        limit = 0.95 * min(length_before, length_after)
+        if tangent_length > limit:
+            tangent_length = limit
+            radius = tangent_length * math.tan(angle / 2)
+        start = _add(corner, unit_before, tangent_length)
+        end = _add(corner, unit_after, tangent_length)
+        bisector = (unit_before[0] + unit_after[0], unit_before[1] + unit_after[1])
+        bisector_length = math.hypot(*bisector)
+        center_distance = radius / math.sin(angle / 2)
+        center = _add(corner, (bisector[0] / bisector_length, bisector[1] / bisector_length),
+                      center_distance)
+        angle_start = math.atan2(start[1] - center[1], start[0] - center[0])
+        angle_end = math.atan2(end[1] - center[1], end[0] - center[0])
+        sweep = angle_end - angle_start
+        while sweep > math.pi:
+            sweep -= 2 * math.pi
+        while sweep < -math.pi:
+            sweep += 2 * math.pi
+        for step in range(steps + 1):
+            current = angle_start + sweep * step / steps
+            result.append((center[0] + radius * math.cos(current),
+                           center[1] + radius * math.sin(current)))
+    return result
 
 
 def _table_value(model_degrees, back_tool):

@@ -1472,13 +1472,134 @@
                           <object class="GtkLabel">
                             <property name="visible">True</property>
                             <property name="xalign">0</property>
-                            <property name="label" translatable="yes">Thread point angle ε [°]</property>
+                            <property name="label" translatable="yes">Usable length [mm]</property>
                             <property name="wrap">True</property>
                             <property name="max_width_chars">16</property>
                           </object>
                           <packing>
                             <property name="left_attach">0</property>
                             <property name="top_attach">7</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkEntry" id="tool_length">
+                            <property name="visible">True</property>
+                            <property name="can_focus">True</property>
+                            <property name="width_chars">6</property>
+                            <property name="hexpand">True</property>
+                          </object>
+                          <packing>
+                            <property name="left_attach">1</property>
+                            <property name="top_attach">7</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="visible">True</property>
+                            <property name="xalign">0</property>
+                            <property name="label" translatable="yes">Smallest bore Ø [mm]</property>
+                            <property name="wrap">True</property>
+                            <property name="max_width_chars">16</property>
+                          </object>
+                          <packing>
+                            <property name="left_attach">0</property>
+                            <property name="top_attach">8</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkEntry" id="tool_min_bore">
+                            <property name="visible">True</property>
+                            <property name="can_focus">True</property>
+                            <property name="width_chars">6</property>
+                            <property name="hexpand">True</property>
+                          </object>
+                          <packing>
+                            <property name="left_attach">1</property>
+                            <property name="top_attach">8</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="visible">True</property>
+                            <property name="xalign">0</property>
+                            <property name="label" translatable="yes">Grooving depth [mm]</property>
+                            <property name="wrap">True</property>
+                            <property name="max_width_chars">16</property>
+                          </object>
+                          <packing>
+                            <property name="left_attach">0</property>
+                            <property name="top_attach">9</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkEntry" id="tool_groove_depth">
+                            <property name="visible">True</property>
+                            <property name="can_focus">True</property>
+                            <property name="width_chars">6</property>
+                            <property name="hexpand">True</property>
+                          </object>
+                          <packing>
+                            <property name="left_attach">1</property>
+                            <property name="top_attach">9</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="visible">True</property>
+                            <property name="xalign">0</property>
+                            <property name="label" translatable="yes">Reference point</property>
+                            <property name="wrap">True</property>
+                            <property name="max_width_chars">16</property>
+                          </object>
+                          <packing>
+                            <property name="left_attach">0</property>
+                            <property name="top_attach">10</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkComboBoxText" id="tool_reference">
+                            <property name="visible">True</property>
+                            <property name="hexpand">True</property>
+                          </object>
+                          <packing>
+                            <property name="left_attach">1</property>
+                            <property name="top_attach">10</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="visible">True</property>
+                            <property name="xalign">0</property>
+                            <property name="label" translatable="yes">Spindle direction</property>
+                            <property name="wrap">True</property>
+                            <property name="max_width_chars">16</property>
+                          </object>
+                          <packing>
+                            <property name="left_attach">0</property>
+                            <property name="top_attach">11</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkComboBoxText" id="tool_spindle">
+                            <property name="visible">True</property>
+                            <property name="hexpand">True</property>
+                          </object>
+                          <packing>
+                            <property name="left_attach">1</property>
+                            <property name="top_attach">11</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="visible">True</property>
+                            <property name="xalign">0</property>
+                            <property name="label" translatable="yes">Thread point angle ε [°]</property>
+                            <property name="wrap">True</property>
+                            <property name="max_width_chars">16</property>
+                          </object>
+                          <packing>
+                            <property name="left_attach">0</property>
+                            <property name="top_attach">12</property>
                           </packing>
                         </child>
                         <child>
@@ -1490,7 +1611,7 @@
                           </object>
                           <packing>
                             <property name="left_attach">1</property>
-                            <property name="top_attach">7</property>
+                            <property name="top_attach">12</property>
                           </packing>
                         </child>
                         <child>
@@ -1503,7 +1624,7 @@
                           </object>
                           <packing>
                             <property name="left_attach">0</property>
-                            <property name="top_attach">8</property>
+                            <property name="top_attach">13</property>
                           </packing>
                         </child>
                         <child>
@@ -1515,7 +1636,7 @@
                           </object>
                           <packing>
                             <property name="left_attach">1</property>
-                            <property name="top_attach">8</property>
+                            <property name="top_attach">13</property>
                           </packing>
                         </child>
                         <child>
@@ -1528,7 +1649,7 @@
                           </object>
                           <packing>
                             <property name="left_attach">0</property>
-                            <property name="top_attach">9</property>
+                            <property name="top_attach">14</property>
                           </packing>
                         </child>
                         <child>
@@ -1540,7 +1661,7 @@
                           </object>
                           <packing>
                             <property name="left_attach">1</property>
-                            <property name="top_attach">9</property>
+                            <property name="top_attach">14</property>
                           </packing>
                         </child>
                         <child>
@@ -1553,7 +1674,7 @@
                           </object>
                           <packing>
                             <property name="left_attach">0</property>
-                            <property name="top_attach">10</property>
+                            <property name="top_attach">15</property>
                           </packing>
                         </child>
                         <child>
@@ -1565,7 +1686,7 @@
                           </object>
                           <packing>
                             <property name="left_attach">1</property>
-                            <property name="top_attach">10</property>
+                            <property name="top_attach">15</property>
                           </packing>
                         </child>
                         <child>
@@ -1578,7 +1699,7 @@
                           </object>
                           <packing>
                             <property name="left_attach">0</property>
-                            <property name="top_attach">11</property>
+                            <property name="top_attach">16</property>
                           </packing>
                         </child>
                         <child>
@@ -1590,7 +1711,7 @@
                           </object>
                           <packing>
                             <property name="left_attach">1</property>
-                            <property name="top_attach">11</property>
+                            <property name="top_attach">16</property>
                           </packing>
                         </child>
                       </object>
