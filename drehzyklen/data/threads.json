@@ -1,12 +1,13 @@
 {
- "_info": "Thread tables of Drehzyklen. diameter in mm or diameter_inch in inch; pitch in mm or tpi (threads per inch); angle (flank angle) optional, otherwise the angle of the norm. Own threads belong in ~/.config/drehzyklen/threads.json.",
+ "_info": "Thread tables of Drehzyklen. diameter in mm or diameter_inch in inch; pitch in mm or tpi (threads per inch); angle (flank angle) optional, otherwise the angle of the norm. Taper threads (NPT): taper 1:k on the Ø (norm), e0_inch = pitch Ø at the small end E0, length_inch = effective thread length L2, depth_factor: thread depth = factor · P. Own threads belong in ~/.config/drehzyklen/threads.json.",
  "norms": {
   "M": {"label": "Metric coarse thread", "angle": 60},
   "MF": {"label": "Metric fine thread", "angle": 60},
   "UNC": {"label": "UNC (inch, coarse)", "angle": 60},
   "UNF": {"label": "UNF (inch, fine)", "angle": 60},
   "BSW": {"label": "Whitworth BSW (55°)", "angle": 55},
-  "G": {"label": "Pipe thread G / BSP (55°)", "angle": 55}
+  "G": {"label": "Pipe thread G / BSP (55°)", "angle": 55},
+  "NPT": {"label": "NPT taper pipe thread (1:16, 60°)", "angle": 60, "taper": 16, "depth_factor": 0.8}
  },
  "threads": [
   {"norm": "M", "name": "M3", "diameter": 3.0, "pitch": 0.5},
@@ -166,6 +167,16 @@
   {"norm": "G", "name": "G1 3/4", "diameter": 53.746, "tpi": 11},
   {"norm": "G", "name": "G2", "diameter": 59.614, "tpi": 11},
   {"norm": "G", "name": "G2 1/2", "diameter": 75.184, "tpi": 11},
-  {"norm": "G", "name": "G3", "diameter": 87.884, "tpi": 11}
+  {"norm": "G", "name": "G3", "diameter": 87.884, "tpi": 11},
+  {"norm": "NPT", "name": "1/16 NPT", "diameter_inch": 0.3125, "tpi": 27, "e0_inch": 0.27118, "length_inch": 0.2611},
+  {"norm": "NPT", "name": "1/8 NPT", "diameter_inch": 0.405, "tpi": 27, "e0_inch": 0.36351, "length_inch": 0.2639},
+  {"norm": "NPT", "name": "1/4 NPT", "diameter_inch": 0.54, "tpi": 18, "e0_inch": 0.47739, "length_inch": 0.4018},
+  {"norm": "NPT", "name": "3/8 NPT", "diameter_inch": 0.675, "tpi": 18, "e0_inch": 0.61201, "length_inch": 0.4078},
+  {"norm": "NPT", "name": "1/2 NPT", "diameter_inch": 0.84, "tpi": 14, "e0_inch": 0.75843, "length_inch": 0.5337},
+  {"norm": "NPT", "name": "3/4 NPT", "diameter_inch": 1.05, "tpi": 14, "e0_inch": 0.96768, "length_inch": 0.5457},
+  {"norm": "NPT", "name": "1 NPT", "diameter_inch": 1.315, "tpi": 11.5, "e0_inch": 1.21363, "length_inch": 0.6828},
+  {"norm": "NPT", "name": "1 1/4 NPT", "diameter_inch": 1.66, "tpi": 11.5, "e0_inch": 1.55713, "length_inch": 0.7068},
+  {"norm": "NPT", "name": "1 1/2 NPT", "diameter_inch": 1.9, "tpi": 11.5, "e0_inch": 1.79609, "length_inch": 0.7235},
+  {"norm": "NPT", "name": "2 NPT", "diameter_inch": 2.375, "tpi": 11.5, "e0_inch": 2.26902, "length_inch": 0.7565}
  ]
 }

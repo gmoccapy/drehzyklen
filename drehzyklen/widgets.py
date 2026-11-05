@@ -31,6 +31,7 @@ from .cycles import INSIDE, OUTSIDE, P  # noqa: E402
 from .geometry import ContourError, Row, parse_rows, rows_to_text  # noqa: E402
 from .i18n import N_, _  # noqa: E402
 from .machine import Machine  # noqa: E402
+from .variables import VariableError, is_expression  # noqa: E402
 
 SYM_COLOR = "#e0a422"
 
@@ -349,9 +350,10 @@ def describe_row(row: Row, first: bool):
 class ContourEditor(Gtk.Box):
     """Contour as a list (point by point, touch friendly) or as text."""
 
-    def __init__(self, on_change: Callable):
+    def __init__(self, on_change: Callable, variables: Optional[Callable] = None):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         self.on_change = on_change
+        self.variables = variables              # () -> Variables, for $ in the contour
         self.rows: List[Row] = []
         self.locked = False
 
@@ -487,14 +489,34 @@ class ContourEditor(Gtk.Box):
         self.text_view.get_buffer().set_text(text)
         self.locked = False
         self.parse(text)
+        if self.has_variables(text):
+            GLib.idle_add(self.mode_bar.buttons["text"].set_active, True)
+
+    def has_variables(self, text) -> bool:
+        return "$" in text or "[" in text
 
     def parse(self, text) -> bool:
+        """Check the text; with $variables the calculated contour is checked and shown, it can
+        then only be edited as text (the list would replace the calculations by numbers)."""
+        calculated = text
+        if self.has_variables(text):
+            if self.variables is None:
+                return False
+            try:
+                calculated = self.variables().substitute(text)
+            except VariableError as error:
+                self.error_label.set_markup(error_markup(str(error)))
+                return False
         try:
-            self.rows = parse_rows(text)
+            self.rows = parse_rows(calculated)
         except ContourError as error:
             self.error_label.set_markup(error_markup(str(error)))
             return False
-        self.error_label.set_text("")
+        if self.has_variables(text):
+            self.error_label.set_text(_("Contour with $variables - the list shows the calculated "
+                                        "values, change it as text"))
+        else:
+            self.error_label.set_text("")
         self.refresh_list()
         return True
 
@@ -523,7 +545,8 @@ class ContourEditor(Gtk.Box):
             self.tree.get_selection().select_path(Gtk.TreePath.new_from_indices([select]))
 
     def on_mode(self, key):
-        if key == "list" and not self.parse(self.get_text()):
+        text = self.get_text()
+        if key == "list" and (not self.parse(text) or self.has_variables(text)):
             GLib.idle_add(self.mode_bar.buttons["text"].set_active, True)
             return
         self.stack.set_visible_child_name(key)
@@ -691,7 +714,8 @@ class ParamForm(Gtk.Grid):
     """
 
     def __init__(self, params: List[P], machine: Optional[Machine] = None, on_change=None,
-                 tool_choices: Optional[Callable] = None, tool_lookup: Optional[Callable] = None):
+                 tool_choices: Optional[Callable] = None, tool_lookup: Optional[Callable] = None,
+                 variables: Optional[Callable] = None):
         super().__init__(row_spacing=5, column_spacing=8, margin=6)
         self.params = [param for param in params if param.kind != "side"]
         self.machine = machine
@@ -700,6 +724,7 @@ class ParamForm(Gtk.Grid):
         self.on_change = on_change
         self.tool_choices = tool_choices
         self.tool_lookup = tool_lookup
+        self.variables = variables              # () -> Variables, for calculations with $
         self.tool_picture: Optional[ToolPicture] = None
         self.side = OUTSIDE
         self.stock = None
@@ -757,7 +782,7 @@ class ParamForm(Gtk.Grid):
 
     def _create_widget(self, param: P):
         if param.kind == "contour":
-            editor = ContourEditor(self.on_contour_changed)
+            editor = ContourEditor(self.on_contour_changed, self.variables)
             editor.set_text(str(param.default))
             editor.param_key = param.key
             return editor
@@ -853,6 +878,11 @@ class ParamForm(Gtk.Grid):
             return None
         return stock.D
 
+    def _has_variable(self, key):
+        """The field holds a calculation with $variables (it is never overwritten)."""
+        widget = self.widgets.get(key)
+        return isinstance(widget, Gtk.Entry) and "$" in widget.get_text()
+
     def _number(self, key):
         try:
             return self.widgets[key].get_value()
@@ -876,7 +906,7 @@ class ParamForm(Gtk.Grid):
         if new_value is None:
             return
         for param in self.params:
-            if not param.skey:
+            if not param.skey or self._has_variable(param.key):
                 continue
             current = self._number(param.key)
             untouched = current is None or current == param.default
@@ -891,7 +921,7 @@ class ParamForm(Gtk.Grid):
             old_value = self._stock_value(self.stock, old_side)
             new_value = self._stock_value(self.stock, side)
             for param in self.params:
-                if param.skey and new_value is not None:
+                if param.skey and new_value is not None and not self._has_variable(param.key):
                     current = self._number(param.key)
                     was_stock = (old_value is not None and current is not None
                                  and abs(current - old_value) < 1e-9)
@@ -985,6 +1015,18 @@ class ParamForm(Gtk.Grid):
                     buffer = widget.get_buffer()
                     values[param.key] = buffer.get_text(buffer.get_start_iter(),
                                                         buffer.get_end_iter(), True)
+                elif param.kind in ("float", "int", "optfloat") and "$" in widget.get_text():
+                    # calculation with $variables: kept as entered, checked with the values
+                    text = widget.get_text().strip()
+                    values[param.key] = text
+                    if self.variables is not None:
+                        try:
+                            number = self.variables().evaluate(text)
+                        except VariableError as error:
+                            errors.append(f"{param.sym or _(param.label)}: {error}")
+                            continue
+                        self._check_limits(param, number, errors)
+                    continue
                 elif param.kind in ("float", "optfloat"):
                     values[param.key] = widget.get_value()
                 elif param.kind == "int":
@@ -1004,13 +1046,17 @@ class ParamForm(Gtk.Grid):
                 continue
             value = values[param.key]
             if isinstance(value, (int, float)) and not isinstance(value, bool):
-                if param.min is not None and value < param.min:
-                    errors.append(_("{field}: at least {limit}").format(
-                        field=param.sym or _(param.label), limit=number_text(param.min)))
-                if param.max is not None and value > param.max:
-                    errors.append(_("{field}: at most {limit}").format(
-                        field=param.sym or _(param.label), limit=number_text(param.max)))
+                self._check_limits(param, value, errors)
         return values, errors
+
+    @staticmethod
+    def _check_limits(param, value, errors):
+        if param.min is not None and value < param.min:
+            errors.append(_("{field}: at least {limit}").format(
+                field=param.sym or _(param.label), limit=number_text(param.min)))
+        if param.max is not None and value > param.max:
+            errors.append(_("{field}: at most {limit}").format(
+                field=param.sym or _(param.label), limit=number_text(param.max)))
 
     def set_values(self, values):
         self.locked = True
@@ -1025,7 +1071,10 @@ class ParamForm(Gtk.Grid):
                 elif param.kind == "text":
                     widget.get_buffer().set_text(str(value))
                 elif param.kind in ("float", "int", "optfloat"):
-                    widget.set_value(value)
+                    if is_expression(value):
+                        widget.set_text(value)          # calculation with $variables
+                    else:
+                        widget.set_value(value)
                 elif param.kind == "tool":
                     self._fill_tools(widget, value)
                 elif param.kind == "choice":

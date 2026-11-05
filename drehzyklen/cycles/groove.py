@@ -62,12 +62,11 @@ class Groove(Cycle):
         feed_param("f", N_("Feed"), 0.05, "F"),
     ]
 
-    def __init__(self, values=None):
-        if values is None:
-            values = {}
-        super().__init__(values)
+    def __init__(self, values=None, variables=None):
+        values = dict(values or {})
         if "speed" not in values:
-            self.v["speed"] = 80.0              # cutting speed for grooving
+            values["speed"] = 80.0              # cutting speed for grooving
+        super().__init__(values, variables)
         self.tool_width = 0.0
         self.tool_reference = "left"
 

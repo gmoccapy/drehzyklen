@@ -41,6 +41,7 @@ from ..geometry import ContourError, Element
 from ..i18n import N_, _
 from ..machine import Machine
 from ..material import Material, bounds
+from ..variables import Variables
 from .base import Cycle
 from .toolcheck import bore_problem, usage_problems
 from .contour import Contour
@@ -61,8 +62,8 @@ NO_TOOL_CHANGE_WARNING = N_("No tool change position defined (INI [CHANGE_POSITI
                             "settings) - the change happens at the retract position")
 
 
-def cycle_from_dict(data) -> Cycle:
-    return CYCLE_BY_KEY[data["cycle"]](data.get("values", {}))
+def cycle_from_dict(data, variables=None) -> Cycle:
+    return CYCLE_BY_KEY[data["cycle"]](data.get("values", {}), variables)
 
 
 @dataclass
@@ -92,7 +93,7 @@ class SpindleState:
 
 class Program:
     def __init__(self, machine: Machine, ops: Optional[List[Cycle]] = None, name="Part",
-                 stock: Optional[Stock] = None, tools=None):
+                 stock: Optional[Stock] = None, tools=None, variables=None):
         self.machine = machine
         if ops is None:
             ops = []
@@ -102,17 +103,39 @@ class Program:
             stock = Stock()
         self.stock = stock
         self.tools = tools
+        # own variables: [(name, calculation, comment)] (see variables.py)
+        self.variables: List[Tuple[str, str, str]] = list(variables or [])
+
+    # ---------------------------------------------------------------- variables
+    def variable_set(self) -> Variables:
+        """Own variables plus the stock variables ($StockDiameter …)."""
+        return Variables(self.variables, self.stock.raw)
+
+    def resolve_all(self):
+        """Calculate stock and cycles again with the current variables (after a change)."""
+        self.stock.resolve(self.variables)
+        variables = self.variable_set()
+        for op in self.ops:
+            op.resolve(variables)
 
     # ---------------------------------------------------------------- project file
     def to_json(self) -> str:
-        return json.dumps({"name": self.name, "stock": self.stock.to_dict(),
-                           "ops": [op.to_dict() for op in self.ops]}, indent=2, ensure_ascii=False)
+        data = {"name": self.name, "stock": self.stock.to_dict(),
+                "ops": [op.to_dict() for op in self.ops]}
+        if self.variables:
+            data["variables"] = [{"name": name, "value": expression, "comment": comment}
+                                 for name, expression, comment in self.variables]
+        return json.dumps(data, indent=2, ensure_ascii=False)
 
     @classmethod
     def from_json(cls, text: str, machine: Machine, tools=None) -> "Program":
         data = json.loads(text)
-        ops = [cycle_from_dict(entry) for entry in data.get("ops", [])]
-        return cls(machine, ops, data.get("name", ""), Stock(data.get("stock")), tools)
+        definitions = [(entry["name"], str(entry["value"]), entry.get("comment", ""))
+                       for entry in data.get("variables", [])]
+        stock = Stock(data.get("stock"), definitions)
+        variables = Variables(definitions, stock.raw)
+        ops = [cycle_from_dict(entry, variables) for entry in data.get("ops", [])]
+        return cls(machine, ops, data.get("name", ""), stock, tools, definitions)
 
     # ---------------------------------------------------------------- technology
     def limited_op(self, op: Cycle, tag: str, warnings: List[str]) -> Cycle:
@@ -290,6 +313,9 @@ class Program:
             errors.append(str(error))
         for number, op in numbered_ops:
             tag = self.tag(number, op)
+            if op.resolve_error:
+                errors.append(tag + op.resolve_error)
+                continue
             try:
                 for warning in op.check(machine):
                     warnings.append(tag + warning)
@@ -422,6 +448,7 @@ class Program:
         emitter = Emitter()
         warnings: List[str] = []
         errors: List[str] = []
+        self.resolve_all()
         numbered_ops = list(enumerate(self.ops, 1))
         if only is not None:
             numbered_ops = [numbered_ops[only]]

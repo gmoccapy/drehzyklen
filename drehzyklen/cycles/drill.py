@@ -73,12 +73,11 @@ class Drill(Cycle):
         feed_param("f", N_("Feed"), 0.1, "F"),
     ]
 
-    def __init__(self, values=None):
-        if values is None:
-            values = {}
-        super().__init__(values)
+    def __init__(self, values=None, variables=None):
+        values = dict(values or {})
         if "speed" not in values:
-            self.v["speed"] = 25.0          # cutting speed for drills
+            values["speed"] = 25.0          # cutting speed for drills
+        super().__init__(values, variables)
 
     @property
     def inside(self):

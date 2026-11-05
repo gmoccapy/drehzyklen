@@ -48,6 +48,9 @@ from .cycles import (CYCLES, INSIDE, OUTSIDE, STOCK_PARAMS, Cycle, P, Program, S
 from .cycles.program import NO_TOOL_CHANGE_WARNING  # noqa: E402
 from .cycles.toolcheck import corner_radius_problems, usage_problems  # noqa: E402
 from .geometry import ContourError  # noqa: E402
+from .variables import (STOCK_VARIABLE_HELP, STOCK_VARIABLES, VariableError,  # noqa: E402
+                        Variables, definitions_text, parse_definitions)
+from .widgets import error_markup, number_text  # noqa: E402
 from .i18n import N_, _  # noqa: E402
 from .machine import MACHINE_FIELDS, MACHINE_HELP, Machine  # noqa: E402
 from .material import simulate  # noqa: E402
@@ -123,7 +126,8 @@ class CyclePage(Gtk.Box):
         if cycle_class.KEY == "gcode":
             self.pack_start(self._snippet_bar(), False, False, 0)
         self.form = ParamForm(cycle_class.all_params(), panel.machine, self.on_param,
-                              panel.tool_choices, panel.tools.get)
+                              panel.tool_choices, panel.tools.get,
+                              lambda: panel.program.variable_set())
         self.pack_start(scrolled(self.form), True, True, 0)
         self.restore_cutting()
         button_box = Gtk.Box(spacing=4)
@@ -266,7 +270,10 @@ class CyclePage(Gtk.Box):
             values, _errors = self.form.get_values(lenient=True)
             if self.cycle_class.HAS_SIDE:
                 values["side"] = self.side
-            updates = self.cycle_class.switch(key, values, old_value)
+            try:
+                updates = self.cycle_class.switch(key, values, old_value)
+            except (TypeError, ValueError, ZeroDivisionError):
+                updates = {}                    # calculations with $variables are not converted
             if updates:
                 self.form.set_values(updates)
         self.add_button.set_sensitive(True)
@@ -287,14 +294,19 @@ class CyclePage(Gtk.Box):
             return None
         if self.cycle_class.HAS_SIDE:
             values["side"] = self.side
-        return self.cycle_class(values)
+        op = self.cycle_class(values, self.panel.program.variable_set())
+        if op.resolve_error:
+            self.errors = [op.resolve_error]
+            self.warnings = []
+            return None
+        return op
 
     def update(self):
         self.timer = None
         values, _errors = self.form.get_values(lenient=True)
         if self.cycle_class.HAS_SIDE:
             values["side"] = self.side
-        lenient_op = self.cycle_class(values)
+        lenient_op = self.cycle_class(values, self.panel.program.variable_set())
         self.help = (self.cycle_class.KEY, lenient_op.help_values(), lenient_op.inside)
         if lenient_op.HAS_TOOL:
             self.form.set_tool_status(self.tool_status(lenient_op))
@@ -316,7 +328,7 @@ class CyclePage(Gtk.Box):
             before = simulate(program.stock, program.ops, upto, extra=op)
             after = before.copy().apply(op)
             single = Program(self.panel.machine, [op], stock=program.stock,
-                             tools=self.panel.tools)
+                             tools=self.panel.tools, variables=program.variables)
             result = single.generate(start_material=before)
             self.scene = dict(path=result.path, outlines=result.outlines, stock=program.stock,
                               before=before, after=after)
@@ -358,7 +370,7 @@ class CyclePage(Gtk.Box):
             self.side_bar.buttons[side].set_active(True)
             self.side = side
             self.form.side = side
-        self.form.set_values(op.v)
+        self.form.set_values(op.raw)          # as entered (with $variables)
         self.apply_button.set_sensitive(False)
         self.add_button.set_sensitive(True)
         self.set_title()
@@ -409,7 +421,8 @@ class StockPage(Gtk.Box):
         self.timer = None
         self.errors = []
         self.pack_start(title_label(_("Stock and clamping")), False, False, 0)
-        self.form = ParamForm(STOCK_PARAMS, None, self.on_param)
+        self.form = ParamForm(STOCK_PARAMS, None, self.on_param,
+                              variables=lambda: panel.program.variable_set())
         self.pack_start(scrolled(self.form), True, True, 0)
         info = Gtk.Label(xalign=0, label=_(
             "The stock is set only here. The stock Ø prefills Ø start in facing and turning; "
@@ -427,15 +440,20 @@ class StockPage(Gtk.Box):
     def apply_values(self):
         self.timer = None
         values, errors = self.form.get_values()
+        stock = None
+        if not errors:
+            stock = Stock(values, self.panel.program.variables)
+            if stock.resolve_error:
+                errors = [stock.resolve_error]
         self.errors = errors
         if not errors:
-            self.panel.stock_changed(Stock(values))
+            self.panel.stock_changed(stock)
         else:
             self.panel.page_updated(self)
         return False
 
     def load(self, stock: Stock):
-        self.form.set_values(stock.v)
+        self.form.set_values(stock.raw)
 
 
 # =========================================================================== tool page (middle)
@@ -941,11 +959,25 @@ class ProgramColumn:
             cycle_column.set_min_width(60)
         self.status = get("program_status")
 
-    def selected(self) -> Optional[int]:
+    # the first row is the stock (part of the program, not movable); the cycles follow
+    def selected_row(self) -> Optional[int]:
         model, tree_iter = self.tree.get_selection().get_selected()
         if tree_iter is None:
             return None
         return model.get_path(tree_iter).get_indices()[0]
+
+    def selected(self) -> Optional[int]:
+        """Index of the marked cycle in program.ops (None: nothing or the stock marked)."""
+        row = self.selected_row()
+        if row is None or row == 0:
+            return None
+        return row - 1
+
+    def stock_selected(self) -> bool:
+        return self.selected_row() == 0
+
+    def select(self, index: int):
+        self.tree.get_selection().select_path(Gtk.TreePath.new_from_indices([index + 1]))
 
     def unselect(self):
         self.tree.get_selection().unselect_all()
@@ -1037,7 +1069,7 @@ REQUIRED_OBJECTS = ("main_box", "main_stack", "outer_paned", "inner_paned", "pag
                     "tool_radius", "tool_width", "tool_diameter", "tool_tip", "tool_front",
                     "tool_back", "tool_axis", "tool_comment", "tool_apply", "tool_new",
                     "tool_length", "tool_min_bore", "tool_groove_depth", "tool_reference",
-                    "tool_spindle",
+                    "tool_spindle", "button_variables",
                     "tool_delete", "tool_reload", "tool_write", "tool_mirror", "tool_source")
 
 
@@ -1235,7 +1267,8 @@ class DrehzyklenPanel(Gtk.Box):
                 "on_delete": self.on_delete, "on_language_changed": self.on_language_changed,
                 "on_machine_apply": self.on_machine_apply,
                 "on_machine_save": self.on_machine_save,
-                "on_machine_reload": self.on_machine_reload}
+                "on_machine_reload": self.on_machine_reload,
+                "on_variables": self.on_variables}
 
     def on_page_toggled(self, button):
         if button.get_active():
@@ -1251,10 +1284,90 @@ class DrehzyklenPanel(Gtk.Box):
                     self.view_column.on_mode(mode)
                     break
 
+    # ---------------------------------------------------------------- variables
+    def on_variables(self, _button):
+        """Edit the own variables of the program (variants of the part)."""
+        dialog = Gtk.Dialog(title=_("Variables"), transient_for=self.get_toplevel(), modal=True)
+        dialog.add_buttons(_("Cancel"), Gtk.ResponseType.CANCEL, _("Apply"), Gtk.ResponseType.OK)
+        dialog.set_default_size(560, 460)
+        content = dialog.get_content_area()
+        content.set_spacing(6)
+        info = Gtk.Label(xalign=0, label=_(
+            "One variable per line: Name = value or calculation ; comment. Use them in every "
+            "number field as $Name or as a calculation like $StockDiameter - 2, in the contour "
+            "as X[$Diameter - 2]. Changing a value gives a variant of the part."))
+        info.set_line_wrap(True)
+        content.pack_start(info, False, False, 0)
+        text_view = Gtk.TextView(monospace=True)
+        text_view.get_buffer().set_text(definitions_text(self.program.variables))
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_shadow_type(Gtk.ShadowType.IN)
+        scroller.set_min_content_height(140)
+        scroller.add(text_view)
+        content.pack_start(scroller, True, True, 0)
+        values_label = Gtk.Label(xalign=0, yalign=0)
+        values_label.set_line_wrap(True)
+        values_label.set_selectable(True)
+        content.pack_start(values_label, False, False, 0)
+
+        def show_values(*_args):
+            buffer = text_view.get_buffer()
+            text = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), True)
+            try:
+                definitions = parse_definitions(text)
+            except VariableError as error:
+                values_label.set_markup(error_markup(str(error)))
+                return
+            variables = Variables(definitions, self.program.stock.raw)
+            lines = []
+            for name in STOCK_VARIABLES:
+                lines.append(f"${name} = {number_text(variables.value(name))}   "
+                             f"({_(STOCK_VARIABLE_HELP[name])})")
+            for name, _expression, _comment in definitions:
+                try:
+                    lines.append(f"${name} = {number_text(variables.value(name))}")
+                except VariableError as error:
+                    lines.append(f"${name}: {error}")
+            values_label.set_text("\n".join(lines))
+        text_view.get_buffer().connect("changed", show_values)
+        show_values()
+        dialog.show_all()
+        self.active_dialog = dialog
+        while True:
+            response = dialog.run()
+            if response != Gtk.ResponseType.OK:
+                break
+            buffer = text_view.get_buffer()
+            text = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), True)
+            try:
+                definitions = parse_definitions(text)
+                variables = Variables(definitions, self.program.stock.raw)
+                for name, _expression, _comment in definitions:
+                    variables.value(name)
+            except VariableError as error:
+                self.message(str(error), Gtk.MessageType.ERROR)
+                continue
+            self.program.variables = definitions
+            self.variables_changed()
+            break
+        self.active_dialog = None
+        dialog.destroy()
+
+    def variables_changed(self):
+        """Calculate stock and cycles with the new variables and show the result."""
+        self.program.resolve_all()
+        self.stock_page.load(self.program.stock)
+        for page in self.pages.values():
+            page.schedule_update()
+        self.refresh_list(self.program_column.selected())
+
     def on_program_name_changed(self, _entry):
         self.schedule_refresh()
 
     def on_program_row_activated(self, *_args):
+        if self.program_column.stock_selected():
+            self.selector.buttons["stock"].set_active(True)
+            return
         self.on_edit(None)
 
     def on_program_selection_changed(self, _selection):
@@ -1467,7 +1580,8 @@ class DrehzyklenPanel(Gtk.Box):
         for page in self.pages.values():
             page.form.set_stock(stock, old_stock)
             page.schedule_update()
-        self.refresh_gcode()
+        # the stock is the first entry of the program list; $Stock… variables change
+        self.refresh_list(self.program_column.selected())
 
     def reload_tools(self):
         selected = self.tool_page.selected_number()
@@ -1497,7 +1611,12 @@ class DrehzyklenPanel(Gtk.Box):
     # ---------------------------------------------------------------- program list
     def refresh_list(self, select: Optional[int] = None):
         column = self.program_column
+        self.program.resolve_all()
         column.store.clear()
+        stock = self.program.stock
+        column.store.append(["0", _("Stock"), "", stock.summary(),
+                             GLib.markup_escape_text(_("Stock and clamping") + ": "
+                                                     + stock.summary())])
         for index, op in enumerate(self.program.ops, 1):
             if op.HAS_TOOL:
                 tool_text = str(int(op.tool))
@@ -1509,7 +1628,7 @@ class DrehzyklenPanel(Gtk.Box):
             column.store.append([str(index), title, tool_text, op.summary(),
                                  GLib.markup_escape_text(f"{op.title()}: {op.summary()}")])
         if select is not None and 0 <= select < len(self.program.ops):
-            column.tree.get_selection().select_path(Gtk.TreePath.new_from_indices([select]))
+            column.select(select)
         self.refresh_gcode()
 
     def on_select(self):
@@ -1553,6 +1672,9 @@ class DrehzyklenPanel(Gtk.Box):
                 page.clear_edit()
 
     def on_edit(self, _button):
+        if self.program_column.stock_selected():
+            self.selector.buttons["stock"].set_active(True)
+            return
         index = self.program_column.selected()
         if index is None:
             return

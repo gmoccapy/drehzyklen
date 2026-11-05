@@ -40,6 +40,7 @@ from ..geometry import Element
 from ..i18n import _
 from ..machine import Machine
 from ..material import Material
+from ..variables import VariableError, is_expression, resolve_values
 from .params import (CUTTING_DATA_KEYS, INSIDE, SIDE, SPEED_FEED_MODES, TECH, P, feed_mode_of,
                      migrate_values, spindle_mode_of)
 
@@ -55,7 +56,7 @@ class Cycle:
     FORCE_G97 = False
     RENAMES: Dict[str, str] = {}        # keys of older projects -> current keys
 
-    def __init__(self, values: Optional[Dict[str, Any]] = None):
+    def __init__(self, values: Optional[Dict[str, Any]] = None, variables=None):
         self.v: Dict[str, Any] = {}
         params = self.all_params()
         for param in params:
@@ -74,6 +75,28 @@ class Cycle:
             for key, value in values.items():
                 if key in self.v:
                     self.v[key] = value
+        # raw: as entered (calculations with $variables), v: the values to work with
+        self.raw: Dict[str, Any] = dict(self.v)
+        self.variables = None
+        self.resolve_error = ""
+        self.resolve(variables)
+
+    def set(self, key: str, value):
+        """Change one field (as entered) and calculate again."""
+        self.raw[key] = value
+        self.resolve(self.variables)
+
+    def resolve(self, variables):
+        """Calculate the fields that contain $variables (see variables.py)."""
+        self.variables = variables
+        try:
+            self.v = resolve_values(self.all_params(), self.raw, variables)
+            self.resolve_error = ""
+        except VariableError as error:
+            self.resolve_error = str(error)
+            defaults = {param.key: param.default for param in self.all_params()}
+            self.v = {key: defaults.get(key, value) if is_expression(value) else value
+                      for key, value in self.raw.items()}
 
     @classmethod
     def all_params(cls) -> List[P]:
@@ -139,7 +162,7 @@ class Cycle:
         return ""
 
     def to_dict(self):
-        return {"cycle": self.KEY, "values": dict(self.v)}
+        return {"cycle": self.KEY, "values": dict(self.raw)}
 
     def help_values(self) -> Dict[str, Any]:
         """Values for the parameter picture (including derived values)."""
@@ -217,9 +240,9 @@ class Cycle:
         return [self.v[key] for key in self.feed_keys()]
 
     def copy_with(self, updates: Dict[str, Any]) -> "Cycle":
-        values = dict(self.v)
+        values = dict(self.raw)
         values.update(updates)
-        return type(self)(values)
+        return type(self)(values, self.variables)
 
     # ---------------------------------------------------------------- implemented by cycles
     def summary(self) -> str:

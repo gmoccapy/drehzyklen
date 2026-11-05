@@ -72,6 +72,28 @@ Die eingegebenen Werte bestimmen die Richtung:
 - **Z1 < Z2:** Bearbeitung nach +Z (von links nach rechts), z.B. Plandrehen einer Rückseite von
   Z10 nach Z50 bei Nullpunkt am Futter, mit linkem Werkzeug
 - Längsdrehen außen braucht D ≥ d, innen D ≤ d.
+- **Enter** springt ins nächste Feld.
+
+## Variablen und Varianten
+
+Statt einer Zahl darf in jedem Zahlenfeld eine Rechnung mit Variablen stehen, z.B.
+`$StockDiameter - 4` oder `$Length / 2`. Ändert sich eine Variable, rechnet das ganze Programm neu
+– so entstehen Varianten eines Bauteils.
+
+- **Rohteil-Variablen** (aus dem Reiter Rohteil): `$StockDiameter` (D), `$StockInner` (d),
+  `$StockStickout` (L), `$StockFace` (Planaufmaß a).
+- **Eigene Variablen:** Knopf **$ Variablen …** in der Programmspalte, eine pro Zeile:
+  ```
+  Diameter = $StockDiameter - 4   ; Fertig-Ø
+  Length = 45
+  Half = $Length / 2
+  ```
+  Die Liste zeigt sofort die berechneten Werte. Unbekannte Variablen und Variablen, die sich
+  gegenseitig brauchen, werden gemeldet.
+- **Kontur:** Rechnungen in eckigen Klammern, eine einzelne Variable auch ohne:
+  `X[$Diameter - 14] Z0`, `X$Diameter Z[-$Length]`. Eine Kontur mit Variablen wird als Text
+  bearbeitet; die Liste zeigt die berechneten Punkte.
+- Gespeichert werden die Rechnungen (im Projekt `.dzp`), die Zyklen rechnen mit den Werten.
 
 ## Zyklen
 
@@ -82,9 +104,10 @@ Alle Zyklen außer Bohren und G-Code haben den Schalter **Außen | Innen**.
 | Plan | D → d radial, Z1 → Z2 in Zustellungen ap. D > d: zur Mitte, D < d: nach außen |
 | Längs | D → d zwischen Z1 und Z2. Kante am Anfang und Ende einzeln: keine, Fase oder Radius. Die Endkante darf größer sein als der Absatz und endet dann bei D |
 | Konus | „Angabe über Enddurchmesser“ (D1, D2, Z1, Z2) oder „Winkel“ (D1, D2, Z1, α/2). Hier heißen die Durchmesser **D1/D2** passend zu Z1/Z2 (Ø an Z1 / an Z2). Umschalten berechnet den fehlenden Wert. Ein fallender Konus (z.B. D1 44 → D2 30) wird je Ebene schräg am Kegel angefahren |
-| Gewinde | G76 außen/innen, Z1 Gewindeanfang, Z2 Gewindeende, Zs Startpunkt. Abfrage von L vor E. Gewinde aus Tabelle: metrisch Regel/Fein, UNC, UNF, Whitworth BSW, Rohrgewinde G |
+| Gewinde | G76 außen/innen, Z1 Gewindeanfang, Z2 Gewindeende, Zs Startpunkt. Abfrage von L vor E. Gewinde aus Tabelle: metrisch Regel/Fein, UNC, UNF, Whitworth BSW, Rohrgewinde G, **NPT** (kegelig 1:16, siehe [Kegelige Gewinde](#kegelige-gewinde-npt)) |
 | Fase/R | Fase L × α (Winkel zur Z-Achse) oder Radius an Vorder- oder Rückkante. **Negativer Winkel = Fase an der Rückkante**; sie wird schräg angefahren |
 | Kontur | freie Kontur, Ecken je Punkt, Bögen; Richtung = erster → letzter Punkt. Passen zwei gegenläufige Radien (z.B. R2 innen, R5 außen an einem kurzen Absatz) nicht auf die Strecke dazwischen, gehen sie tangential ineinander über |
+| Einstechen | radialer Einstich außen/innen zwischen den Flanken Z1 und Z2 von D auf d. Breiter als das Werkzeug: mehrere Einstiche, je um 80 % der Werkzeugbreite versetzt. Q > 0: stufenweise mit Spanbruch Rb, P Verweilzeit. Geprüft: Einstechwerkzeug, Breite, Einstechtiefe |
 | Bohren | durchgehend, Spanbruch oder Entspanen; Tiefe auf Spitze oder vollen Ø |
 | G-Code | eigener Code zwischen zwei Zyklen, mit **Textbausteinen** |
 
@@ -133,6 +156,8 @@ Daraus folgt:
 - **Eilgänge durch Material**, das nach dem Zyklus noch steht, werden als Fehler gemeldet, z.B. bei
   falscher Reihenfolge oder vertauschten Z1/Z2.
 - Innenzyklen ohne Vorbohrung melden „zuerst bohren“.
+- Das Rohteil steht als Eintrag **0** in der Programmliste (Doppelklick öffnet den Reiter Rohteil)
+  und wird mit dem Projekt gespeichert.
 
 ## Werkzeuge
 
@@ -171,11 +196,29 @@ Daraus folgt:
 - Einstechwerkzeug, Gewindewerkzeug
 - zusätzlich ein Bohrer und eine Bohrstange
 
+**Weitere Werkzeugdaten** (stehen nicht in der tool.tbl, Drehzyklen merkt sie sich je
+Werkzeugnummer; 0 = keine Prüfung):
+- **Nutzbare Länge:** Bohrer – Spannutenlänge (geprüft gegen die Bohrtiefe mit Spitze),
+  Innenwerkzeug – wie tief es in die Bohrung reicht (geprüft ab der Rohteil-Vorderkante).
+- **Kleinster Bohrungs-Ø:** Innenwerkzeug passt erst ab diesem Ø; geprüft gegen die Bohrung, die
+  vor dem Zyklus vorhanden ist (Abtragssimulation).
+- **Einstechtiefe** und **Bezugspunkt** (linke Ecke, Mitte, rechte Ecke – womit angetastet wurde)
+  beim Einstechwerkzeug.
+- **Drehrichtung:** M3/M4 fest für dieses Werkzeug; Zyklen mit „auto“ übernehmen sie.
+- Der **Eckenradius** wird in den Werkzeugbildern gezeichnet; beim Einstechwerkzeug darf er nicht
+  größer als die halbe Breite sein (Warnung, z.B. b3 mit r1,5 = vollrund, r2 zu groß).
+
+**In jedem Zyklus** zeigt ein kleines Bild das gewählte Werkzeug. In der Werkzeugauswahl sind die
+Werkzeuge eingefärbt: **grün** passt zur Operation, **gelb** nicht – ein gelbes Werkzeug lässt sich
+nur mit „Werkzeug trotz Warnung freigeben“ verwenden.
+
 **Plausibilitätsprüfung** in jedem Zyklus. Gemeldet werden unter anderem:
 - Gewinde ohne Gewindewerkzeug (z.B. mit Form C)
 - falsche Hand für die Schnittrichtung
 - Außenwerkzeug für Innenbearbeitung
 - zu wenig Freiwinkel für fallende Konturen
+- Bohrer zu kurz, Innenwerkzeug reicht nicht tief genug oder passt nicht in die Bohrung
+- Einstich tiefer als die Einstechtiefe oder schmaler als das Werkzeug
 
 Das ist ein Fehler, den du mit **„Werkzeug trotz Warnung freigeben“** übersteuern kannst, z.B. für
 Rund- oder Sondergewinde. Dann bleibt eine deutliche Warnung.
@@ -223,14 +266,27 @@ Der Vordreh-Ø erscheint als Hinweis unter der Vorschau. Die Werte sind Faustfor
 in der Mitte der Toleranzfelder 6g (Bolzen) und 6H (Mutter). Passt der Spitzenwinkel des Werkzeugs
 nicht zur Norm (55° gegen 60°), meldet die Werkzeugprüfung das.
 
+### Kegelige Gewinde (NPT)
+
+NPT-Gewinde (1/16" bis 2", Kegel 1:16 auf den Ø, 60°, Gewindetiefe 0,8·P) stehen in der Tabelle.
+Bei der Auswahl werden D, P, Zustellwinkel, **Kegel 1:16** und Z2 (Gewindelänge L2) eingetragen:
+- **außen:** Z1 ist das dünne Ende (Rohrende), D = Außen-Ø dort (E0 + h); der Ø wächst Richtung Z2.
+- **innen:** Z1 ist die Öffnung, D = Kern-Ø dort; der Ø wird Richtung Z2 kleiner.
+- G76 kann keinen Kegel. Jeder Durchgang ist deshalb ein **G33** entlang des Kegels, mit denselben
+  Zustellungen wie G76 (J·n^(1/R) bis K), dem Zustellwinkel Q und H Leerschnitten. Die Ein-/
+  Auslaufkegel L/E entfallen.
+- Den Kegel vorher mit dem Zyklus Konus vordrehen (Hinweis unter der Vorschau).
+- Ein eigenes kegeliges Gewinde: Feld **Kegel 1:k** (0 = zylindrisch).
+
 ## G-Code bearbeiten
 
 - **Senden** (oben) zeigt den erzeugten Code in einem Editor. Dort ergänzen, speichern oder an
   LinuxCNC senden (nur möglich, wenn LinuxCNC läuft).
 - Dauerhafter Code zwischen zwei Zyklen gehört in einen Schritt **G-Code**. Einen Textbaustein
   auswählen ersetzt den Inhalt des Codefelds, **Einfügen** fügt ihn zusätzlich an der Schreibmarke
-  ein, **Leeren** macht das Feld frei für einen neuen Baustein. Die Bausteine („Späne entfernen“,
-  „Nachmessen“, eigene über **Speichern …**) stehen in `settings.json`.
+  ein, **Leeren** macht das Feld frei für einen neuen Baustein, **Löschen** entfernt den gewählten
+  Baustein und leert das Feld. Die Bausteine („Späne entfernen“, „Nachmessen“, eigene über
+  **Speichern …**) stehen in `settings.json`.
 - „Spindel/Kühlung wieder ein“: Folgt ein Zyklus mit demselben Werkzeug, werden
   Drehzahl mit M3/M4 und M8 direkt nach dem Baustein wieder ausgegeben; bei einem Werkzeugwechsel
   schaltet der nächste Zyklus sie ein.
@@ -309,7 +365,8 @@ Welche Datei benutzt wurde, steht unten in den Einstellungen.
 ```
 start_drehzyklen.py          Start (Fenster, gmoccapy-Plug, Kommandozeile)
 drehzyklen/cycles/           ein Modul je Zyklus, jedes beschreibt oben seine Werkzeugbahn
-  facing.py longturning.py taper.py edgebreak.py contour.py thread.py drill.py gcodeblock.py
+  facing.py longturning.py taper.py edgebreak.py contour.py thread.py groove.py drill.py
+  gcodeblock.py
   params.py                  Feldbeschreibungen (P), Auswahlschlüssel, gemeinsame Parametergruppen
   base.py                    Basisklasse Cycle (Werte, Richtung, Drehzahl/Vorschub)
   turning.py                 TurningCycle, ContourTurner (Schruppebenen + Schlichtschnitt)
@@ -323,6 +380,7 @@ drehzyklen/tools.py          Werkzeugtabelle (tool.tbl / Vorgaben), Schreiben in
 drehzyklen/threads.py        Gewindetabellen (data/threads.json + eigene)
 drehzyklen/machine.py        Maschinendaten (machine.json + INI)
 drehzyklen/settings.py       Sprache, letzter Ordner, Textbausteine, Schnittdaten
+drehzyklen/variables.py      Variablen und Rechnungen in den Feldern ($StockDiameter …)
 drehzyklen/i18n.py           Übersetzung (_(), N_(), Sprachwechsel), locale/*.po
 drehzyklen/render.py         Vorschau mit Zoom
 drehzyklen/helpdraw.py       Parameterbilder und Symbole

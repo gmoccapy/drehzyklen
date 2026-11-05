@@ -13,7 +13,7 @@
 # if not, see <https://www.gnu.org/licenses/>.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Thread cutting with the LinuxCNC cycle G76.
+"""Thread cutting with the LinuxCNC cycle G76 - taper threads (NPT) with G33 passes.
 
 Tool path
 ---------
@@ -30,9 +30,13 @@ emitter); depths follow the same degression formula as LinuxCNC: J·n^(1/R) up t
 
 Threads can be taken from tables (``threads.py``): diameter, pitch, depth and infeed angle are
 filled in, the pre-turning diameter is shown as a hint.
+
+Taper threads (taper 1:k > 0, e.g. NPT 1:16): G76 cannot cut a taper. Every pass is then a G33
+move along the taper (``taper_body``) with the same depths, infeed angle and spring passes.
 """
 from __future__ import annotations
 
+import math
 from typing import Any, Dict, List, Optional
 
 from ..gcode import fmt
@@ -47,7 +51,7 @@ from .toolcheck import tool_name
 
 class Thread(Cycle):
     KEY = "thread"
-    TITLE = N_("Thread (G76)")
+    TITLE = N_("Thread")
     SHORT = N_("Thread")
     TECH_PARAMS = TECH_THREAD
     FORCE_G97 = True
@@ -71,6 +75,9 @@ class Thread(Cycle):
         P("chamfer_e", N_("Taper length entry/exit"), 0.0, unit="mm", min=0, sym="E"),
         P("thread_clear", N_("Drive line distance"), 1.0, unit="mm", min=0.1, sym="I",
           help=N_("Distance of the drive line from the thread (G76 I)")),
+        P("taper", N_("Taper 1:k (0 = straight)"), 0.0, min=0, sym="k",
+          help=N_("Taper thread (e.g. NPT 1:16 on the Ø): D is the Ø at Z1, outside the Ø grows "
+                  "towards Z2, inside it gets smaller. Cut with G33 passes instead of G76")),
     ]
 
     # ---------------------------------------------------------------- thread tables
@@ -117,11 +124,32 @@ class Thread(Cycle):
         updates["pitch"] = round(spec.pitch, 6)
         updates["depth"] = 0.0
         updates["infeed"] = spec.infeed()
+        updates["taper"] = spec.taper
+        if spec.taper > 0 and spec.length > 0:
+            # thread length L2 from the start of the thread in the thread direction
+            try:
+                begin = float(values.get("z_begin", 0.0))
+                end = float(values.get("z_end", begin - 1.0))
+            except (TypeError, ValueError):
+                return updates
+            direction = 1.0 if end > begin else -1.0
+            updates["z_end"] = round(begin + direction * spec.length, 3)
         return updates
 
     def pre_turn_hint(self) -> str:
         """Hint for the pre-turning Ø (outside D - 0.1·P, inside D1 + 0.1·P)."""
         spec = self.spec()
+        if self.taper > 0:
+            offset = -0.1 * self.pitch
+            if self.inside:
+                offset = 0.1 * self.pitch
+            text = _("Pre-turn the taper 1:{taper:g} from Ø{first:.2f} at Z{z1:g} to "
+                     "Ø{second:.2f} at Z{z2:g} (taper cycle)").format(
+                taper=self.taper, first=self.diameter_at(self.z_begin) + offset, z1=self.z_begin,
+                second=self.diameter_at(self.z_end) + offset, z2=self.z_end)
+            if spec is not None:
+                text = f"{spec.name} {spec.pitch_text()}: " + text
+            return text
         if self.inside:
             pre_turn = self.diameter + 0.1 * self.pitch
             text = _("Pre-turn the bore to Ø{pre:.2f} (core Ø D1 {core:.2f} + 0.1·P)").format(
@@ -139,6 +167,19 @@ class Thread(Cycle):
         if self.z_end > self.z_begin:
             return 1
         return -1
+
+    def diameter_at(self, z: float) -> float:
+        """Ø of the thread (outside crest, inside core) at z - with a taper it changes along the
+        thread: outside it grows from Z1 towards Z2, inside it gets smaller."""
+        if self.taper <= 0:
+            return self.diameter
+        distance = abs(z - self.z_begin)
+        if (z - self.z_begin) * self.thread_direction() < 0:
+            distance = -distance                # before the start of the thread (run-in)
+        change = distance / self.taper
+        if self.inside:
+            return self.diameter - change
+        return self.diameter + change
 
     def eff_depth(self):
         if self.depth > 0:
@@ -170,11 +211,15 @@ class Thread(Cycle):
         return min(values), max(values)
 
     def max_d(self):
+        largest = max(self.diameter_at(self.z_begin), self.diameter_at(self.z_end),
+                      self.diameter_at(self.z_start))
         if self.inside:
-            return self.diameter + 2 * self.eff_depth()
-        return self.diameter + 2 * self.thread_clear
+            return largest + 2 * self.eff_depth()
+        return largest + 2 * self.thread_clear
 
     def outer_x(self, machine):
+        if self.taper > 0 and not self.inside:
+            return self.max_d() + 2 * machine.clearance
         return self.diameter + 2 * (self.thread_clear + machine.clearance)
 
     def inner_x(self, machine):
@@ -230,12 +275,20 @@ class Thread(Cycle):
             warnings.append(_("Run-in {run_in:.2f} mm is short (acceleration distance ≈ "
                               "{needed:.2f} mm) - move the start point further away or reduce "
                               "the speed").format(run_in=run_in, needed=acceleration_way))
+        if self.taper > 0 and self.chamfer_l > 0 and self.chamfer_e > 0:
+            warnings.append(_("Taper thread: the entry/exit tapers L/E are not cut (G33 "
+                              "passes)"))
         warnings.append(self.pre_turn_hint())
         warnings.append(_("{passes} thread passes + {spring} spring pass(es); spindle encoder "
                           "required").format(passes=len(self.passes()), spring=self.spring))
         return warnings
 
     def outline(self):
+        if self.taper > 0:
+            sign = self.radius_sign
+            root_begin = self.diameter_at(self.z_begin) / 2 - sign * self.eff_depth()
+            root_end = self.diameter_at(self.z_end) / 2 - sign * self.eff_depth()
+            return [Element("line", self.z_begin, root_begin, self.z_end, root_end)]
         radius = self.diameter / 2
         root = radius - self.radius_sign * self.eff_depth()
         _entry, exit_length = self.taper_lengths()
@@ -265,6 +318,9 @@ class Thread(Cycle):
 
     # ---------------------------------------------------------------- path
     def body(self, emitter, machine, material):
+        if self.taper > 0:
+            self.taper_body(emitter, machine)
+            return
         radius = self.diameter / 2
         clear = self.thread_clear
         sign_r = self.radius_sign
@@ -313,3 +369,38 @@ class Thread(Cycle):
             else:
                 emitter.record_thread(2 * pass_radius, cut_start_z, 2 * pass_radius, self.z_end)
                 emitter.record_thread(2 * pass_radius, self.z_end, 2 * drive_radius, self.z_end)
+
+    def taper_body(self, emitter, machine):
+        """Taper thread: G76 cannot cut a taper, so every pass is a G33 move along the taper.
+
+        Depths as with G76 (J·n^(1/R) up to K, then H spring passes); with the infeed angle Q
+        every pass starts shifted by depth · tan(Q) in the thread direction (flank infeed).
+        K of G33 is the pitch along Z; LinuxCNC counts it along the path - with 1:16 the
+        difference is 0.05 %.
+        """
+        sign_r = self.radius_sign
+        direction = self.thread_direction()
+        largest = max(self.diameter_at(self.z_start), self.diameter_at(self.z_end))
+        smallest = min(self.diameter_at(self.z_start), self.diameter_at(self.z_end))
+        if self.inside:
+            safe_x = max(0.0, smallest - 2 * (self.thread_clear + machine.clearance))
+        else:
+            safe_x = largest + 2 * (self.thread_clear + machine.clearance)
+        depths = self.passes() + [self.eff_depth()] * int(self.spring)
+        tangent = math.tan(math.radians(self.infeed))
+        emitter.comment(_("Taper thread 1:{taper:g} with G33 passes (G76 cannot cut a "
+                          "taper)").format(taper=self.taper))
+        emitter.rapid(x=safe_x)
+        for cut in depths:
+            start_z = self.z_start + direction * cut * tangent
+            start_x = self.diameter_at(start_z) - sign_r * 2 * cut
+            end_x = self.diameter_at(self.z_end) - sign_r * 2 * cut
+            emitter.rapid(z=start_z)
+            emitter.rapid(x=start_x)
+            emitter.lines.append(f"G33 X{fmt(end_x)} Z{fmt(self.z_end)} K{fmt(self.pitch, 6)}")
+            emitter.record_thread(start_x, start_z, end_x, self.z_end)
+            # pull out of the thread groove at the end (as G76 does) - part of the thread
+            emitter.lines.append(f"G0 X{fmt(safe_x)}")
+            emitter.record_thread(end_x, self.z_end, safe_x, self.z_end)
+            emitter.set_pos(safe_x, self.z_end)
+        emitter.rapid(z=self.z_start)

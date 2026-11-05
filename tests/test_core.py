@@ -326,7 +326,7 @@ def test_tool_checks():
     thread = Thread({"tool": 1})
     result = Program(Machine(), [thread], tools=table).generate()
     assert any("cannot cut a thread" in error for error in result.errors)
-    thread.v["tool_ok"] = True
+    thread.set("tool_ok", True)
     result = Program(Machine(), [thread], tools=table).generate()
     assert not result.errors and any("released" in warning for warning in result.warnings)
     left_tool = Program(Machine(), [LongTurning({"tool": 2})], tools=table).generate()
@@ -334,7 +334,7 @@ def test_tool_checks():
     falling = Taper({"d_start": 44, "d_end": 30, "z_start": 0, "z_end": -10, "tool": 1})
     result = Program(Machine(), [falling], stock=Stock({"D": 44}), tools=table).generate()
     assert any("clearance angle" in error for error in result.errors)
-    falling.v["tool"] = 7
+    falling.set("tool", 7)
     result = Program(Machine(), [falling], stock=Stock({"D": 44}), tools=table).generate()
     assert not result.errors, result.errors
     inside = LongTurning({"side": "inside", "d_start": 16, "d_end": 20, "z_end": -10, "tool": 1})
@@ -663,6 +663,68 @@ def test_lead_angle_limit_and_free_holder_axis():
     assert reloaded.shank_direction() == 90.0
     table.assign(tool, "C", "right", "outside", 95.0, 0.8, 0, 0, "", 0.0, None, None)
     assert tool.shank_direction() == 45.0                       # empty = bisector
+
+
+
+def test_variables_make_part_variants():
+    """Fields with $variables: changing a variable changes the part (a variant)."""
+    from drehzyklen.variables import VariableError, parse_definitions
+    definitions = parse_definitions("Diameter = $StockDiameter - 4  ; finished Ø\n"
+                                    "Length = 30\nHalf = $Length / 2")
+    stock = Stock({"D": 50})
+    long_turning = LongTurning({"tool": 1, "d_start": "$StockDiameter", "d_end": "$Diameter",
+                                "z_start": 0, "z_end": "-$Length"})
+    contour = Contour({"tool": 7, "contour": "X0 Z0\nX[$Diameter - 10] Z0\n"
+                                           "X[$Diameter - 10] Z[-$Half]\nX$Diameter Z[-$Half]"})
+    program = Program(Machine(), [long_turning, contour], stock=stock, tools=tool_table(),
+                      variables=definitions)
+    result = program.generate()
+    assert not result.errors, result.errors
+    assert long_turning.d_end == 46 and long_turning.z_end == -30
+    assert "X36 Z-15" in contour.contour
+    # variant: thicker stock, longer part
+    program.stock = Stock({"D": 60}, definitions)
+    program.variables = parse_definitions("Diameter = $StockDiameter - 4\nLength = 40\n"
+                                          "Half = $Length / 2")
+    program.generate()
+    assert long_turning.d_end == 56 and long_turning.z_end == -40
+    # saved as entered, read back the same
+    loaded = Program.from_json(program.to_json(), Machine(), tool_table())
+    assert loaded.ops[0].raw["d_end"] == "$Diameter" and loaded.ops[0].d_end == 56
+    # errors: unknown variable, loop
+    broken = LongTurning({"tool": 1, "d_end": "$Missing"})
+    errors = Program(Machine(), [broken], tools=tool_table()).generate().errors
+    assert any("$Missing" in error for error in errors)
+    try:
+        parse_definitions("A = $B\nB = $A")
+        looping = Program(Machine(), [], variables=parse_definitions("A = $B\nB = $A"))
+        looping.variable_set().value("A")
+    except VariableError as error:
+        assert "refer to each other" in str(error)
+    else:
+        raise AssertionError("loop not found")
+
+
+
+def test_npt_taper_thread_with_g33():
+    """NPT 1/2: taper 1:16, D at the small end, every pass a G33 move along the taper."""
+    from drehzyklen import threads
+    spec = threads.find("NPT", "1/2 NPT")
+    assert spec.taper == 16 and abs(spec.pitch - 25.4 / 14) < 1e-9
+    values = {"tool": 10, "norm": "NPT", "size_npt": "1/2 NPT", "z_begin": 0, "z_end": -30,
+              "z_start": 5}
+    values.update(Thread.switch("size_npt", values))
+    assert values["taper"] == 16 and abs(values["z_end"] + spec.length) < 1e-3
+    thread = Thread(values)
+    result = Program(Machine(), [thread], stock=Stock({"D": 22}), tools=tool_table()).generate()
+    assert not result.errors, result.errors
+    moves = [line for line in result.gcode.splitlines() if line.startswith("G33")]
+    assert moves and not any(line.startswith("G76") for line in result.gcode.splitlines())
+    assert len(moves) == len(thread.passes()) + thread.spring
+    # last pass: crest Ø at Z2 minus twice the depth (0.8·P)
+    final = float(moves[-1].split()[1][1:])
+    expected = thread.diameter + spec.length / 16 - 2 * 0.8 * spec.pitch
+    assert abs(final - expected) < 1e-3
 
 
 if __name__ == "__main__":

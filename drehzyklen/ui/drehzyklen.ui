@@ -373,6 +373,19 @@
                   </packing>
                 </child>
                 <child>
+                  <object class="GtkButton" id="button_variables">
+                    <property name="label" translatable="yes">$ Variables …</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="tooltip_text" translatable="yes">Own variables for variants of the part, e.g. Length = 40. Use them in every field as $Length or as a calculation like $StockDiameter - 2</property>
+                    <signal name="clicked" handler="on_variables"/>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">False</property>
+                  </packing>
+                </child>
+                <child>
                   <object class="GtkScrolledWindow">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>

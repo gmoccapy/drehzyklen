@@ -16,6 +16,7 @@ mitsimuliert, damit spätere Zyklen wissen, was noch steht, und Kollisionen erka
  Program (cycles/program.py)  ── Rohteil (cycles/stock.py), Maschine (machine.py),
    │                              Werkzeuge (tools.py), Gewinde (threads.py)
    │  generate()
+   │   0. resolve_all    Rechnungen mit $Variablen auswerten (variables.py)
    │   1. _check_ops     Werte prüfen, Werkzeug prüfen (cycles/toolcheck.py), Fertigkontur
    │   2. _header        G18 G7 G21 …, Rückzugsebene
    │   3. je Zyklus      _machining: Werkzeugwechsel, S/M3/M4/M8, cycle.body(), Rückzug
@@ -42,6 +43,7 @@ Werkzeugbahn er fährt.
 | `edgebreak.py` | `EdgeBreak` | Fase/Radius als Kontur → `ContourTurner` |
 | `contour.py` | `Contour` | freie Kontur (Text aus `geometry.py`) → `ContourTurner` |
 | `thread.py` | `Thread` | ein G76-Satz im Radiusmodus G8, Gewindetabellen |
+| `groove.py` | `Groove` | radialer Einstich, mehrere Einstiche, Spanbruch |
 | `drill.py` | `Drill` | Bohren durchgehend, Spanbruch, Entspanen |
 | `gcodeblock.py` | `GCodeOp` | eigener G-Code, wird unverändert eingefügt |
 
@@ -96,6 +98,15 @@ werden sie direkt nach dem Schritt wieder eingeschaltet, sonst schaltet der näc
 `tools.py` liest die `tool.tbl` (aus der INI) und leitet aus Q, I, J die Plattenform, Hand und Lage
 ab. Wenn das nicht geht, gibt der Benutzer Typ/Hand/Lage ein (`werkzeuge.json`). Mit
 „→ In tool.tbl schreiben“ werden D, I, J, Q in die tool.tbl zurückgeschrieben.
+
+## Variablen
+
+Jeder Zyklus hat zwei Wertesätze: `raw` (wie eingegeben, z. B. `"$StockDiameter - 4"`, wird
+gespeichert) und `v` (berechnet, damit wird gearbeitet). `Cycle.resolve(variables)` rechnet `v`
+aus `raw`; `Program.resolve_all()` macht das für Rohteil und alle Zyklen vor jedem Erzeugen.
+Die Variablen (`variables.py`) sind die eigenen des Programms (`Program.variables`) plus die
+Rohteil-Variablen `$StockDiameter`, `$StockInner`, `$StockStickout`, `$StockFace`. Ein Fehler
+(unbekannte Variable, Schleife) steht in `resolve_error` und wird als Fehler des Zyklus gemeldet.
 
 ## Daten und Sprache
 

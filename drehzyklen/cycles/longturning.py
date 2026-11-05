@@ -59,7 +59,7 @@ class LongTurning(TurningCycle):
           help=N_("May be larger than the step to D - the edge then ends at D")),
     ] + ROUGH
 
-    def __init__(self, values=None):
+    def __init__(self, values=None, variables=None):
         if values is None:
             values = {}
         values = dict(values)
@@ -70,7 +70,7 @@ class LongTurning(TurningCycle):
         if values.get("end_radius", 0) and "end_kind" not in values:
             values["end_kind"] = CORNER_RADIUS
             values["end_size"] = values["end_radius"]
-        super().__init__(values)
+        super().__init__(values, variables)
 
     def summary(self):
         text = (f"{self.side_text} Ø{fmt(self.d_start)}→Ø{fmt(self.d_end)} "
