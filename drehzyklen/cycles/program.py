@@ -117,6 +117,16 @@ class Program:
         variables = self.variable_set()
         for op in self.ops:
             op.resolve(variables)
+            self.prepare(op)
+
+    def prepare(self, op: Cycle):
+        """Give the cycle its tool data (e.g. the grooving tool: width, corner radius - also
+        for the preview of the removed material)."""
+        if self.tools is not None and op.HAS_TOOL:
+            try:
+                op.prepare(self.tools.get(int(op.tool)))
+            except (TypeError, ValueError):
+                pass
 
     # ---------------------------------------------------------------- project file
     def to_json(self) -> str:
@@ -280,8 +290,11 @@ class Program:
                     z=z, gap=z - chuck_z, clearance=clearance))
 
     @staticmethod
-    def _rapid_check(path, start_index, material: Material, tag, errors):
-        """Rapid moves must not pass through the material that remains after the cycle."""
+    def _rapid_check(path, start_index, material: Material, tag, errors, margin=0.1):
+        """Rapid moves must not pass through the material that remains after the cycle.
+
+        margin: tolerance around the programmed point - with the corner radius of the tool,
+        because the programmed (theoretical sharp) tip lies outside the rounded cutting edge."""
         for segment in path[start_index:]:
             if segment.kind != "rapid":
                 continue
@@ -291,7 +304,7 @@ class Program:
                 fraction = step / steps
                 z = segment.z0 + fraction * (segment.z1 - segment.z0)
                 r = (segment.x0 + fraction * (segment.x1 - segment.x0)) / 2
-                if material.contains(z, r, 0.1):
+                if material.contains(z, r, margin):
                     errors.append(tag + _("rapid move through material at Z{z:.2f} X{x:.2f} - "
                                           "check the order of operations, Z1/Z2 or Ø").format(
                         z=z, x=2 * r))
@@ -455,7 +468,9 @@ class Program:
             emitter.rapid(x=max(x_out, current_x))
         emitter.rapid(z=z_safe)
         material.apply(op)
-        self._rapid_check(emitter.path, path_start, material, tag, errors)
+        tool = self.tools.get(op.tool) if self.tools is not None else None
+        nose_radius = max(0.0, getattr(tool, "nose_radius", 0.0) or 0.0)
+        self._rapid_check(emitter.path, path_start, material, tag, errors, 0.1 + nose_radius)
         state.tool = op.tool
 
     # ---------------------------------------------------------------- generate

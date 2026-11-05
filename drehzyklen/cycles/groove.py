@@ -33,10 +33,11 @@ corner - where the tool was touched off). The tool width b comes from the tool t
 """
 from __future__ import annotations
 
+import math
 from typing import List
 
 from ..gcode import fmt
-from ..geometry import ContourError, Element
+from ..geometry import ContourError, Element, polyline
 from ..i18n import N_, _
 from .base import Cycle
 from .params import P, feed_param
@@ -70,6 +71,7 @@ class Groove(Cycle):
         super().__init__(values, variables)
         self.tool_width = 0.0
         self.tool_reference = "left"
+        self.tool_radius = 0.0                  # corner radius: rounds the groove bottom
 
     def z_sign(self):
         return 1                                # the flanks are given, no direction
@@ -107,16 +109,36 @@ class Groove(Cycle):
             raise ContourError(_("Inside the groove bottom d must be larger than D"))
         return []
 
+    def corner_radius(self) -> float:
+        """Radius left in the corners of the groove bottom by the corner radius of the tool
+        (at most half the groove width and the groove depth)."""
+        low, high = self.flanks()
+        return max(0.0, min(self.tool_radius, (high - low) / 2, self.depth()))
+
     def outline(self):
         low, high = self.flanks()
         top = self.d_start / 2
         bottom = self.d_end / 2
-        return [Element("line", high, top, high, bottom),
-                Element("line", high, bottom, low, bottom),
-                Element("line", low, bottom, low, top)]
+        radius = self.corner_radius()
+        if radius < 1e-6:
+            return [Element("line", high, top, high, bottom),
+                    Element("line", high, bottom, low, bottom),
+                    Element("line", low, bottom, low, top)]
+        towards_top = 1.0 if top > bottom else -1.0
+        corner_r = bottom + towards_top * radius
+        return [Element("line", high, top, high, corner_r),
+                _fillet((high, corner_r), (high - radius, bottom), (high, bottom),
+                        (high - radius, corner_r), radius),
+                Element("line", high - radius, bottom, low + radius, bottom),
+                _fillet((low + radius, bottom), (low, corner_r), (low, bottom),
+                        (low + radius, corner_r), radius),
+                Element("line", low, corner_r, low, top)]
 
     def material_cuts(self, material=None):
         low, high = self.flanks()
+        if self.corner_radius() >= 1e-6:
+            # groove with rounded bottom corners: cut along its outline
+            return [("inside" if self.inside else "outside", polyline(self.outline(), 5.0))]
         radius_low = min(self.d_start, self.d_end) / 2
         radius_high = max(self.d_start, self.d_end) / 2
         return [("band", low, high, radius_low, radius_high)]
@@ -149,6 +171,7 @@ class Groove(Cycle):
         if tool is not None and tool.kind == "groove":
             self.tool_width = tool.width
             self.tool_reference = tool.reference
+            self.tool_radius = max(0.0, tool.nose_radius or 0.0)
 
     def plunge_positions(self) -> List[float]:
         """Programmed Z of every plunge (reference point of the tool), front flank first."""
@@ -206,3 +229,13 @@ class Groove(Cycle):
                 emitter.feed(x=bottom, f=self.f)
             emitter.dwell(self.dwell)
             emitter.rapid(x=safe)
+
+
+def _fillet(start, end, corner, centre, radius) -> Element:
+    """Quarter arc from start to end around centre that rounds the sharp corner."""
+    for ccw in (False, True):
+        arc = Element("arc", start[0], start[1], end[0], end[1], radius=radius, ccw=ccw,
+                      cz=centre[0], cr=centre[1])
+        if abs(arc.sweep()) < math.pi:          # the short way, past the corner
+            return arc
+    return Element("line", start[0], start[1], end[0], end[1])

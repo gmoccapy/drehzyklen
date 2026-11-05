@@ -354,6 +354,8 @@ class CyclePage(Gtk.Box):
             self.errors = [op.resolve_error]
             self.warnings = []
             return None
+        self.panel.program.tools = self.panel.tools
+        self.panel.program.prepare(op)          # tool data, e.g. corner radius of the groove
         return op
 
     def update(self):

@@ -752,6 +752,25 @@ def test_end_point_is_the_start_of_the_next_cycle():
     assert Facing.START_KEYS is None
 
 
+def test_groove_bottom_has_the_corner_radius_of_the_tool():
+    """The corner radius of the grooving tool rounds the groove bottom - also in the preview of
+    the removed material (not a sharp rectangle)."""
+    from types import SimpleNamespace
+    from drehzyklen.cycles.groove import Groove
+    tool = SimpleNamespace(kind="groove", width=3.0, reference="left", nose_radius=0.5)
+    groove = Groove({"side": "outside", "d_start": 50, "d_end": 40, "z_start": -20,
+                     "z_end": -26})
+    assert groove.corner_radius() == 0                # without tool data: sharp
+    groove.prepare(tool)
+    assert groove.corner_radius() == 0.5
+    assert [element.kind for element in groove.outline()].count("arc") == 2
+    material = simulate(Stock({"D": 50}), [groove], None)
+    index = min(range(material.count), key=lambda i: abs(material.z[i] - -20.05))
+    middle = min(range(material.count), key=lambda i: abs(material.z[i] - -23))
+    assert abs(material.outer[middle] - 20) < 1e-6    # groove bottom
+    assert material.outer[index] > 20.2               # material left in the rounded corner
+
+
 if __name__ == "__main__":
     for name, function in list(globals().items()):
         if name.startswith("test_"):
