@@ -2201,6 +2201,7 @@ class DrehzyklenPanel(Gtk.Box):
         """Empty program that is loaded for a moment when the same file is sent again."""
         path = os.path.join(tempfile.gettempdir(), "drehzyklen_reload.ngc")
         with open(path, "w", encoding="utf-8") as file:
+            file.write("G97\n")
             file.write("M2\n")
         return path
 

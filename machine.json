@@ -1,17 +1,20 @@
 {
   "max_rpm": 3000.0,
   "min_rpm": 50.0,
-  "max_vel_x": 3000.0,
-  "max_vel_z": 4000.0,
-  "max_acc_x": 500.0,
-  "max_acc_z": 500.0,
+  "max_vel_x": 9960.0,
+  "max_vel_z": 9960.0,
+  "max_acc_x": 1500.0,
+  "max_acc_z": 1500.0,
   "max_diameter": 200.0,
-  "tc_enabled": false,
-  "tc_x": 0.0,
+  "tc_enabled": true,
+  "tc_x": 200.0,
   "tc_z": 0.0,
+  "tc_move_z": false,
   "clearance": 1.0,
   "retract": 5.0,
   "thread_speed_factor": 0.8,
   "back_tool": false,
-  "program_dir": "~/linuxcnc/nc_files"
+  "program_dir": "/home/norbert/linuxcnc/nc_files",
+  "ini_file": "",
+  "auto_reload_tools": false
 }
