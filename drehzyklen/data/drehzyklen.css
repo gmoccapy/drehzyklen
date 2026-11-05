@@ -29,6 +29,9 @@
 .dz .msg { font-size: 92%; }
 .dz .numpad button { min-width: 54px; min-height: 46px; font-size: 16px; }
 .dz .varbutton { min-height: 40px; }
+/* calculated field ($variables): blue bar in front, red if it cannot be calculated */
+.dz entry.calculated { box-shadow: inset 5px 0 #2a8ad4; }
+.dz entry.calculated-error { box-shadow: inset 5px 0 #d43a2a; }
 .dz.compact button { min-height: 26px; padding: 1px 5px; }
 .dz.compact entry { min-height: 24px; }
 .dz.compact .buttonbar button { min-height: 40px; min-width: 56px; }

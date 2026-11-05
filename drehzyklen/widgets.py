@@ -82,6 +82,11 @@ class NumberField:
         self.entry = entry
         self.allow_empty = allow_empty
         self.variables: Optional[Callable] = None     # () -> Variables: $ in the keypad
+        # calculation with $variables: the field shows its result and the formula again while
+        # it is edited (blue bar in front, red if it cannot be calculated)
+        self.formula: Optional[str] = None
+        self.switching = False                  # text replaced by formula/result, no change
+        self.numpad_open = False
         if width is not None:
             entry.set_width_chars(width)
         entry.set_alignment(1.0)
@@ -89,6 +94,8 @@ class NumberField:
         entry.set_icon_from_icon_name(Gtk.EntryIconPosition.SECONDARY, "input-dialpad-symbolic")
         entry.set_icon_tooltip_text(Gtk.EntryIconPosition.SECONDARY, _("Keypad"))
         entry.connect("icon-press", self.on_numpad)
+        entry.connect("focus-in-event", self.on_focus_in)
+        entry.connect("focus-out-event", self.on_focus_out)
 
     def __getattr__(self, name):
         return getattr(self.entry, name)
@@ -102,13 +109,104 @@ class NumberField:
         return eval_simple(text)
 
     def set_value(self, value):
+        self.formula = None
+        self._mark(None)
         self.entry.set_text(number_text(value))
+
+    # ---- calculated fields
+    def editing(self) -> bool:
+        return self.entry.has_focus() or self.numpad_open
+
+    def text(self) -> str:
+        """What the field holds: the formula of a calculated field, otherwise its text."""
+        if self.formula is not None and not self.editing():
+            return self.formula
+        return self.entry.get_text()
+
+    def set_formula(self, formula: str):
+        self.formula = formula
+        if self.editing():
+            self._show(formula)
+            self._mark("calculated")
+        else:
+            self.show_result()
+
+    def show_result(self):
+        """Show the result of the formula (or the formula itself if it cannot be calculated)."""
+        if self.formula is None or self.editing():
+            return
+        try:
+            value = self.variables().evaluate(self.formula) if self.variables else None
+        except (VariableError, ValueError, TypeError):
+            value = None
+        if value is None:
+            self._show(self.formula)
+            self._mark("calculated-error")
+            self.entry.set_tooltip_text(_("Cannot be calculated: {formula}").format(
+                formula=self.formula))
+        else:
+            self._show(number_text(value))
+            self._mark("calculated")
+            self.entry.set_tooltip_text(_("Calculated: {formula}").format(formula=self.formula))
+
+    def _show(self, text):
+        if self.entry.get_text() == text:
+            return
+        self.switching = True
+        try:
+            self.entry.set_text(text)
+        finally:
+            self.switching = False
+
+    def _mark(self, css_class):
+        context = self.entry.get_style_context()
+        for name in ("calculated", "calculated-error"):
+            if name == css_class:
+                context.add_class(name)
+            else:
+                context.remove_class(name)
+        if css_class is None and self.variables is not None:
+            self.entry.set_tooltip_text(getattr(self.entry, "help_text", None))
+
+    def on_focus_in(self, *_args):
+        if self.formula is not None:
+            self._show(self.formula)
+            self._mark("calculated")
+            GLib.idle_add(self._cursor_to_end)
+        return False
+
+    def _cursor_to_end(self):
+        self.entry.set_position(-1)
+        return False
+
+    def on_focus_out(self, *_args):
+        if not self.numpad_open:
+            GLib.idle_add(self.finish_editing)
+        return False
+
+    def finish_editing(self):
+        """After editing: a text with $ becomes the formula and shows its result."""
+        if self.editing() or self.variables is None:
+            return False
+        text = self.entry.get_text().strip()
+        if "$" in text:
+            self.formula = text
+            self.show_result()
+        elif self.formula is not None:
+            self.formula = None
+            self._mark(None)
+        return False
 
     # the extended keys (calculation, $variables) stay open for the next keypad once shown
     extended = False
 
     def on_numpad(self, *_args):
         popover = Gtk.Popover.new(self.entry)
+        self.numpad_open = True
+        if self.formula is not None:
+            self._show(self.formula)
+            self._mark("calculated")
+        popover.connect("closed", self.on_numpad_closed)
         stack = Gtk.Stack()
         stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
         stack.set_homogeneous(False)
@@ -245,6 +343,10 @@ class NumberField:
 
     def on_numpad_clear(self, _button):
         self.entry.set_text("")
+
+    def on_numpad_closed(self, _popover):
+        self.numpad_open = False
+        GLib.idle_add(self.finish_editing)
 
     def on_numpad_ok(self, _button, popover):
         popover.popdown()
@@ -460,6 +562,12 @@ class NumEntry(Gtk.Entry):
 
     def set_value(self, value):
         self.field.set_value(value)
+
+    def field_text(self) -> str:
+        return self.field.text()
+
+    def set_formula(self, formula: str):
+        self.field.set_formula(formula)
 
 
 class RadioBar(Gtk.Box):
@@ -1066,6 +1174,7 @@ class ParamForm(Gtk.Grid):
                 row += 1
             if param.help and param.kind not in ("contour", "text"):
                 widget.set_tooltip_text(_(param.help))
+                widget.help_text = _(param.help)
             if isinstance(widget, Gtk.Entry):
                 # Enter moves on to the next field
                 widget.connect("activate", self.on_entry_activate, param.key)
@@ -1188,7 +1297,13 @@ class ParamForm(Gtk.Grid):
     def _has_variable(self, key):
         """The field holds a calculation with $variables (it is never overwritten)."""
         widget = self.widgets.get(key)
-        return isinstance(widget, Gtk.Entry) and "$" in widget.get_text()
+        return isinstance(widget, NumEntry) and "$" in widget.field_text()
+
+    def refresh_calculated(self):
+        """Show the results of the calculated fields again (variables or stock changed)."""
+        for widget in self.widgets.values():
+            if isinstance(widget, NumEntry):
+                widget.field.show_result()
 
     def _number(self, key):
         try:
@@ -1285,6 +1400,8 @@ class ParamForm(Gtk.Grid):
         self._changed("contour")
 
     def on_widget_changed(self, widget, key):
+        if isinstance(widget, NumEntry) and widget.field.switching:
+            return                              # only formula <-> result, the value stays
         if isinstance(widget, ToolCombo) and self.tool_picture is not None:
             try:
                 self.tool_picture.show_tool(int(widget.get_active_id()))
@@ -1322,9 +1439,9 @@ class ParamForm(Gtk.Grid):
                     buffer = widget.get_buffer()
                     values[param.key] = buffer.get_text(buffer.get_start_iter(),
                                                         buffer.get_end_iter(), True)
-                elif param.kind in ("float", "int", "optfloat") and "$" in widget.get_text():
+                elif param.kind in ("float", "int", "optfloat") and "$" in widget.field_text():
                     # calculation with $variables: kept as entered, checked with the values
-                    text = widget.get_text().strip()
+                    text = widget.field_text().strip()
                     values[param.key] = text
                     if self.variables is not None:
                         try:
@@ -1379,7 +1496,7 @@ class ParamForm(Gtk.Grid):
                     widget.get_buffer().set_text(str(value))
                 elif param.kind in ("float", "int", "optfloat"):
                     if is_expression(value):
-                        widget.set_text(value)          # calculation with $variables
+                        widget.set_formula(value)       # calculation with $variables
                     else:
                         widget.set_value(value)
                 elif param.kind == "tool":

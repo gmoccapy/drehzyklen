@@ -1638,6 +1638,10 @@ class DrehzyklenPanel(Gtk.Box):
     def refresh_list(self, select: Optional[int] = None):
         column = self.program_column
         self.program.resolve_all()
+        # calculated fields show the results with the current variables and stock
+        self.stock_page.form.refresh_calculated()
+        for page in self.pages.values():
+            page.form.refresh_calculated()
         column.store.clear()
         stock = self.program.stock
         column.store.append(["0", _("Stock"), "", stock.summary(),
