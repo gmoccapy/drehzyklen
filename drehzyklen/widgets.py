@@ -86,6 +86,7 @@ class NumberField:
         # it is edited (blue bar in front, red if it cannot be calculated)
         self.formula: Optional[str] = None
         self.switching = False                  # text replaced by formula/result, no change
+        self.result_shown = False               # the field shows the result, not the formula
         self.numpad_open = False
         if width is not None:
             entry.set_width_chars(width)
@@ -110,6 +111,7 @@ class NumberField:
 
     def set_value(self, value):
         self.formula = None
+        self.result_shown = False
         self._mark(None)
         self.entry.set_text(number_text(value))
 
@@ -127,6 +129,7 @@ class NumberField:
         self.formula = formula
         if self.editing():
             self._show(formula)
+            self.result_shown = False
             self._mark("calculated")
         else:
             self.show_result()
@@ -141,11 +144,13 @@ class NumberField:
             value = None
         if value is None:
             self._show(self.formula)
+            self.result_shown = True
             self._mark("calculated-error")
             self.entry.set_tooltip_text(_("Cannot be calculated: {formula}").format(
                 formula=self.formula))
         else:
             self._show(number_text(value))
+            self.result_shown = True
             self._mark("calculated")
             self.entry.set_tooltip_text(_("Calculated: {formula}").format(formula=self.formula))
 
@@ -171,6 +176,7 @@ class NumberField:
     def on_focus_in(self, *_args):
         if self.formula is not None:
             self._show(self.formula)
+            self.result_shown = False
             self._mark("calculated")
             GLib.idle_add(self._cursor_to_end)
         return False
@@ -186,8 +192,8 @@ class NumberField:
 
     def finish_editing(self):
         """After editing: a text with $ becomes the formula and shows its result."""
-        if self.editing() or self.variables is None:
-            return False
+        if self.editing() or self.variables is None or self.result_shown:
+            return False                        # still edited, or already finished
         text = self.entry.get_text().strip()
         if "$" in text:
             self.formula = text
@@ -205,6 +211,7 @@ class NumberField:
         self.numpad_open = True
         if self.formula is not None:
             self._show(self.formula)
+            self.result_shown = False
             self._mark("calculated")
         popover.connect("closed", self.on_numpad_closed)
         stack = Gtk.Stack()
