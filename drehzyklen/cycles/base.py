@@ -40,7 +40,7 @@ from ..geometry import Element
 from ..i18n import _
 from ..machine import Machine
 from ..material import Material
-from ..variables import VariableError, is_expression, resolve_values
+from ..variables import NUMBER_KINDS, VariableError, is_expression, resolve_values
 from .params import (CUTTING_DATA_KEYS, INSIDE, SIDE, SPEED_FEED_MODES, TECH, P, feed_mode_of,
                      migrate_values, spindle_mode_of)
 
@@ -97,6 +97,30 @@ class Cycle:
             defaults = {param.key: param.default for param in self.all_params()}
             self.v = {key: defaults.get(key, value) if is_expression(value) else value
                       for key, value in self.raw.items()}
+
+    def limit_problems(self) -> List[str]:
+        """Values outside the limits of their field (e.g. after a variable or the stock was
+        changed, the fields themselves check only what is typed in)."""
+        problems = []
+        inside = self.HAS_SIDE and self.inside
+        for param in self.all_params():
+            if param.kind not in NUMBER_KINDS or (param.min is None and param.max is None):
+                continue
+            if param.show is not None and (param.show == "in") != inside:
+                continue
+            if param.when and self.v.get(param.when[0]) not in param.when[1]:
+                continue
+            value = self.v.get(param.key)
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                continue
+            field = param.sym or _(param.label)
+            if param.min is not None and value < param.min - 1e-9:
+                problems.append(_("{field}: at least {limit}").format(
+                    field=field, limit=f"{param.min:g}") + f" ({value:g})")
+            if param.max is not None and value > param.max + 1e-9:
+                problems.append(_("{field}: at most {limit}").format(
+                    field=field, limit=f"{param.max:g}") + f" ({value:g})")
+        return problems
 
     @classmethod
     def all_params(cls) -> List[P]:

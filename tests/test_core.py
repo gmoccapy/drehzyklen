@@ -727,6 +727,19 @@ def test_npt_taper_thread_with_g33():
     assert abs(final - expected) < 1e-3
 
 
+def test_variable_change_out_of_limits_is_an_error():
+    """A calculated value outside the limits of its field (here Ø end < 0 after the stock was
+    made thinner) is an error of that step, shown in red in the program list."""
+    long_turning = LongTurning({"tool": 1, "d_start": "$StockDiameter",
+                                "d_end": "$StockDiameter - 20", "z_start": 0, "z_end": -20})
+    program = Program(Machine(), [long_turning], stock=Stock({"D": 50}), tools=tool_table())
+    assert not any("d:" in error for error in program.generate().errors)
+    program.stock = Stock({"D": 15})
+    errors = program.generate().errors
+    assert any("d:" in error and "(-5)" in error for error in errors), errors
+    assert 1 in program.errors_by_row(errors)
+
+
 if __name__ == "__main__":
     for name, function in list(globals().items()):
         if name.startswith("test_"):

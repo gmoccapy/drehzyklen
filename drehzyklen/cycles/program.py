@@ -34,7 +34,7 @@ import datetime
 import json
 import math
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from ..gcode import Emitter, Segment, fmt
 from ..geometry import ContourError, Element
@@ -297,6 +297,19 @@ class Program:
                         z=z, x=2 * r))
                     return
 
+    def errors_by_row(self, errors: List[str]) -> Dict[int, List[str]]:
+        """Errors sorted to the rows of the program list: 0 = stock, 1… = the cycles."""
+        rows: Dict[int, List[str]] = {}
+        tags = [(number, self.tag(number, op)) for number, op in enumerate(self.ops, 1)]
+        for error in errors:
+            row = 0
+            for number, tag in tags:
+                if error.startswith(tag):
+                    row = number
+                    break
+            rows.setdefault(row, []).append(error)
+        return rows
+
     @staticmethod
     def tag(number: int, op: Cycle) -> str:
         return _("Op {number} ({title}): ").format(number=number, title=op.title())
@@ -315,6 +328,10 @@ class Program:
             tag = self.tag(number, op)
             if op.resolve_error:
                 errors.append(tag + op.resolve_error)
+                continue
+            limit_problems = op.limit_problems()
+            if limit_problems:
+                errors.extend(tag + problem for problem in limit_problems)
                 continue
             try:
                 for warning in op.check(machine):

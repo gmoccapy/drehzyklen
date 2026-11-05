@@ -943,6 +943,9 @@ class SettingsPage:
 
 # =========================================================================== left column
 
+ERROR_ROW_COLOR = "#d01b1b"           # program list: steps with errors
+
+
 class ProgramColumn:
     """Program list; the widgets come from the Glade file (``program_column``)."""
 
@@ -1646,7 +1649,7 @@ class DrehzyklenPanel(Gtk.Box):
         stock = self.program.stock
         column.store.append(["0", _("Stock"), "", stock.summary(),
                              GLib.markup_escape_text(_("Stock and clamping") + ": "
-                                                     + stock.summary())])
+                                                     + stock.summary()), None])
         for index, op in enumerate(self.program.ops, 1):
             if op.HAS_TOOL:
                 tool_text = str(int(op.tool))
@@ -1656,7 +1659,7 @@ class DrehzyklenPanel(Gtk.Box):
             if op.HAS_SIDE and op.inside:
                 title += " " + _("inside")
             column.store.append([str(index), title, tool_text, op.summary(),
-                                 GLib.markup_escape_text(f"{op.title()}: {op.summary()}")])
+                                 GLib.markup_escape_text(f"{op.title()}: {op.summary()}"), None])
         if select is not None and 0 <= select < len(self.program.ops):
             column.select(select)
         self.refresh_gcode()
@@ -1765,18 +1768,79 @@ class DrehzyklenPanel(Gtk.Box):
         if result.errors:
             text += " · " + _("{count} error(s)").format(count=len(result.errors))
         self.program_column.status.set_text(text)
+        self.mark_error_rows(result.errors)
         self.update_view()
         return result
+
+    def mark_error_rows(self, errors):
+        """Rows of the program list with errors in red; the tooltip names the errors."""
+        rows = self.program.errors_by_row(errors)
+        store = self.program_column.store
+        for index, row in enumerate(store):
+            if index == 0:
+                tooltip = _("Stock and clamping") + ": " + self.program.stock.summary()
+            elif index <= len(self.program.ops):
+                op = self.program.ops[index - 1]
+                tooltip = f"{op.title()}: {op.summary()}"
+            else:
+                continue
+            row_errors = rows.get(index, [])
+            if row_errors:
+                tooltip += "\n\n" + "\n".join("✖ " + error for error in row_errors)
+            row[4] = GLib.markup_escape_text(tooltip)
+            row[5] = ERROR_ROW_COLOR if row_errors else None
 
     def gcode_ok(self, result) -> bool:
         if not self.program.ops:
             self.message(_("The program does not contain any cycles yet."))
             return False
         if result.errors:
-            self.message(_("The program contains errors:") + "\n\n" + "\n".join(result.errors),
-                         Gtk.MessageType.ERROR)
-            return False
+            return self.confirm_errors(result.errors)
         return True
+
+    def confirm_errors(self, errors) -> bool:
+        """Errors are listed once more; sending needs an explicit confirmation."""
+        dialog = Gtk.Dialog(title=_("Program with errors"), transient_for=self.dialog_parent(),
+                            modal=True)
+        dialog.add_button(_("Cancel"), Gtk.ResponseType.CANCEL)
+        send_button = dialog.add_button(_("Send anyway"), Gtk.ResponseType.OK)
+        send_button.get_style_context().add_class("destructive-action")
+        send_button.set_sensitive(False)
+        dialog.set_default_response(Gtk.ResponseType.CANCEL)
+        dialog.set_default_size(620, 380)
+        content = dialog.get_content_area()
+        content.set_spacing(8)
+        content.set_border_width(10)
+        heading = Gtk.Label(xalign=0)
+        heading.set_line_wrap(True)
+        heading.set_markup("<b>" + GLib.markup_escape_text(
+            _("The program contains {count} error(s):").format(count=len(errors))) + "</b>")
+        content.pack_start(heading, False, False, 0)
+        error_list = Gtk.Label(xalign=0, yalign=0)
+        error_list.set_line_wrap(True)
+        error_list.set_selectable(True)
+        error_list.set_markup("\n".join(
+            f"<span foreground='{ERROR_ROW_COLOR}'>✖</span> " + GLib.markup_escape_text(error)
+            for error in errors))
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_shadow_type(Gtk.ShadowType.IN)
+        scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroller.add(Gtk.Box(margin=6))
+        scroller.get_child().get_child().pack_start(error_list, True, True, 0)
+        content.pack_start(scroller, True, True, 0)
+        hint = Gtk.Label(xalign=0, label=_("Steps with errors are left out of the G-code or "
+                                           "may be wrong. Better correct the red steps in the "
+                                           "program list."))
+        hint.set_line_wrap(True)
+        content.pack_start(hint, False, False, 0)
+        check = Gtk.CheckButton(label=_("I have read the errors and want to send the program "
+                                        "anyway"))
+        check.connect("toggled", lambda button: send_button.set_sensitive(button.get_active()))
+        content.pack_start(check, False, False, 0)
+        dialog.show_all()
+        answer = dialog.run() == Gtk.ResponseType.OK and check.get_active()
+        dialog.destroy()
+        return answer
 
     def file_name(self):
         characters = []
