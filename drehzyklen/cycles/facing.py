@@ -21,6 +21,10 @@ The passes are computed in a frame where the removal goes towards -Z (z_sign mir
 back-side case Z1 < Z2). Levels: Z1 - ap, Z1 - 2 ap, ... down to Z2 + finishing allowance,
 then one finishing pass at Z2 with the finishing feed.
 
+The switches »Roughing« and »Finishing« work as in the other turning cycles: roughing only
+leaves the finishing allowance, finishing only makes the one finishing pass at Z2 (the
+material in front of it must already be removed down to the allowance).
+
 "Approach side" is the side the tool comes from: outside it is beyond the largest diameter,
 inside it is in the bore below the smallest diameter.
 
@@ -49,17 +53,20 @@ class FacingPlan:
     """Levels and feeds of the facing passes (in the frame with removal towards -Z)."""
 
     def __init__(self, z_first: float, z_last: float, ap: float, allowance: float,
-                 feed_rough: float, feed_finish: float):
+                 feed_rough: float, feed_finish: float, rough: bool = True,
+                 finish: bool = True):
         rough_end = z_last + allowance
         levels = []
-        level = z_first - ap
-        while level > rough_end + 1e-6:
-            levels.append(level)
-            level -= ap
-        if rough_end < z_first - 1e-6:
-            levels.append(rough_end)
+        if rough:
+            level = z_first - ap
+            while level > rough_end + 1e-6:
+                levels.append(level)
+                level -= ap
+            if rough_end < z_first - 1e-6:
+                levels.append(rough_end)
         self.passes: List[Tuple[float, float]] = [(level, feed_rough) for level in levels]
-        self.has_finish = allowance > 0
+        # with roughing and no allowance the last roughing pass is already at Z2
+        self.has_finish = finish and (allowance > 0 or not rough)
         if self.has_finish:
             self.passes.append((z_last, feed_finish))
 
@@ -83,6 +90,8 @@ class Facing(Cycle):
         feed_param("f_rough", N_("Feed roughing"), 0.2, "F"),
         feed_param("f_finish", N_("Feed finishing"), 0.08, "Fs"),
         P("allow_z", N_("Finishing allowance Z"), 0.1, unit="mm", min=0, sym="aZ"),
+        P("do_rough", N_("Roughing"), True, "bool"),
+        P("do_finish", N_("Finishing"), True, "bool"),
     ]
 
     def summary(self):
@@ -100,7 +109,15 @@ class Facing(Cycle):
             raise ContourError(_("Z start and Z end are equal"))
         if abs(self.d_end - self.d_start) < 1e-6:
             raise ContourError(_("Ø start and Ø end are equal"))
+        if not self.do_rough and not self.do_finish:
+            return [_("Roughing and finishing are switched off - the step does not cut")]
         return []
+
+    def rough_only_allowance(self) -> float:
+        """Finishing allowance that stays on the face (roughing only), else 0."""
+        if self.do_rough and not self.do_finish:
+            return self.allow_z
+        return 0.0
 
     def outline(self):
         radius_low = max(min(self.d_start, self.d_end), 0) / 2
@@ -108,9 +125,12 @@ class Facing(Cycle):
         return [Element("line", self.z_end, radius_low, self.z_end, radius_high)]
 
     def material_cuts(self, material=None):
+        if not self.do_rough and not self.do_finish:
+            return []
         radius_low = max(min(self.d_start, self.d_end), 0) / 2
         radius_high = max(self.d_start, self.d_end) / 2
-        return [("band", self.z_end, self.z_start, radius_low, radius_high)]
+        z_end = self.z_end + self.z_sign() * self.rough_only_allowance()
+        return [("band", z_end, self.z_start, radius_low, radius_high)]
 
     def moving_inward(self) -> bool:
         """Does the facing cut run towards the centre (D > d)?"""
@@ -161,7 +181,8 @@ class Facing(Cycle):
         work = TransformedEmitter(emitter, 1, sign)
         z_first = sign * self.z_start
         z_last = sign * self.z_end
-        plan = FacingPlan(z_first, z_last, self.ap, self.allow_z, self.f_rough, self.f_finish)
+        plan = FacingPlan(z_first, z_last, self.ap, self.allow_z, self.f_rough, self.f_finish,
+                          rough=bool(self.do_rough), finish=bool(self.do_finish))
         start_d = self.d_start
         end_d = self.d_end
         if self.inside:

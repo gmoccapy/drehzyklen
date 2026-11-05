@@ -844,6 +844,29 @@ def test_roughing_only_leaves_the_finishing_allowance():
     assert abs(outer(simulate(stock, program.ops, None), -10) - 20.0) < 1e-6
 
 
+def test_facing_roughing_and_finishing_switches():
+    """Facing has the switches »Roughing« and »Finishing« like the other turning cycles."""
+    def face_levels(values):
+        op = Facing(dict({"d_start": 50, "d_end": -0.4, "z_start": 1, "z_end": 0, "ap": 0.5,
+                          "allow_z": 0.1}, **values))
+        result = Program(Machine(), [op], stock=Stock({"D": 50})).generate()
+        assert not result.errors, result.errors
+        levels = [round(segment.z0, 3) for segment in result.path
+                  if segment.kind == "feed" and abs(segment.z0 - segment.z1) < 1e-9
+                  and abs(segment.x0 - segment.x1) > 1]
+        return levels, "(Finishing)" in result.gcode, op
+    levels, finishing, _op = face_levels({})
+    assert levels == [0.5, 0.1, 0.0] and finishing, levels
+    levels, finishing, op = face_levels({"do_finish": False})
+    assert levels == [0.5, 0.1] and not finishing, levels
+    assert op.material_cuts()[0][1] == 0.1          # the allowance stays
+    levels, finishing, _op = face_levels({"do_rough": False})
+    assert levels == [0.0] and finishing, levels
+    levels, finishing, op = face_levels({"do_rough": False, "do_finish": False})
+    assert levels == [] and op.material_cuts() == []
+    assert op.check(Machine())                      # warning: the step does not cut
+
+
 if __name__ == "__main__":
     for name, function in list(globals().items()):
         if name.startswith("test_"):
