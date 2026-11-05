@@ -867,6 +867,27 @@ def test_facing_roughing_and_finishing_switches():
     assert op.check(Machine())                      # warning: the step does not cut
 
 
+def test_facing_as_part_of_one_contour():
+    """A facing step becomes the face of the contour, cut where the next piece starts."""
+    from drehzyklen.cycles import FinishContour
+    from drehzyklen.cycles.merge import contour_text, merged_values
+    outside = [Facing({"tool": 1, "d_start": 66, "d_end": -0.4, "z_start": 1, "z_end": 0,
+                       "ap": 0.5}),
+               LongTurning({"tool": 1, "d_start": 64, "d_end": 40, "z_start": 0, "z_end": -30})]
+    assert contour_text(outside, [1, 2]).split() == ["X0", "Z0", "X40", "Z0", "X40", "Z-30",
+                                                     "X64", "Z-30"]
+    assert merged_values(outside, [1, 2])["ap"] == 1.5     # cutting data of the long turning
+    inside = [Facing({"tool": 1, "side": "inside", "d_start": 18, "d_end": 40, "z_start": 1,
+                      "z_end": 0}),
+              LongTurning({"tool": 1, "side": "inside", "d_start": 20, "d_end": 30,
+                           "z_start": 0, "z_end": -20})]
+    assert contour_text(inside, [1, 2]).split() == ["X40", "Z0", "X30", "Z0", "X30", "Z-20",
+                                                    "X20", "Z-20"]
+    finish = FinishContour({"tool": 1, "first": 1, "last": 2})
+    result = Program(Machine(), outside + [finish], stock=Stock({"D": 66})).generate()
+    assert not result.errors, result.errors
+
+
 if __name__ == "__main__":
     for name, function in list(globals().items()):
         if name.startswith("test_"):

@@ -26,6 +26,10 @@ The finished contour of each step comes from ``outline()`` (real frame: Z, radiu
 run-out faces of long turning (radial lines at the start and end) are left out between two
 steps; the pieces are joined with a line where they do not meet. Chamfers/radii (edge steps)
 become a corner of the contour point they belong to.
+
+A facing step is a face of the contour (a radial line at Z2). As the first piece it runs from
+the axis side (outside: from the centre, inside: from the outer edge) to where the next piece
+starts; later it starts where the piece before ends. Faces that reach further are cut there.
 """
 from __future__ import annotations
 
@@ -35,7 +39,8 @@ from ..geometry import ContourError, Element, Row, distance, rows_to_text
 from ..i18n import _
 from .params import CORNER_CHAMFER
 
-PIECE_KEYS = ("long", "taper", "contour")     # steps with a piece of the finished contour
+FACE_KEYS = ("facing",)                       # steps whose piece is one face (radial line)
+PIECE_KEYS = ("long", "taper", "contour") + FACE_KEYS   # steps with a piece of the contour
 CORNER_KEYS = ("edge",)                        # steps that only round/chamfer one edge
 MERGE_KEYS = PIECE_KEYS + CORNER_KEYS
 TECH_KEYS = ("tool", "tool_ok", "speed_feed", "speed", "spindle_dir", "coolant")
@@ -54,6 +59,38 @@ def _direction(elements: List[Element]) -> int:
     return 1 if delta > 0 else -1
 
 
+def source_step(steps):
+    """Step whose cutting data the contour takes: the first turning piece, a facing step only
+    if there is no other piece."""
+    pieces = [op for op in steps if op.KEY in PIECE_KEYS]
+    for op in pieces:
+        if op.KEY not in FACE_KEYS:
+            return op
+    return pieces[0]
+
+
+def _face_piece(op, before, after) -> List[Element]:
+    """The face of a facing step as a piece of the contour (see module docstring)."""
+    face = op.outline()[0]
+    z, low, high = face.z0, min(face.r0, face.r1), max(face.r0, face.r1)
+
+    def within(point):
+        return (point is not None and abs(point[0] - z) < TOLERANCE
+                and low - TOLERANCE <= point[1] <= high + TOLERANCE)
+    if before is None:
+        start = high if op.inside else low
+        end = low if op.inside else high
+        if within(after):
+            end = after[1]
+    else:
+        previous = before[1]
+        start = previous if within(before) else min((low, high), key=lambda r: abs(r - previous))
+        end = high if abs(high - start) >= abs(low - start) else low
+    if abs(end - start) < TOLERANCE:
+        return []
+    return [Element("line", z, start, z, end)]
+
+
 def check_steps(ops, numbers: List[int], minimum: int = 2) -> List[str]:
     """Problems that prevent turning the steps (1-based numbers) as one contour (minimum: number
     of steps needed - merging needs two, a finishing step one)."""
@@ -64,8 +101,8 @@ def check_steps(ops, numbers: List[int], minimum: int = 2) -> List[str]:
     steps = [(number, ops[number - 1]) for number in numbers]
     pieces = [(number, op) for number, op in steps if op.KEY in PIECE_KEYS]
     if len(pieces) < 1 or len(steps) < minimum:
-        problems.append(_("Choose at least two steps, one of them long turning, taper or "
-                          "contour"))
+        problems.append(_("Choose at least two steps, one of them long turning, taper, "
+                          "contour or facing"))
         return problems
     for number, op in steps:
         if op.KEY not in MERGE_KEYS:
@@ -92,14 +129,13 @@ def contour_elements(ops, numbers: List[int]) -> Tuple[List[Element], List]:
     steps = [ops[number - 1] for number in numbers]
     pieces = [op for op in steps if op.KEY in PIECE_KEYS]
     edges = [op for op in steps if op.KEY in CORNER_KEYS]
-    result: List[Element] = []
-    direction = 0
+    outlines = []
     for index, op in enumerate(pieces):
         try:
             elements = list(op.outline())
         except (ContourError, ValueError, TypeError, ZeroDivisionError) as error:
             raise ContourError(_("{title}: {error}").format(title=op.title(), error=error))
-        if op.KEY != "contour":
+        if op.KEY not in ("contour",) + FACE_KEYS:
             # run-in/run-out faces of long turning only at the start and the end
             if index > 0:
                 while elements and _radial(elements[0]):
@@ -107,6 +143,15 @@ def contour_elements(ops, numbers: List[int]) -> Tuple[List[Element], List]:
             if index < len(pieces) - 1:
                 while elements and _radial(elements[-1]):
                     elements.pop()
+        outlines.append(elements)
+    result: List[Element] = []
+    direction = 0
+    for index, op in enumerate(pieces):
+        elements = outlines[index]
+        if op.KEY in FACE_KEYS:
+            after = next((outline[0].start for outline in outlines[index + 1:] if outline),
+                         None)
+            elements = _face_piece(op, result[-1].end if result else None, after)
         if not elements:
             continue
         piece_direction = _direction(elements)
@@ -212,7 +257,7 @@ def contour_text(ops, numbers: List[int], minimum: int = 2) -> str:
 
 def merged_values(ops, numbers: List[int]) -> dict:
     """Values of the contour cycle that replaces the steps (cutting data of the first one)."""
-    first = next(ops[number - 1] for number in numbers if ops[number - 1].KEY in PIECE_KEYS)
+    first = source_step([ops[number - 1] for number in numbers])
     values = {key: first.raw[key] for key in TECH_KEYS if key in first.raw}
     for key in ("ap", "f_rough", "f_finish", "allow_x", "allow_z", "do_rough", "do_finish",
                 "comp"):

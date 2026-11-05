@@ -29,7 +29,7 @@ from __future__ import annotations
 from ..geometry import ContourError
 from ..i18n import N_, _
 from .contour import Contour
-from .merge import contour_text
+from .merge import contour_text, source_step
 from .params import COMPENSATION, COMPENSATION_LABELS, P, feed_param
 from .turning import ContourTurner
 
@@ -40,7 +40,7 @@ class FinishContour(Contour):
     SHORT = N_("Finish")
     PARAMS = [
         P("first", N_("From step"), 1, "int", min=1, sym="1",
-          help=N_("First step of the contour (long turning, taper, contour, chamfer)")),
+          help=N_("First step of the contour (long turning, taper, contour, facing, chamfer)")),
         P("last", N_("To step"), 2, "int", min=1, sym="2",
           help=N_("Last step of the contour; all steps in between belong to it")),
         feed_param("f_finish", N_("Feed finishing"), 0.1, "Fs"),
@@ -79,8 +79,7 @@ class FinishContour(Contour):
                                    .format(number=last))
             numbers = list(range(first, last + 1))
             text = contour_text(ops, numbers, minimum=1)
-            source = next(ops[number - 1] for number in numbers
-                          if ops[number - 1].KEY in ("long", "taper", "contour"))
+            source = source_step([ops[number - 1] for number in numbers])
             if source.inside != self.inside:
                 raise ContourError(_("The steps are machined on the other side (outside/inside)"))
         except ContourError as error:

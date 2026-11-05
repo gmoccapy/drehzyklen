@@ -47,7 +47,8 @@ from .cycles import (CYCLES, INSIDE, OUTSIDE, STOCK_PARAMS, Cycle, P, Program, S
                      cycle_from_dict)
 from .cycles.program import NO_TOOL_CHANGE_WARNING  # noqa: E402
 from .cycles.finish import FinishContour  # noqa: E402
-from .cycles.merge import MERGE_KEYS, PIECE_KEYS, contour_text, merged_values  # noqa: E402
+from .cycles.merge import (MERGE_KEYS, contour_text, merged_values,  # noqa: E402
+                           source_step)
 from .cycles.toolcheck import corner_radius_problems, usage_problems  # noqa: E402
 from .geometry import ContourError  # noqa: E402
 from .variables import (STOCK_VARIABLE_HELP, STOCK_VARIABLES, VariableError,  # noqa: E402
@@ -1844,7 +1845,7 @@ class DrehzyklenPanel(Gtk.Box):
         ops = self.program.ops
         if len(ops) < 2:
             self.message(_("The program needs at least two steps (long turning, taper, contour, "
-                           "chamfer)."))
+                           "facing, chamfer)."))
             return
         first, last = self.merge_range()
         dialog = Gtk.Dialog(title=_("Steps as one contour"), transient_for=self.dialog_parent(),
@@ -1955,8 +1956,7 @@ class DrehzyklenPanel(Gtk.Box):
             text = _("Steps {first}–{last} merged into one contour (step {number})").format(
                 first=low, last=high, number=low)
         else:
-            source = next(ops[number - 1] for number in steps
-                          if ops[number - 1].KEY in PIECE_KEYS)
+            source = source_step([ops[number - 1] for number in steps])
             finish_values = {key: source.raw[key] for key in
                              ("side", "tool", "tool_ok", "speed_feed", "speed", "spindle_dir",
                               "coolant") if key in source.raw}
