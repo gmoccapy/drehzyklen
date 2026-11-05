@@ -747,7 +747,8 @@ def test_end_point_is_the_start_of_the_next_cycle():
     assert EdgeBreak({"diameter": 40, "z_start": 0}).end_point() == (40, 0)
     assert Contour({"contour": "X0 Z0\nX40 Z0\nX40 Z-20"}).end_point() == (40, -20)
     assert Facing({}).end_point() is None            # ends in the centre - no start point
-    assert LongTurning.START_KEYS == ("d_start", "z_start")
+    assert LongTurning.START_KEYS == ("d_end", "z_start")   # Ø start stays the material
+    assert Taper.START_KEYS == ("d_start", "z_start")
     assert Facing.START_KEYS is None
 
 

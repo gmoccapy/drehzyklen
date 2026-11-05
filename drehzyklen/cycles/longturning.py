@@ -38,7 +38,8 @@ from .turning import TurningCycle, corner_code, work_row
 class LongTurning(TurningCycle):
     KEY = "long"
     END_KEYS = ("d_end", "z_end")
-    START_KEYS = ("d_start", "z_start")
+    # the turned Ø (Ø end) continues the contour, Ø start stays the material (stock Ø)
+    START_KEYS = ("d_end", "z_start")
     TITLE = N_("Longitudinal turning")
     SHORT = N_("Turn")
     RENAMES = {"stock_d": "d_start", "target_d": "d_end"}

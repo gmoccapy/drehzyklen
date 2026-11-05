@@ -302,6 +302,14 @@ class CyclePage(Gtk.Box):
             if key in self.form.widgets and not self.form._has_variable(key):
                 self.form._set(key, value)
                 changed = True
+        # the material Ø (prefilled with the stock) is the stock again, not a value of the
+        # cycle edited before (e.g. long turning: Ø start)
+        stock_value = self.form._stock_value(self.form.stock, self.side)
+        if stock_value is not None:
+            for param in self.form.params:
+                if (param.skey and param.key not in start_keys
+                        and not self.form._has_variable(param.key)):
+                    self.form._set(param.key, stock_value)
         # Z end moves along: the length of the cycle stays (no cycle running backwards)
         new_z = self.form._number(z_key)
         if (z_key == "z_start" and "z_end" in self.form.widgets and old_z is not None
