@@ -723,6 +723,30 @@ def short_combo():
     return ellipsize_combo(Gtk.ComboBoxText())
 
 
+def connect_label_to_switch(event_box, switch):
+    """A click on the label (inside ``event_box``) toggles the switch, like on a check box."""
+    def on_press(_widget, event):
+        if event.button == 1 and switch.is_sensitive():
+            switch.set_active(not switch.get_active())
+    event_box.connect("button-press-event", on_press)
+
+
+def labeled_switch(text, active=False):
+    """A switch with a wrapping label to its right (the GUI uses switches, no check boxes).
+    Returns (box, switch); clicking the label toggles the switch too."""
+    switch = Gtk.Switch(valign=Gtk.Align.CENTER)
+    switch.set_active(active)
+    label = Gtk.Label(label=text, xalign=0)
+    label.set_line_wrap(True)
+    event_box = Gtk.EventBox()
+    event_box.add(label)
+    connect_label_to_switch(event_box, switch)
+    box = Gtk.Box(spacing=8)
+    box.pack_start(switch, False, False, 0)
+    box.pack_start(event_box, True, True, 0)
+    return box, switch
+
+
 def error_markup(text):
     return f"<span foreground='#e03030'>{GLib.markup_escape_text(text)}</span>"
 

@@ -52,7 +52,8 @@ from .cycles.toolcheck import corner_radius_problems, usage_problems  # noqa: E4
 from .geometry import ContourError  # noqa: E402
 from .variables import (STOCK_VARIABLE_HELP, STOCK_VARIABLES, VariableError,  # noqa: E402
                         Variables, definitions_text, is_expression, parse_definitions)
-from .widgets import error_markup, number_text  # noqa: E402
+from .widgets import (connect_label_to_switch, error_markup, labeled_switch,  # noqa: E402
+                      number_text)
 from .i18n import N_, _  # noqa: E402
 from .machine import MACHINE_FIELDS, MACHINE_HELP, Machine  # noqa: E402
 from .material import simulate  # noqa: E402
@@ -596,9 +597,10 @@ class ToolPage:
         self.reload_button = get("tool_reload")
         self.write_button = get("tool_write")
         self.mirror_check = get("tool_mirror")
-        mirror_label = self.mirror_check.get_child()
-        if isinstance(mirror_label, Gtk.Label):
-            mirror_label.set_line_wrap(True)
+        self.mirror_row = get("tool_mirror_row")
+        mirror_label = get("tool_mirror_label")
+        mirror_label.set_line_wrap(True)
+        connect_label_to_switch(get("tool_mirror_label_box"), self.mirror_check)
         # Enter moves on to the next field
         self.entry_order = [field.entry if isinstance(field, NumberField) else field
                             for field in (self.lead_entry, self.radius_entry, self.width_entry,
@@ -631,7 +633,7 @@ class ToolPage:
         self.loading = True
         self.mirror_check.set_active(table.mirror_table_angles)
         self.loading = False
-        self.mirror_check.set_visible(table.from_linuxcnc)
+        self.mirror_row.set_visible(table.from_linuxcnc)
         self.write_button.set_visible(table.from_linuxcnc)
         self.write_button.set_no_show_all(not table.from_linuxcnc)
         self.source_label.set_text(table.message)
@@ -882,7 +884,7 @@ class ToolPage:
             self.panel.tools.remove(number)
             self.panel.tools_changed(None)
 
-    def on_mirror_toggled(self, check):
+    def on_mirror_toggled(self, check, _pspec=None):
         if self.loading:
             return
         self.panel.tools.set_mirror(check.get_active())
@@ -1073,6 +1075,7 @@ class ViewColumn:
         self.widget = get("view_column")
         self.mode_bar = ButtonGroup({mode: get("view_" + mode) for mode in VIEW_MODES})
         self.rapid_check = get("rapid_check")
+        connect_label_to_switch(get("rapid_label_box"), self.rapid_check)
         self.stack = get("view_stack")
         self.view = ViewArea(panel.machine)
         get("view_slot").pack_start(self.view, True, True, 0)
@@ -1093,7 +1096,7 @@ class ViewColumn:
             self.stack.set_visible_child_name("view")
         self.panel.update_view()
 
-    def on_rapids_toggled(self, check):
+    def on_rapids_toggled(self, check, _pspec=None):
         self.view.show_rapids = check.get_active()
         self.view.queue_draw()
 
@@ -1126,7 +1129,8 @@ REQUIRED_OBJECTS = ("main_box", "main_stack", "outer_paned", "inner_paned", "pag
                     "cycle_bar", "page_tools", "page_settings", "program_column",
                     "program_name", "program_tree", "program_status", "view_column",
                     "view_cycle", "view_help", "view_gcode", "view_program", "view_stack",
-                    "view_slot", "gcode_view", "rapid_check", "message_slot", "settings_page",
+                    "view_slot", "gcode_view", "rapid_check", "rapid_label_box", "message_slot",
+                    "settings_page",
                     "machine_form_scroller", "machine_info", "language_combo",
                     "machine_picture", "machine_picture_hint", "tool_page", "tool_tree",
                     "tool_paned", "tool_kind", "tool_hand", "tool_position", "tool_lead",
@@ -1134,7 +1138,8 @@ REQUIRED_OBJECTS = ("main_box", "main_stack", "outer_paned", "inner_paned", "pag
                     "tool_back", "tool_axis", "tool_comment", "tool_apply", "tool_new",
                     "tool_length", "tool_min_bore", "tool_groove_depth", "tool_reference",
                     "tool_spindle", "button_variables", "button_merge",
-                    "tool_delete", "tool_reload", "tool_write", "tool_mirror", "tool_source")
+                    "tool_delete", "tool_reload", "tool_write", "tool_mirror", "tool_mirror_row",
+                    "tool_mirror_label", "tool_mirror_label_box", "tool_source")
 
 
 def ui_files(config_dir):
@@ -1875,13 +1880,11 @@ class DrehzyklenPanel(Gtk.Box):
             content.pack_start(radio, False, False, 0)
         # without their own finishing pass the steps leave the finishing allowance, the
         # finishing step removes it (otherwise it finishes again with 0)
-        no_finish_check = Gtk.CheckButton(label=_(
+        no_finish_row, no_finish_check = labeled_switch(_(
             "Switch off the finishing passes of these steps - they leave the finishing "
-            "allowance (aX, aZ), the finishing step removes it"))
-        no_finish_check.get_child().set_line_wrap(True)
-        no_finish_check.set_margin_start(24)
-        no_finish_check.set_active(True)
-        content.pack_start(no_finish_check, False, False, 0)
+            "allowance (aX, aZ), the finishing step removes it"), active=True)
+        no_finish_row.set_margin_start(24)
+        content.pack_start(no_finish_row, False, False, 0)
         finish_radio.set_active(True)
         status = Gtk.Label(xalign=0)
         status.set_line_wrap(True)
@@ -1894,7 +1897,7 @@ class DrehzyklenPanel(Gtk.Box):
             return list(range(low, high + 1))
 
         def check(*_args):
-            no_finish_check.set_sensitive(finish_radio.get_active())
+            no_finish_row.set_sensitive(finish_radio.get_active())
             steps = numbers()
             try:
                 if not steps:
@@ -1925,7 +1928,7 @@ class DrehzyklenPanel(Gtk.Box):
         for widget in spins:
             widget.connect("value-changed", check)
         merge_radio.connect("toggled", check)
-        no_finish_check.connect("toggled", check)
+        no_finish_check.connect("notify::active", check)
         check()
         dialog.show_all()
         response = dialog.run()
@@ -2077,10 +2080,11 @@ class DrehzyklenPanel(Gtk.Box):
                                            "program list."))
         hint.set_line_wrap(True)
         content.pack_start(hint, False, False, 0)
-        check = Gtk.CheckButton(label=_("I have read the errors and want to send the program "
-                                        "anyway"))
-        check.connect("toggled", lambda button: send_button.set_sensitive(button.get_active()))
-        content.pack_start(check, False, False, 0)
+        check_row, check = labeled_switch(_("I have read the errors and want to send the "
+                                            "program anyway"))
+        check.connect("notify::active",
+                      lambda switch, _pspec: send_button.set_sensitive(switch.get_active()))
+        content.pack_start(check_row, False, False, 0)
         dialog.show_all()
         answer = dialog.run() == Gtk.ResponseType.OK and check.get_active()
         dialog.destroy()

@@ -860,13 +860,40 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkCheckButton" id="rapid_check">
-                            <property name="label" translatable="yes">Rapids</property>
+                          <object class="GtkBox" id="rapid_row">
                             <property name="visible">True</property>
-                            <property name="can_focus">True</property>
-                            <property name="active">True</property>
-                            <property name="draw_indicator">True</property>
-                            <signal name="toggled" handler="on_rapids_toggled"/>
+                            <property name="can_focus">False</property>
+                            <property name="spacing">6</property>
+                            <child>
+                              <object class="GtkSwitch" id="rapid_check">
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="valign">center</property>
+                                <property name="active">True</property>
+                                <signal name="notify::active" handler="on_rapids_toggled"/>
+                              </object>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="fill">False</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkEventBox" id="rapid_label_box">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <child>
+                                  <object class="GtkLabel">
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">False</property>
+                                    <property name="label" translatable="yes">Rapids</property>
+                                  </object>
+                                </child>
+                              </object>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="fill">False</property>
+                              </packing>
+                            </child>
                           </object>
                           <packing>
                             <property name="expand">False</property>
@@ -1832,13 +1859,41 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkCheckButton" id="tool_mirror">
-                        <property name="label" translatable="yes">Mirror the angles I/J of the tool.tbl in Z</property>
+                      <object class="GtkBox" id="tool_mirror_row">
                         <property name="visible">True</property>
-                        <property name="can_focus">True</property>
-                        <property name="draw_indicator">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="spacing">8</property>
                         <property name="tooltip_text" translatable="yes">If the picture shows a right-hand tool as a left-hand one: switch once and check with a known tool</property>
-                        <signal name="toggled" handler="on_tool_mirror_toggled"/>
+                        <child>
+                          <object class="GtkSwitch" id="tool_mirror">
+                            <property name="visible">True</property>
+                            <property name="can_focus">True</property>
+                            <property name="valign">center</property>
+                            <signal name="notify::active" handler="on_tool_mirror_toggled"/>
+                          </object>
+                          <packing>
+                            <property name="expand">False</property>
+                            <property name="fill">False</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkEventBox" id="tool_mirror_label_box">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <child>
+                              <object class="GtkLabel" id="tool_mirror_label">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="label" translatable="yes">Mirror the angles I/J of the tool.tbl in Z</property>
+                                <property name="xalign">0</property>
+                              </object>
+                            </child>
+                          </object>
+                          <packing>
+                            <property name="expand">True</property>
+                            <property name="fill">True</property>
+                          </packing>
+                        </child>
                       </object>
                       <packing>
                         <property name="expand">False</property>
