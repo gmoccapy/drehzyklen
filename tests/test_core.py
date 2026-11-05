@@ -791,6 +791,42 @@ def test_tool_corner_radius_rounds_inner_corners():
     assert abs(sharp.outer[index] - 25) < 1e-6               # without radius: sharp corner
 
 
+def test_steps_as_one_contour_merge_and_finishing_step():
+    """Long turning, taper and long turning (and a chamfer) as one contour: merged into a
+    contour step or finished by a finishing step over all of them."""
+    from drehzyklen.cycles import FinishContour
+    from drehzyklen.cycles.merge import check_steps, contour_text, merged_values
+    ops = [LongTurning({"tool": 1, "d_start": 64, "d_end": 40, "z_start": 0, "z_end": -30,
+                        "end_kind": "radius", "end_size": 2}),
+           Taper({"tool": 1, "d_start": 44, "d_end": 56, "z_start": -30, "z_end": -40}),
+           LongTurning({"tool": 1, "d_start": 64, "d_end": 56, "z_start": -40, "z_end": -60}),
+           EdgeBreak({"tool": 1, "diameter": 40, "z_start": 0, "kind": "chamfer", "size": 1})]
+    assert not check_steps(ops, [1, 2, 3, 4])
+    text = contour_text(ops, [1, 2, 3, 4])
+    lines = text.splitlines()
+    assert lines[1] == "X40 Z0 C1" and lines[-1] == "X64 Z-60"
+    assert any(line.startswith("G2 X44 Z-30") for line in lines)     # radius as arc
+    contour = Contour(merged_values(ops, [1, 2, 3, 4]))
+    assert not Program(Machine(), [contour], stock=Stock({"D": 64, "L": 70})).generate().errors
+    # finishing step: the steps stay, the contour follows changes of the steps
+    finish = FinishContour({"tool": 1, "first": 1, "last": 4})
+    program = Program(Machine(), ops + [finish], stock=Stock({"D": 64, "L": 70}))
+    result = program.generate()
+    assert not result.errors, result.errors
+    assert "Z-60" in result.gcode.split("--- 5:")[1]
+    ops[2].set("z_end", -55)
+    program.generate()
+    assert "Z-55" in finish.contour and "Z-60" not in finish.contour
+    loaded = Program.from_json(program.to_json(), Machine())
+    loaded.resolve_all()
+    assert isinstance(loaded.ops[4], FinishContour) and not loaded.ops[4].source_error
+    # problems: other tool, a step after the finishing step
+    ops[1].set("tool", 3)
+    assert any("T3" in problem for problem in check_steps(ops, [1, 2]))
+    late = Program(Machine(), [FinishContour({"tool": 1, "first": 1, "last": 2})] + ops[:2])
+    assert late.generate().errors
+
+
 if __name__ == "__main__":
     for name, function in list(globals().items()):
         if name.startswith("test_"):

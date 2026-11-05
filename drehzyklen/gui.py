@@ -46,10 +46,12 @@ from . import i18n, threads, widgets  # noqa: E402
 from .cycles import (CYCLES, INSIDE, OUTSIDE, STOCK_PARAMS, Cycle, P, Program, Stock,  # noqa: E402
                      cycle_from_dict)
 from .cycles.program import NO_TOOL_CHANGE_WARNING  # noqa: E402
+from .cycles.finish import FinishContour  # noqa: E402
+from .cycles.merge import MERGE_KEYS, PIECE_KEYS, contour_text, merged_values  # noqa: E402
 from .cycles.toolcheck import corner_radius_problems, usage_problems  # noqa: E402
 from .geometry import ContourError  # noqa: E402
 from .variables import (STOCK_VARIABLE_HELP, STOCK_VARIABLES, VariableError,  # noqa: E402
-                        Variables, definitions_text, parse_definitions)
+                        Variables, definitions_text, is_expression, parse_definitions)
 from .widgets import error_markup, number_text  # noqa: E402
 from .i18n import N_, _  # noqa: E402
 from .machine import MACHINE_FIELDS, MACHINE_HELP, Machine  # noqa: E402
@@ -355,7 +357,8 @@ class CyclePage(Gtk.Box):
             self.warnings = []
             return None
         self.panel.program.tools = self.panel.tools
-        self.panel.program.prepare(op)          # tool data, e.g. corner radius of the groove
+        # tool data (e.g. corner radius of the groove), contour of a finishing step
+        self.panel.program.prepare(op, self.edit_index)
         return op
 
     def update(self):
@@ -364,6 +367,7 @@ class CyclePage(Gtk.Box):
         if self.cycle_class.HAS_SIDE:
             values["side"] = self.side
         lenient_op = self.cycle_class(values, self.panel.program.variable_set())
+        self.panel.program.prepare(lenient_op, self.edit_index)
         self.help = (self.cycle_class.KEY, lenient_op.help_values(), lenient_op.inside)
         if lenient_op.HAS_TOOL:
             self.form.set_tool_status(self.tool_status(lenient_op))
@@ -1129,7 +1133,7 @@ REQUIRED_OBJECTS = ("main_box", "main_stack", "outer_paned", "inner_paned", "pag
                     "tool_radius", "tool_width", "tool_diameter", "tool_tip", "tool_front",
                     "tool_back", "tool_axis", "tool_comment", "tool_apply", "tool_new",
                     "tool_length", "tool_min_bore", "tool_groove_depth", "tool_reference",
-                    "tool_spindle", "button_variables",
+                    "tool_spindle", "button_variables", "button_merge",
                     "tool_delete", "tool_reload", "tool_write", "tool_mirror", "tool_source")
 
 
@@ -1329,6 +1333,7 @@ class DrehzyklenPanel(Gtk.Box):
                 "on_move_up": self.on_move_up, "on_move_down": self.on_move_down,
                 "on_edit": self.on_edit, "on_duplicate": self.on_duplicate,
                 "on_delete": self.on_delete, "on_language_changed": self.on_language_changed,
+                "on_merge": self.on_merge,
                 "on_machine_apply": self.on_machine_apply,
                 "on_machine_save": self.on_machine_save,
                 "on_machine_reload": self.on_machine_reload,
@@ -1798,6 +1803,153 @@ class DrehzyklenPanel(Gtk.Box):
             del self.program.ops[index]
             self.clear_edit()
             self.refresh_list(min(index, len(self.program.ops) - 1))
+
+    # ---------------------------------------------------------------- steps as one contour
+    def merge_range(self):
+        """Suggested steps (1-based): the run of contour steps around the marked step, otherwise
+        the last run in the program."""
+        ops = self.program.ops
+        mergeable = [op.KEY in MERGE_KEYS for op in ops]
+        selected = self.program_column.selected()
+        if selected is None or not mergeable[selected]:
+            candidates = [index for index, ok in enumerate(mergeable) if ok]
+            if not candidates:
+                return 1, max(1, len(ops))
+            selected = candidates[-1]
+        first = last = selected
+        while first > 0 and mergeable[first - 1]:
+            first -= 1
+        while last + 1 < len(ops) and mergeable[last + 1]:
+            last += 1
+        return first + 1, last + 1
+
+    def renumber_finish_steps(self, mapping):
+        """After steps were removed/inserted: the finishing steps refer to the new numbers."""
+        for op in self.program.ops:
+            if isinstance(op, FinishContour):
+                for key in ("first", "last"):
+                    old = int(op.raw.get(key, 1))
+                    new = mapping(old)
+                    if new != old:
+                        op.set(key, new)
+
+    def on_merge(self, _button):
+        """Several steps as one contour: merge them into a contour step or add a finishing
+        step over them - the operator decides."""
+        ops = self.program.ops
+        if len(ops) < 2:
+            self.message(_("The program needs at least two steps (long turning, taper, contour, "
+                           "chamfer)."))
+            return
+        first, last = self.merge_range()
+        dialog = Gtk.Dialog(title=_("Steps as one contour"), transient_for=self.dialog_parent(),
+                            modal=True)
+        dialog.add_button(_("Cancel"), Gtk.ResponseType.CANCEL)
+        apply_button = dialog.add_button(_("Apply"), Gtk.ResponseType.OK)
+        dialog.set_default_size(560, -1)
+        content = dialog.get_content_area()
+        content.set_spacing(8)
+        content.set_border_width(10)
+        info = Gtk.Label(xalign=0, label=_(
+            "Every step turns its own piece of the contour; at the transitions the corner radius "
+            "of the tool leaves small noses. Turned as one contour the tool runs through."))
+        info.set_line_wrap(True)
+        info.set_max_width_chars(60)
+        content.pack_start(info, False, False, 0)
+        grid = Gtk.Grid(row_spacing=6, column_spacing=8)
+        spins = []
+        for row, (label, value) in enumerate(((_("From step"), first), (_("To step"), last))):
+            grid.attach(Gtk.Label(label=label, xalign=0), 0, row, 1, 1)
+            spin = Gtk.SpinButton.new_with_range(1, len(ops), 1)
+            spin.set_value(value)
+            grid.attach(spin, 1, row, 1, 1)
+            spins.append(spin)
+        content.pack_start(grid, False, False, 0)
+        merge_radio = Gtk.RadioButton.new_with_label(None, _(
+            "Merge into one contour - the steps are replaced by one contour step"))
+        finish_radio = Gtk.RadioButton.new_with_label_from_widget(merge_radio, _(
+            "Add a finishing step - the steps stay, a finishing pass over the whole contour "
+            "follows them"))
+        for radio in (merge_radio, finish_radio):
+            radio.get_child().set_line_wrap(True)
+            content.pack_start(radio, False, False, 0)
+        finish_radio.set_active(True)
+        status = Gtk.Label(xalign=0)
+        status.set_line_wrap(True)
+        status.set_max_width_chars(60)
+        status.set_selectable(True)
+        content.pack_start(status, False, False, 4)
+
+        def numbers():
+            low, high = int(spins[0].get_value()), int(spins[1].get_value())
+            return list(range(low, high + 1))
+
+        def check(*_args):
+            steps = numbers()
+            try:
+                if not steps:
+                    raise ContourError(_("»From step« is after »to step«"))
+                text = contour_text(ops, steps)
+            except ContourError as error:
+                status.set_markup(error_markup(str(error)))
+                apply_button.set_sensitive(False)
+                return
+            count = len(text.splitlines())
+            message = _("Steps {first}–{last}: one contour with {count} points.").format(
+                first=steps[0], last=steps[-1], count=count)
+            if merge_radio.get_active() and any(
+                    is_expression(value) for number in steps
+                    for value in ops[number - 1].raw.values()):
+                message += "\n" + _("Calculations with $variables of these steps become "
+                                     "numbers in the contour.")
+            status.set_text(message)
+            apply_button.set_sensitive(True)
+
+        for widget in spins:
+            widget.connect("value-changed", check)
+        merge_radio.connect("toggled", check)
+        check()
+        dialog.show_all()
+        response = dialog.run()
+        steps = numbers()
+        merge = merge_radio.get_active()
+        dialog.destroy()
+        if response != Gtk.ResponseType.OK or not steps:
+            return
+        try:
+            values = merged_values(ops, steps)
+        except ContourError as error:
+            self.message(str(error), Gtk.MessageType.ERROR)
+            return
+        variables = self.program.variable_set()
+        low, high = steps[0], steps[-1]
+        if merge:
+            new_op = cycle_from_dict({"cycle": "contour", "values": values}, variables)
+            ops[low - 1:high] = [new_op]
+            removed = high - low
+            self.renumber_finish_steps(
+                lambda number: number - removed if number > high else min(number, low))
+            index = low - 1
+            text = _("Steps {first}–{last} merged into one contour (step {number})").format(
+                first=low, last=high, number=low)
+        else:
+            source = next(ops[number - 1] for number in steps
+                          if ops[number - 1].KEY in PIECE_KEYS)
+            finish_values = {key: source.raw[key] for key in
+                             ("side", "tool", "tool_ok", "speed_feed", "speed", "spindle_dir",
+                              "coolant") if key in source.raw}
+            finish_values.update(first=low, last=high,
+                                 f_finish=source.v.get("f_finish", 0.1),
+                                 comp=source.v.get("comp", "auto"))
+            self.renumber_finish_steps(lambda number: number + 1 if number > high else number)
+            new_op = cycle_from_dict({"cycle": "finish", "values": finish_values}, variables)
+            ops.insert(high, new_op)
+            index = high
+            text = _("Finishing step for steps {first}–{last} added as step {number}").format(
+                first=low, last=high, number=high + 1)
+        self.clear_edit()
+        self.refresh_list(index)
+        self.program_column.status.set_text(text)
 
     # ---------------------------------------------------------------- G-code
     def schedule_refresh(self):

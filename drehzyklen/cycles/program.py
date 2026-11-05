@@ -48,6 +48,7 @@ from .contour import Contour
 from .drill import Drill
 from .edgebreak import EdgeBreak
 from .facing import Facing
+from .finish import FinishContour
 from .groove import Groove
 from .gcodeblock import GCodeOp
 from .longturning import LongTurning
@@ -55,7 +56,8 @@ from .stock import Stock
 from .taper import Taper
 from .thread import Thread
 
-CYCLES = [Facing, LongTurning, Taper, Thread, EdgeBreak, Contour, Groove, Drill, GCodeOp]
+CYCLES = [Facing, LongTurning, Taper, Thread, EdgeBreak, Contour, FinishContour, Groove, Drill,
+          GCodeOp]
 CYCLE_BY_KEY = {cycle.KEY: cycle for cycle in CYCLES}
 CHECKED_ERRORS = (ContourError, ValueError, TypeError, ZeroDivisionError)
 NO_TOOL_CHANGE_WARNING = N_("No tool change position defined (INI [CHANGE_POSITION] or "
@@ -117,11 +119,15 @@ class Program:
         variables = self.variable_set()
         for op in self.ops:
             op.resolve(variables)
-            self.prepare(op)
+        for position, op in enumerate(self.ops):
+            self.prepare(op, position)
 
-    def prepare(self, op: Cycle):
+    def prepare(self, op: Cycle, position: Optional[int] = None):
         """Give the cycle its tool data (e.g. the grooving tool: width, corner radius - also
-        for the preview of the removed material)."""
+        for the preview of the removed material); a finishing step takes its contour from the
+        steps before it (position: its index in the program, None = appended at the end)."""
+        if isinstance(op, FinishContour):
+            op.attach(self.ops, len(self.ops) if position is None else position)
         if self.tools is not None and op.HAS_TOOL:
             try:
                 op.prepare(self.tools.get(int(op.tool)))

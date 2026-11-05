@@ -545,6 +545,20 @@
                         <property name="top_attach">0</property>
                       </packing>
                     </child>
+                    <child>
+                      <object class="GtkButton" id="button_merge">
+                        <property name="label">⌒</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="hexpand">True</property>
+                        <property name="tooltip_text" translatable="yes">Several steps as one contour: merge them or add a finishing step (removes the noses at the transitions)</property>
+                        <signal name="clicked" handler="on_merge"/>
+                      </object>
+                      <packing>
+                        <property name="left_attach">5</property>
+                        <property name="top_attach">0</property>
+                      </packing>
+                    </child>
                   </object>
                   <packing>
                     <property name="expand">False</property>

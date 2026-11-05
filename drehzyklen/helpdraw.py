@@ -1087,7 +1087,20 @@ def draw_help(cr, width, height, key: str, values: Dict, inside=False, flip=Fals
                        N_("Peck drilling: all the way out after every step"),
                        _("P: dwell {seconds} s").format(seconds=value_text(values.get('dwell')))],
                       font * 0.85)
-    elif key == "contour":
+    elif key == "finish" and not values.get("contour"):
+        cr.set_source_rgb(*HINT)
+        cr.set_font_size(font)
+        lines = [_("Finishing pass over the contour of the steps »from step« … »to step«."),
+                 _("The steps stay; the noses at their transitions are removed."),
+                 ""]
+        if values.get("source_error"):
+            lines.append(values["source_error"])
+        y = 10 + font
+        for line in lines:
+            cr.move_to(10, y)
+            show_text(cr, line)
+            y += 1.5 * font
+    elif key in ("contour", "finish"):
         wide = width > 1.45 * height
         if wide:
             drawing_width, drawing_height = width * 0.6, height
@@ -1203,6 +1216,9 @@ def draw_icon(cr, key: str, size: float, color=(0.9, 0.9, 0.9), accent=(1.0, 0.6
         shape([(22, 20), (22, 16), (18, 14), (16, 9), (13, 8), (8, 8), (2, 3), (2, 20)], True)
         for x, y in ((22, 16), (13, 8), (8, 8), (2, 3)):
             disc(x, y, 1.8, accent)
+    elif key == "finish":
+        shape([(22, 20), (22, 16), (18, 14), (16, 9), (13, 8), (8, 8), (2, 3), (2, 20)], True)
+        shape([(23, 15), (19, 13), (17, 8), (13, 7), (8, 7), (2, 2)], shape_color=accent)
     elif key == "groove":
         shape([(2, 6), (11, 6), (11, 12), (15, 12), (15, 6), (22, 6), (22, 20), (2, 20)], True)
         arrow(13, 1, 13, 10)
