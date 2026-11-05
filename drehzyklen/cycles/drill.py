@@ -73,12 +73,11 @@ class Drill(Cycle):
         feed_param("f", N_("Feed"), 0.1, "F"),
     ]
 
-    def __init__(self, values=None):
-        if values is None:
-            values = {}
-        super().__init__(values)
+    def __init__(self, values=None, variables=None):
+        values = dict(values or {})
         if "speed" not in values:
-            self.v["speed"] = 25.0          # cutting speed for drills
+            values["speed"] = 25.0          # cutting speed for drills
+        super().__init__(values, variables)
 
     @property
     def inside(self):
@@ -136,6 +135,11 @@ class Drill(Cycle):
         if tool.diameter and abs(tool.diameter - self.diameter) > 0.01:
             return [_("T{number}: drill Ø {tool_diameter:g} does not fit D {diameter:g}").format(
                 number=tool.number, tool_diameter=tool.diameter, diameter=self.diameter)]
+        depth = self.z_start - self.tip_z()
+        if tool.usable_length > 0 and depth > tool.usable_length + 1e-6:
+            return [_("T{number}: drilling depth {depth:.1f} mm (with the tip) is longer than the "
+                      "usable length {length:g} mm").format(number=tool.number, depth=depth,
+                                                            length=tool.usable_length)]
         return []
 
     def body(self, emitter, machine, material):

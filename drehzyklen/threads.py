@@ -42,7 +42,8 @@ INCH = 25.4
 # labels of the supplied norms (data/threads.json), listed here for the translation files
 BUILTIN_NORM_LABELS = [N_("free (own values)"), N_("Metric coarse thread"),
                        N_("Metric fine thread"), N_("UNC (inch, coarse)"), N_("UNF (inch, fine)"),
-                       N_("Whitworth BSW (55°)"), N_("Pipe thread G / BSP (55°)")]
+                       N_("Whitworth BSW (55°)"), N_("Pipe thread G / BSP (55°)"),
+                       N_("NPT taper pipe thread (1:16, 60°)")]
 
 
 @dataclass(frozen=True)
@@ -52,9 +53,15 @@ class ThreadSpec:
     diameter: float      # nominal (major) Ø in mm
     pitch: float         # pitch in mm
     angle: float         # flank angle in degrees
+    taper: float = 0.0          # taper 1:k on the Ø (NPT: 16), 0 = straight thread
+    small_pitch_diameter: float = 0.0   # NPT E0: pitch Ø at the small end of the pipe (mm)
+    length: float = 0.0         # NPT L2: effective thread length (mm)
+    depth_factor: float = 0.0   # thread depth = factor · P (NPT 0.8), 0 = from the angle
 
     # ---------------------------------------------------------------- profile
     def depth(self, inside: bool) -> float:
+        if self.depth_factor > 0:
+            return self.depth_factor * self.pitch
         if self.angle < 57.5:
             return 0.6403 * self.pitch
         if inside:
@@ -77,13 +84,22 @@ class ThreadSpec:
         return self.diameter - 0.1 * self.pitch
 
     def cycle_diameter(self, inside: bool) -> float:
-        """Value for the field D of the thread cycle: outside nominal Ø, inside core hole Ø."""
+        """Value for the field D of the thread cycle: outside nominal Ø, inside core hole Ø.
+
+        Taper thread (NPT): D is the Ø at the start of the thread Z1 - outside the major Ø at
+        the small end (E0 + h), inside the minor Ø at the opening, which lies the thread length
+        L2 before E0 (E0 + L2/k - h)."""
+        if self.taper > 0 and self.small_pitch_diameter > 0:
+            height = self.depth(inside)
+            if inside:
+                return self.small_pitch_diameter + self.length / self.taper - height
+            return self.small_pitch_diameter + height
         if inside:
             return self.minor_diameter()
         return self.diameter
 
     def pitch_text(self) -> str:
-        if self.norm in ("UNC", "UNF", "BSW", "G"):
+        if self.norm in ("UNC", "UNF", "BSW", "G", "NPT"):
             threads_per_inch = INCH / self.pitch
             return _("{tpi:g} tpi = P{pitch:.4g}").format(tpi=threads_per_inch, pitch=self.pitch)
         return f"P{self.pitch:g}"
@@ -127,7 +143,21 @@ def _spec_from_entry(entry: dict) -> ThreadSpec:
         angle = float(NORMS[norm].get("angle", 60.0))
     if diameter <= 0 or pitch <= 0:
         raise ValueError(_("Ø and pitch must be greater than 0"))
-    return ThreadSpec(str(entry["name"]), norm, diameter, pitch, angle)
+    norm_values = NORMS[norm]
+    taper = float(entry.get("taper", norm_values.get("taper", 0.0)))
+    depth_factor = float(entry.get("depth_factor", norm_values.get("depth_factor", 0.0)))
+    small_pitch_diameter = 0.0
+    if "e0" in entry:
+        small_pitch_diameter = float(entry["e0"])
+    elif "e0_inch" in entry:
+        small_pitch_diameter = float(entry["e0_inch"]) * INCH
+    length = 0.0
+    if "length" in entry:
+        length = float(entry["length"])
+    elif "length_inch" in entry:
+        length = float(entry["length_inch"]) * INCH
+    return ThreadSpec(str(entry["name"]), norm, diameter, pitch, angle, taper,
+                      small_pitch_diameter, length, depth_factor)
 
 
 def _read(path: str, user_file: bool):
@@ -135,7 +165,9 @@ def _read(path: str, user_file: bool):
         data = json.load(file)
     for key, values in data.get("norms", {}).items():
         NORMS[str(key)] = {"label": str(values.get("label", key)),
-                           "angle": float(values.get("angle", 60.0))}
+                           "angle": float(values.get("angle", 60.0)),
+                           "taper": float(values.get("taper", 0.0)),
+                           "depth_factor": float(values.get("depth_factor", 0.0))}
     for entry in data.get("threads", []):
         try:
             spec = _spec_from_entry(entry)

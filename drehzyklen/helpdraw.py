@@ -272,7 +272,8 @@ class Sketch:
             label_dy = self.font * 0.7
         self.label((z, r_to), symbol, value, anchor=anchor, dy=label_dy)
 
-    def angle(self, center, angle_from, angle_to, radius_px, symbol, value=None, label_distance=16):
+    def angle(self, center, angle_from, angle_to, radius_px, symbol, value=None, label_distance=16,
+              color=DIMENSION):
         """Angle arc around the model point center, angles in the model (z right, r up)."""
         cr = self.cr
         center_x, center_y = self.to_screen(*center)
@@ -282,7 +283,7 @@ class Sketch:
             screen_from, screen_to = -angle_from, -angle_to
         low = min(screen_from, screen_to)
         high = max(screen_from, screen_to)
-        cr.set_source_rgb(*DIMENSION)
+        cr.set_source_rgb(*color)
         cr.set_line_width(1.0)
         cr.new_sub_path()
         cr.arc(center_x, center_y, radius_px, low, high)
@@ -290,7 +291,7 @@ class Sketch:
         middle = (low + high) / 2
         label_x = center_x + (radius_px + label_distance) * math.cos(middle)
         label_y = center_y + (radius_px + label_distance) * math.sin(middle)
-        self.label(self.to_model(label_x, label_y), symbol, value)
+        self.label(self.to_model(label_x, label_y), symbol, value, color=color)
 
     def leader(self, point, label_point, symbol, value=None, anchor="c"):
         """Leader line from the label to the point."""
@@ -772,6 +773,45 @@ def draw_drill(sketch: Sketch, values):
     sketch.label((-30, 9), "S", value_text(values["speed"]))
 
 
+def draw_groove(sketch: Sketch, values, inside):
+    """Radial groove between Z1 and Z2 with several plunges (outside or inside)."""
+    z_front, z_back = -10.0, -20.0
+    if not inside:
+        surface, bottom = 18.0, 11.0
+        sketch.polygon([(z_front, bottom), (z_front, surface), (z_back, surface),
+                        (z_back, bottom)], fill=MATERIAL_REMOVED, stroke=HINT, line_width=0.8,
+                       dash=[3, 3])
+        sketch.polygon([(0, 0), (0, surface), (z_front, surface), (z_front, bottom),
+                        (z_back, bottom), (z_back, surface), (-40, surface), (-40, 0)],
+                       fill=MATERIAL, stroke=EDGE)
+        sketch.axis(-44, 8)
+        label_r = surface + 6
+    else:
+        surface, bottom = 8.0, 15.0
+        sketch.polygon([(z_front, surface), (z_front, bottom), (z_back, bottom),
+                        (z_back, surface)], fill=MATERIAL_REMOVED, stroke=HINT, line_width=0.8,
+                       dash=[3, 3])
+        sketch.polygon([(0, surface), (0, 24), (-40, 24), (-40, surface), (z_back, surface),
+                        (z_back, bottom), (z_front, bottom), (z_front, surface)],
+                       fill=MATERIAL, stroke=EDGE)
+        sketch.axis(-44, 8)
+        label_r = -3
+    direction = 1 if bottom > surface else -1
+    # plunges: first at the front flank, then shifted towards -Z, last at the other flank
+    for z in (z_front - 1.2, z_front - 4.6, z_back + 1.2):
+        sketch.arrow((z, surface - direction * 2.5), (z, bottom - direction * 0.4), PATH, 1.3)
+    sketch.z_mark(z_front, surface, label_r, "Z1", value_text(values["z_start"]), "l")
+    sketch.z_mark(z_back, surface, label_r, "Z2", value_text(values["z_end"]), "r")
+    sketch.dim_r(6, 0, surface, "ØD", value_text(values["d_start"]))
+    sketch.dim_r(-30, 0, bottom, "Ød", value_text(values["d_end"]))
+    if float(values.get("peck") or 0) > 0:
+        step_end = surface + direction * 2.5
+        sketch.dim_r(z_back - 3, surface, step_end, "Q", value_text(values["peck"]),
+                     anchor="r", label_dx=-5)
+    sketch.label((-40, label_r - direction * 4 if not inside else 28), "F",
+                 value_text(values["f"]), anchor="l")
+
+
 def draw_contour_example(sketch: Sketch, values, inside):
     if not inside:
         rows = [(0, 0), (50, 0, "C", 2, 30, "A"), (50, -20), (60, -20, "R", 5), (60, -50),
@@ -1023,6 +1063,18 @@ def draw_help(cr, width, height, key: str, values: Dict, inside=False, flip=Fals
             bounds = (-36, 20, -5, 27)
         sketch = Sketch(cr, 0, 0, width, height, bounds, flip, font)
         draw_edge(sketch, values, inside)
+    elif key == "groove":
+        if inside:
+            bounds = (-46, 14, -8, 32)
+        else:
+            bounds = (-46, 14, -4, 28)
+        sketch = Sketch(cr, 0, 0, width, height, bounds, flip, font)
+        draw_groove(sketch, values, inside)
+        sketch.legend(8, height - 3 * (font * 0.85 + 3) + 2,
+                      [N_("Plunges from the front flank, shifted by 80 % of the tool width"),
+                       N_("Q > 0: chip breaking, back by Rb after every step"),
+                       _("P: dwell {seconds} s").format(seconds=value_text(values.get('dwell')))],
+                      font * 0.85)
     elif key == "drill":
         sketch = Sketch(cr, 0, 0, width, height, (-46, 12, -27, 27), flip, font)
         draw_drill(sketch, values)
@@ -1035,7 +1087,20 @@ def draw_help(cr, width, height, key: str, values: Dict, inside=False, flip=Fals
                        N_("Peck drilling: all the way out after every step"),
                        _("P: dwell {seconds} s").format(seconds=value_text(values.get('dwell')))],
                       font * 0.85)
-    elif key == "contour":
+    elif key == "finish" and not values.get("contour"):
+        cr.set_source_rgb(*HINT)
+        cr.set_font_size(font)
+        lines = [_("Finishing pass over the contour of the steps »from step« … »to step«."),
+                 _("The steps stay; the noses at their transitions are removed."),
+                 ""]
+        if values.get("source_error"):
+            lines.append(values["source_error"])
+        y = 10 + font
+        for line in lines:
+            cr.move_to(10, y)
+            show_text(cr, line)
+            y += 1.5 * font
+    elif key in ("contour", "finish"):
         wide = width > 1.45 * height
         if wide:
             drawing_width, drawing_height = width * 0.6, height
@@ -1087,6 +1152,8 @@ def draw_icon(cr, key: str, size: float, color=(0.9, 0.9, 0.9), accent=(1.0, 0.6
     """
     scale = size / 24.0
     cr.set_line_width(1.6 * scale)
+    if key in ("menu", "send", "gcode_view"):
+        flip = False                    # symbols without a tool position
 
     def point(x, y):
         if flip:
@@ -1126,11 +1193,12 @@ def draw_icon(cr, key: str, size: float, color=(0.9, 0.9, 0.9), accent=(1.0, 0.6
         shape([(2, 4), (14, 4), (14, 20), (2, 20)], True)
         arrow(18, 3, 18, 18)
     elif key == "long":
-        shape([(2, 7), (13, 7), (13, 4), (22, 4), (22, 20), (2, 20)], True)
-        arrow(14, 1.5, 3, 1.5)
+        # turned section at the front (right), machining towards the chuck (left)
+        shape([(22, 7), (11, 7), (11, 4), (2, 4), (2, 20), (22, 20)], True)
+        arrow(23, 2.5, 12, 2.5)
     elif key == "taper":
-        shape([(2, 20), (2, 12), (22, 5), (22, 20)], True)
-        arrow(4, 8, 19, 2.5)
+        shape([(22, 20), (22, 12), (2, 5), (2, 20)], True)
+        arrow(20, 8, 5, 2.5)
     elif key == "thread":
         teeth = [(2, 20), (2, 10)]
         for index in range(5):
@@ -1145,9 +1213,15 @@ def draw_icon(cr, key: str, size: float, color=(0.9, 0.9, 0.9), accent=(1.0, 0.6
         shape([(2, 4), (14, 4), (22, 12), (22, 20), (2, 20)], True)
         shape([(15, 2), (24, 11)], shape_color=accent)
     elif key == "contour":
-        shape([(2, 20), (2, 16), (6, 14), (8, 9), (11, 8), (16, 8), (22, 3), (22, 20)], True)
-        for x, y in ((2, 16), (11, 8), (16, 8), (22, 3)):
+        shape([(22, 20), (22, 16), (18, 14), (16, 9), (13, 8), (8, 8), (2, 3), (2, 20)], True)
+        for x, y in ((22, 16), (13, 8), (8, 8), (2, 3)):
             disc(x, y, 1.8, accent)
+    elif key == "finish":
+        shape([(22, 20), (22, 16), (18, 14), (16, 9), (13, 8), (8, 8), (2, 3), (2, 20)], True)
+        shape([(23, 15), (19, 13), (17, 8), (13, 7), (8, 7), (2, 2)], shape_color=accent)
+    elif key == "groove":
+        shape([(2, 6), (11, 6), (11, 12), (15, 12), (15, 6), (22, 6), (22, 20), (2, 20)], True)
+        arrow(13, 1, 13, 10)
     elif key == "drill":
         shape([(2, 9), (14, 9), (19, 12), (14, 15), (2, 15)], True)
         shape([(0, 12), (24, 12)], shape_color=accent)
@@ -1180,10 +1254,35 @@ def draw_icon(cr, key: str, size: float, color=(0.9, 0.9, 0.9), accent=(1.0, 0.6
         cr.move_to(11 * scale, 16 * scale)
         show_text(cr, "M")
         cr.select_font_face("Sans", 0, 0)
+    elif key == "menu":
+        cr.set_line_width(2.6 * scale)
+        for y in (6, 12, 18):
+            shape([(3, y), (21, y)])
+        cr.set_line_width(1.6 * scale)
+    elif key == "gcode_view":
+        shape([(4, 2), (16, 2), (16, 21), (4, 21), (4, 2)])
+        for y in (6, 9, 12):
+            shape([(7, y), (13, y)], shape_color=accent)
+        cr.set_source_rgb(*color)
+        center_x, center_y = point(15, 15)
+        cr.new_sub_path()
+        cr.arc(center_x, center_y, 4.5 * scale, 0, 2 * math.pi)
+        cr.stroke()
+        cr.set_line_width(2.8 * scale)
+        shape([(18.3, 18.3), (22.5, 22.5)])
+        cr.set_line_width(1.6 * scale)
+    elif key == "send":
+        shape([(2, 3), (12, 3), (12, 21), (2, 21), (2, 3)])
+        for y in (7, 10, 13):
+            shape([(4.5, y), (9.5, y)])
+        cr.set_line_width(2.4 * scale)
+        arrow(11, 15, 22.5, 15)
+        cr.set_line_width(1.6 * scale)
     elif key == "side_out":
         shape([(2, 8), (22, 8), (22, 16), (2, 16)], True)
         arrow(12, 1, 12, 7)
     elif key == "side_in":
         shape([(2, 3), (22, 3), (22, 8), (2, 8)], True)
         shape([(2, 16), (22, 16), (22, 21), (2, 21)], True)
-        arrow(1, 12, 14, 12)
+        # the tool enters the bore from the front (right) towards the chuck (left)
+        arrow(23, 12, 10, 12)

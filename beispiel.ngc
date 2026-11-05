@@ -1,5 +1,5 @@
 %
-(Example shaft - generated with Drehzyklen 2026-10-25)
+(Example shaft - generated with Drehzyklen 2026-11-05)
 (Machine: n 50–3000 1/min · vX 3000 / vZ 4000 mm/min · Ø max 200 · no tool change position  [machine.json])
 (Stock Ø64, Z1…chuck Z-69)
 G18 G7 G21 G90 G91.1 G40 G49 G80 G54
@@ -191,7 +191,7 @@ G0 Z1
 G0 X0
 G0 Z6
 
-(--- 6: Thread [G76]: outside M60×1.5 Z-25…-45 ---)
+(--- 6: Thread: outside M60×1.5 Z-25…-45 ---)
 M9
 M5
 G0 X66

@@ -179,557 +179,491 @@ msgstr "El contorno retrocede en algunos tramos contra la dirección de mecaniza
 msgid "The contour contains an undercut - the tool enters at an angle."
 msgstr "El contorno contiene una entalla – la herramienta entra en oblicuo."
 
-#: drehzyklen/gui.py:125 drehzyklen/cycles/params.py:63
+#: drehzyklen/gui.py:122 drehzyklen/cycles/params.py:63
 msgid "Outside"
 msgstr "Exterior"
 
-#: drehzyklen/gui.py:125
+#: drehzyklen/gui.py:122
 msgid "Outside machining"
 msgstr "Mecanizado exterior"
 
-#: drehzyklen/gui.py:126 drehzyklen/cycles/params.py:63
+#: drehzyklen/gui.py:123 drehzyklen/cycles/params.py:63
 msgid "Inside"
 msgstr "Interior"
 
-#: drehzyklen/gui.py:126
+#: drehzyklen/gui.py:123
 msgid "Inside machining"
 msgstr "Mecanizado interior"
 
-#: drehzyklen/gui.py:139
+#: drehzyklen/gui.py:137
 msgid "＋ Add to program"
 msgstr "＋ Al programa"
 
-#: drehzyklen/gui.py:140
+#: drehzyklen/gui.py:138
 msgid "Append this cycle at the end of the program"
 msgstr "Añadir este ciclo al final del programa"
 
-#: drehzyklen/gui.py:142 drehzyklen/gui.py:512
+#: drehzyklen/gui.py:140 drehzyklen/ui/drehzyklen.ui:1764
 msgid "✔ Apply"
 msgstr "✔ Aplicar"
 
-#: drehzyklen/gui.py:143
+#: drehzyklen/gui.py:141
 msgid "Take the change over into the edited program step"
 msgstr "Aplicar el cambio al paso de programa editado"
 
-#: drehzyklen/gui.py:154
+#: drehzyklen/gui.py:152
 msgid "Choose a snippet - replaces the content of the code field"
 msgstr "Elegir un bloque de texto – sustituye el contenido del campo de código"
 
-#: drehzyklen/gui.py:159
+#: drehzyklen/gui.py:157
 msgid "Insert"
 msgstr "Insertar"
 
-#: drehzyklen/gui.py:160
+#: drehzyklen/gui.py:158
 msgid "Insert the snippet additionally at the cursor"
 msgstr "Insertar además el bloque de texto en la posición del cursor"
 
-#: drehzyklen/gui.py:162
+#: drehzyklen/gui.py:160
 msgid "Clear"
 msgstr "Vaciar"
 
-#: drehzyklen/gui.py:163
+#: drehzyklen/gui.py:161
 msgid "Empty the code field to write a new snippet"
 msgstr "Vaciar el campo de código para escribir un bloque nuevo"
 
-#: drehzyklen/gui.py:165
+#: drehzyklen/gui.py:163
 msgid "Save …"
 msgstr "Guardar …"
 
-#: drehzyklen/gui.py:166
+#: drehzyklen/gui.py:164
 msgid "Save the current code as a snippet under a name"
 msgstr "Guardar el código actual como bloque de texto con un nombre"
 
-#: drehzyklen/gui.py:168 drehzyklen/gui.py:516 drehzyklen/gui.py:851 drehzyklen/widgets.py:354
+#: drehzyklen/gui.py:166 drehzyklen/widgets.py:853 drehzyklen/ui/drehzyklen.ui:540 drehzyklen/ui/drehzyklen.ui:1790
 msgid "Delete"
 msgstr "Borrar"
 
-#: drehzyklen/gui.py:169
+#: drehzyklen/gui.py:167
 msgid "Delete the chosen snippet"
 msgstr "Borrar el bloque de texto elegido"
 
-#: drehzyklen/gui.py:176
+#: drehzyklen/gui.py:174
 msgid "Snippet"
 msgstr "Bloque de texto"
 
-#: drehzyklen/gui.py:225
+#: drehzyklen/gui.py:223
 msgid "Save snippet"
 msgstr "Guardar bloque de texto"
 
-#: drehzyklen/gui.py:225
+#: drehzyklen/gui.py:223
 msgid "Name of the snippet:"
 msgstr "Nombre del bloque:"
 
-#: drehzyklen/gui.py:235
+#: drehzyklen/gui.py:233
 #, python-brace-format
 msgid "Delete the snippet »{name}«?"
 msgstr "¿Borrar el bloque de texto »{name}«?"
 
-#: drehzyklen/gui.py:341
+#: drehzyklen/gui.py:424
 #, python-brace-format
 msgid "(step {number})"
 msgstr "(paso {number})"
 
-#: drehzyklen/gui.py:401 drehzyklen/gui.py:998
+#: drehzyklen/gui.py:484 drehzyklen/gui.py:1284 drehzyklen/gui.py:1714 drehzyklen/gui.py:2025
 msgid "Stock and clamping"
 msgstr "Pieza en bruto y sujeción"
 
-#: drehzyklen/gui.py:404
+#: drehzyklen/gui.py:488
 msgid "The stock is set only here. The stock Ø prefills Ø start in facing and turning; taper, chamfer and contour rough from the existing material. Moves behind the chuck face are errors, drilling/inside machining there only a warning."
 msgstr "La pieza en bruto solo se define aquí. Su Ø rellena el Ø inicial en refrentado y cilindrado; cono, chaflán y contorno desbastan a partir del material existente. Los movimientos detrás de la cara del plato son errores; el taladrado/mecanizado interior allí solo un aviso."
 
-#: drehzyklen/gui.py:441 drehzyklen/gui.py:1002
-msgid "Tools"
-msgstr "Herramientas"
-
-#: drehzyklen/gui.py:449 drehzyklen/gui.py:494
-msgid "Type"
-msgstr "Tipo"
-
-#: drehzyklen/gui.py:449 drehzyklen/gui.py:494
-msgid "Hand"
-msgstr "Mano"
-
-#: drehzyklen/gui.py:449 drehzyklen/gui.py:495
-msgid "Position"
-msgstr "Posición"
-
-#: drehzyklen/gui.py:480
+#: drehzyklen/gui.py:556
 msgid "Point angle of the threading insert, e.g. 60° metric/UNF, 55° Whitworth"
 msgstr "Ángulo de punta de la plaquita de roscar, p. ej. 60° métrica/UNF, 55° Whitworth"
 
-#: drehzyklen/gui.py:485
+#: drehzyklen/gui.py:561
 msgid "Special shape: angles as in the tool.tbl (I, J), clockwise from Z+. Example I120 J70 gives a point angle of 50°"
 msgstr "Forma especial: ángulos como en la tool.tbl (I, J), en sentido horario desde Z+. Ejemplo: I120 J70 da un ángulo de punta de 50°"
 
-#: drehzyklen/gui.py:489
-msgid "Direction of the tool axis (shank), same convention as I/J. Empty = bisector of the insert. The insert may sit asymmetrically, e.g. I120 J70 mounted at 80°"
-msgstr "Dirección del eje de la herramienta (mango), mismo criterio que I/J. Vacío = bisectriz de la plaquita. La plaquita puede estar asimétrica, p. ej. I120 J70 montada a 80°"
+#: drehzyklen/gui.py:565
+msgid "Direction of the holder (shank), counted like I/J clockwise from Z+: 90° = holder at right angles to the spindle axis. Empty = bisector of the insert. Independent of κ, e.g. ISO C with κ 95° in a holder at 90°"
+msgstr "Dirección del portaherramientas (mango), contada como I/J en sentido horario desde Z+: 90° = portaherramientas perpendicular al eje del husillo. Vacío = bisectriz de la plaquita. Independiente de κ, p. ej. ISO C con κ 95° en un portaherramientas a 90°"
 
-#: drehzyklen/gui.py:495
-msgid "Lead angle κ [°]"
-msgstr "Ángulo de posición κ [°]"
+#: drehzyklen/gui.py:571
+msgid "Drill: usable flute length. Inside tool: how deep it can reach into the bore. 0 = not checked"
+msgstr "Broca: longitud útil de la ranura. Herramienta interior: profundidad que alcanza en el agujero. 0 = sin comprobación"
 
-#: drehzyklen/gui.py:496
-msgid "Nose radius r"
-msgstr "Radio de punta r"
+#: drehzyklen/gui.py:574
+msgid "Inside tool: smallest bore Ø the tool fits into. 0 = not checked"
+msgstr "Herramienta interior: Ø de agujero mínimo en el que cabe. 0 = sin comprobación"
 
-#: drehzyklen/gui.py:496
-msgid "Grooving width b"
-msgstr "Ancho de ranurado b"
+#: drehzyklen/gui.py:577
+msgid "Grooving tool: largest grooving depth (radial). 0 = not checked"
+msgstr "Herramienta de ranurar: profundidad máxima de ranurado (radial). 0 = sin comprobación"
 
-#: drehzyklen/gui.py:497 drehzyklen/cycles/drill.py:57
-msgid "Drill Ø"
-msgstr "Ø de la broca"
+#: drehzyklen/gui.py:580
+msgid "Grooving tool: the corner (or the centre) used for touching off - the programmed point"
+msgstr "Herramienta de ranurar: la esquina (o el centro) con la que se tomó la referencia – el punto programado"
 
-#: drehzyklen/gui.py:498
-msgid "Thread point angle ε [°]"
-msgstr "Ángulo de punta de roscar ε [°]"
+#: drehzyklen/gui.py:583
+msgid "Spindle direction for this tool; cycles with »auto« use it. auto = rule of the machine (in front of the centre line M3, behind M4)"
+msgstr "Sentido de giro para esta herramienta; los ciclos con »auto« lo usan. auto = regla de la máquina (delante del eje M3, detrás M4)"
 
-#: drehzyklen/gui.py:499
-msgid "Front angle I [°]"
-msgstr "Ángulo frontal I [°]"
-
-#: drehzyklen/gui.py:500
-msgid "Back angle J [°]"
-msgstr "Ángulo posterior J [°]"
-
-#: drehzyklen/gui.py:501
-msgid "Tool axis [°]"
-msgstr "Eje de la herramienta [°]"
-
-#: drehzyklen/gui.py:502
-msgid "Description"
-msgstr "Descripción"
-
-#: drehzyklen/gui.py:514
-msgid "＋ New"
-msgstr "＋ Nueva"
-
-#: drehzyklen/gui.py:518
-msgid "⟳ Reload"
-msgstr "⟳ Releer"
-
-#: drehzyklen/gui.py:519
-msgid "Read the tool table again (automatically: switch in the machine tab)"
-msgstr "Leer de nuevo la tabla de herramientas (automáticamente: interruptor en la pestaña Máquina)"
-
-#: drehzyklen/gui.py:528
-msgid "→ Write to tool.tbl"
-msgstr "→ Escribir en tool.tbl"
-
-#: drehzyklen/gui.py:529
-msgid "Enter the selected tool with D, I, J, Q into the tool.tbl (X, Z and all other values stay); LinuxCNC reloads the table"
-msgstr "Escribir la herramienta elegida con D, I, J, Q en la tool.tbl (X, Z y los demás valores se mantienen); LinuxCNC recarga la tabla"
-
-#: drehzyklen/gui.py:534
-msgid "Mirror the angles I/J of the tool.tbl in Z"
-msgstr "Invertir en Z los ángulos I/J de la tool.tbl"
-
-#: drehzyklen/gui.py:535
-msgid "If the picture shows a right-hand tool as a left-hand one: switch once and check with a known tool"
-msgstr "Si el dibujo muestra una herramienta a derechas como a izquierdas: cambiar una vez y comprobar con una herramienta conocida"
-
-#: drehzyklen/gui.py:683
+#: drehzyklen/gui.py:788 drehzyklen/gui.py:821 drehzyklen/gui.py:837
 msgid "Please enter valid numbers."
 msgstr "Introduzca números válidos."
 
-#: drehzyklen/gui.py:695
+#: drehzyklen/gui.py:800
 msgid "Special shape: enter the front angle I and the back angle J."
 msgstr "Forma especial: indique el ángulo frontal I y el ángulo posterior J."
 
-#: drehzyklen/gui.py:702
+#: drehzyklen/gui.py:807
 msgid "Special shape: I and J must enclose a point angle between 1° and 179°."
 msgstr "Forma especial: I y J deben formar un ángulo de punta entre 1° y 179°."
 
-#: drehzyklen/gui.py:709
+#: drehzyklen/gui.py:814
 msgid "Choose type, hand and position."
 msgstr "Elegir tipo, mano y posición."
 
-#: drehzyklen/gui.py:712
+#: drehzyklen/gui.py:829
 msgid "Point angle of the threading tool: 20° … 90°."
 msgstr "Ángulo de punta de la herramienta de roscar: 20° … 90°."
 
-#: drehzyklen/gui.py:722 drehzyklen/tools.py:90
+#: drehzyklen/gui.py:853 drehzyklen/tools.py:97
 msgid "new"
 msgstr "nueva"
 
-#: drehzyklen/gui.py:733
+#: drehzyklen/gui.py:864
 msgid "Enter and apply type, hand and position first."
 msgstr "Primero indicar y aplicar tipo, mano y posición."
 
-#: drehzyklen/gui.py:736
+#: drehzyklen/gui.py:867
 #, python-brace-format
 msgid "Write T{number} to the tool.tbl?\nD, I, J, Q and the comment are set, X/Z stay."
 msgstr "¿Escribir T{number} en la tool.tbl?\nSe ajustan D, I, J, Q y el comentario, X/Z se mantienen."
 
-#: drehzyklen/gui.py:749
+#: drehzyklen/gui.py:880
 #, python-brace-format
 msgid "Delete tool T{number}?"
 msgstr "¿Borrar la herramienta T{number}?"
 
-#: drehzyklen/gui.py:768 drehzyklen/gui.py:1003 drehzyklen/gui.py:1058
-msgid "Machine"
-msgstr "Máquina"
+#: drehzyklen/gui.py:949
+#, python-brace-format
+msgid "Picture: {path}"
+msgstr "Imagen: {path}"
 
-#: drehzyklen/gui.py:786
-msgid "Apply"
-msgstr "Aplicar"
+#: drehzyklen/gui.py:952
+#, python-brace-format
+msgid "Put a picture of your machine as machine.svg or machine.png into the folder {folder} - it is shown here."
+msgstr "Coloque una imagen de su máquina como machine.svg o machine.png en la carpeta {folder}; se mostrará aquí."
 
-#: drehzyklen/gui.py:786 drehzyklen/gui.py:1050 drehzyklen/gui.py:1762
-msgid "Save"
-msgstr "Guardar"
-
-#: drehzyklen/gui.py:787
-msgid "Reload from INI"
-msgstr "Recargar desde INI"
-
-#: drehzyklen/gui.py:806
+#: drehzyklen/gui.py:967
 #, python-brace-format
 msgid "Source: {source}. Spindle and axis limits, tool table and tool change position (G53) come from the LinuxCNC INI and override machine.json. The tool change is always done with M6."
 msgstr "Origen: {source}. Los límites de husillo y ejes, la tabla de herramientas y la posición de cambio (G53) vienen del INI de LinuxCNC y sustituyen a machine.json. El cambio de herramienta siempre con M6."
 
-#: drehzyklen/gui.py:810
+#: drehzyklen/gui.py:971
 #, python-brace-format
 msgid "G53 change position from: {source}."
 msgstr "Posición de cambio G53 de: {source}."
 
-#: drehzyklen/gui.py:811 drehzyklen/cycles/program.py:177
+#: drehzyklen/gui.py:972 drehzyklen/cycles/program.py:221
 msgid "machine"
 msgstr "máquina"
 
-#: drehzyklen/gui.py:821 drehzyklen/gui.py:894
-msgid "Program"
-msgstr "Programa"
+#: drehzyklen/gui.py:985
+#, python-brace-format
+msgid "The picture {path} cannot be read: {error}"
+msgstr "No se puede leer la imagen {path}: {error}"
 
-#: drehzyklen/gui.py:824
-msgid "Program name"
-msgstr "Nombre del programa"
-
-#: drehzyklen/gui.py:829 drehzyklen/gui.py:887
-msgid "Cycle"
-msgstr "Ciclo"
-
-#: drehzyklen/gui.py:829
-msgid "Data"
-msgstr "Datos"
-
-#: drehzyklen/gui.py:847
-msgid "Move up"
-msgstr "Subir"
-
-#: drehzyklen/gui.py:848
-msgid "Move down"
-msgstr "Bajar"
-
-#: drehzyklen/gui.py:849
-msgid "Edit (also double click)"
-msgstr "Editar (también doble clic)"
-
-#: drehzyklen/gui.py:850
-msgid "Duplicate"
-msgstr "Duplicar"
-
-#: drehzyklen/gui.py:888
-msgid "Preview of the current tab with stock and removal; the mouse wheel zooms, the left mouse button pans, a double click resets"
-msgstr "Vista previa de la pestaña actual con pieza en bruto y arranque; la rueda del ratón amplía, el botón izquierdo desplaza, el doble clic restablece"
-
-#: drehzyklen/gui.py:890
-msgid "Picture"
-msgstr "Imagen"
-
-#: drehzyklen/gui.py:891
-msgid "Parameter picture of the current tab"
-msgstr "Imagen de parámetros de la pestaña actual"
-
-#: drehzyklen/gui.py:892 drehzyklen/gui.py:1052 drehzyklen/gui.py:1525 drehzyklen/cycles/gcodeblock.py:36
-#: drehzyklen/cycles/gcodeblock.py:37 drehzyklen/cycles/gcodeblock.py:42
-msgid "G-code"
-msgstr "Código G"
-
-#: drehzyklen/gui.py:893
-msgid "Generated G-code, jumps to the marked program step"
-msgstr "Código G generado, salta al paso de programa marcado"
-
-#: drehzyklen/gui.py:895
-msgid "The whole program, the marked step highlighted"
-msgstr "Programa completo, el paso marcado resaltado"
-
-#: drehzyklen/gui.py:908
-msgid "Rapids"
-msgstr "Rápidos"
-
-#: drehzyklen/gui.py:998
+#: drehzyklen/gui.py:1284 drehzyklen/gui.py:1713
 msgid "Stock"
 msgstr "Pieza en bruto"
 
-#: drehzyklen/gui.py:1002
-msgid "Tool table"
-msgstr "Tabla de herramientas"
+#: drehzyklen/gui.py:1374
+msgid "Variables"
+msgstr "Variables"
 
-#: drehzyklen/gui.py:1003
-msgid "Machine data"
-msgstr "Datos de la máquina"
+#: drehzyklen/gui.py:1375 drehzyklen/gui.py:1847 drehzyklen/gui.py:2049 drehzyklen/gui.py:2352
+#: drehzyklen/gui.py:2373
+msgid "Cancel"
+msgstr "Cancelar"
 
-#: drehzyklen/gui.py:1046
-msgid "New"
-msgstr "Nuevo"
+#: drehzyklen/gui.py:1375 drehzyklen/gui.py:1848 drehzyklen/ui/drehzyklen.ui:1018
+msgid "Apply"
+msgstr "Aplicar"
 
-#: drehzyklen/gui.py:1047
-msgid "New program (the stock stays)"
-msgstr "Programa nuevo (la pieza en bruto se mantiene)"
+#: drehzyklen/gui.py:1379
+msgid "One variable per line: Name = value or calculation ; comment. Use them in every number field as $Name or as a calculation like $StockDiameter - 2, in the contour as X[$Diameter - 2]. Changing a value gives a variant of the part."
+msgstr "Una variable por línea: Nombre = valor o cálculo ; comentario. Se usan en cualquier campo numérico como $Nombre o como cálculo, p. ej. $StockDiameter - 2; en el contorno como X[$Diameter - 2]. Cambiar un valor da una variante de la pieza."
 
-#: drehzyklen/gui.py:1048 drehzyklen/gui.py:1764
-msgid "Open"
-msgstr "Abrir"
-
-#: drehzyklen/gui.py:1049
-msgid "Open a project (.dzp)"
-msgstr "Abrir un proyecto (.dzp)"
-
-#: drehzyklen/gui.py:1051
-msgid "Save the project (.dzp)"
-msgstr "Guardar el proyecto (.dzp)"
-
-#: drehzyklen/gui.py:1053
-msgid "Show, complete and save the G-code"
-msgstr "Mostrar, completar y guardar el código G"
-
-#: drehzyklen/gui.py:1054
-msgid "Load"
-msgstr "Cargar"
-
-#: drehzyklen/gui.py:1056
-msgid "Generate the G-code, save it and open it in LinuxCNC"
-msgstr "Generar el código G, guardarlo y abrirlo en LinuxCNC"
-
-#: drehzyklen/gui.py:1060
-msgid "Show/hide the machine tab"
-msgstr "Mostrar/ocultar la pestaña Máquina"
-
-#: drehzyklen/gui.py:1098
-msgid "Language of the user interface and of the G-code comments"
-msgstr "Idioma de la interfaz y de los comentarios del código G"
-
-#: drehzyklen/gui.py:1198
+#: drehzyklen/gui.py:1560
 #, python-brace-format
 msgid "For {numbers} type and cutting direction cannot be derived from the tool.tbl - please enter and apply type, hand and position."
 msgstr "Para {numbers} no se pueden deducir tipo y dirección de corte de la tool.tbl – indique y aplique tipo, mano y posición."
 
-#: drehzyklen/gui.py:1255
+#: drehzyklen/gui.py:1624
 msgid "No messages"
 msgstr "Sin mensajes"
 
-#: drehzyklen/gui.py:1278 drehzyklen/gui.py:1744
+#: drehzyklen/gui.py:1647 drehzyklen/gui.py:2352
 msgid "OK"
 msgstr "Aceptar"
 
-#: drehzyklen/gui.py:1331
+#: drehzyklen/gui.py:1691
 msgid "The tool table was changed - read again"
 msgstr "La tabla de herramientas cambió – leída de nuevo"
 
-#: drehzyklen/gui.py:1354 drehzyklen/tools.py:75 drehzyklen/cycles/base.py:133
+#: drehzyklen/gui.py:1723 drehzyklen/tools.py:82 drehzyklen/cycles/base.py:197
 msgid "inside"
 msgstr "interior"
 
-#: drehzyklen/gui.py:1368
+#: drehzyklen/gui.py:1737
 #, python-brace-format
 msgid "{title} added as step {number}"
 msgstr "{title} añadido como paso {number}"
 
-#: drehzyklen/gui.py:1377
+#: drehzyklen/gui.py:1750
 #, python-brace-format
 msgid "Step {number} changed"
 msgstr "Paso {number} modificado"
 
-#: drehzyklen/gui.py:1458
+#: drehzyklen/gui.py:1841
+msgid "The program needs at least two steps (long turning, taper, contour, chamfer)."
+msgstr "El programa necesita al menos dos pasos (cilindrado, cono, contorno, chaflán)."
+
+#: drehzyklen/gui.py:1845
+msgid "Steps as one contour"
+msgstr "Pasos como un contorno"
+
+#: drehzyklen/gui.py:1853
+msgid "Every step turns its own piece of the contour; at the transitions the corner radius of the tool leaves small noses. Turned as one contour the tool runs through."
+msgstr "Cada paso tornea su propio tramo del contorno; en las transiciones el radio de punta de la herramienta deja pequeñas narices. Torneado como un contorno la herramienta pasa de corrido."
+
+#: drehzyklen/gui.py:1861 drehzyklen/cycles/finish.py:42
+msgid "From step"
+msgstr "Desde el paso"
+
+#: drehzyklen/gui.py:1861 drehzyklen/cycles/finish.py:44
+msgid "To step"
+msgstr "Hasta el paso"
+
+#: drehzyklen/gui.py:1868
+msgid "Merge into one contour - the steps are replaced by one contour step"
+msgstr "Unir en un contorno – los pasos se sustituyen por un paso de contorno"
+
+#: drehzyklen/gui.py:1870
+msgid "Add a finishing step - the steps stay, a finishing pass over the whole contour follows them"
+msgstr "Añadir un paso de acabado – los pasos se mantienen, después sigue una pasada de acabado sobre todo el contorno"
+
+#: drehzyklen/gui.py:1878
+msgid "Switch off the finishing passes of these steps - they leave the finishing allowance (aX, aZ), the finishing step removes it"
+msgstr "Desactivar las pasadas de acabado de estos pasos – dejan la creces de acabado (aX, aZ), el paso de acabado la quita"
+
+#: drehzyklen/gui.py:1901
+msgid "»From step« is after »to step«"
+msgstr "»Desde el paso« está después de »hasta el paso«"
+
+#: drehzyklen/gui.py:1908
+#, python-brace-format
+msgid "Steps {first}–{last}: one contour with {count} points."
+msgstr "Pasos {first}–{last}: un contorno con {count} puntos."
+
+#: drehzyklen/gui.py:1913
+msgid "Calculations with $variables of these steps become numbers in the contour."
+msgstr "Los cálculos con $variables de estos pasos se convierten en números en el contorno."
+
+#: drehzyklen/gui.py:1920
+#, python-brace-format
+msgid "Finishing allowance left: {values}"
+msgstr "Creces de acabado que quedan: {values}"
+
+#: drehzyklen/gui.py:1952
+#, python-brace-format
+msgid "Steps {first}–{last} merged into one contour (step {number})"
+msgstr "Pasos {first}–{last} unidos en un contorno (paso {number})"
+
+#: drehzyklen/gui.py:1975
+#, python-brace-format
+msgid "Finishing step for steps {first}–{last} added as step {number}"
+msgstr "Paso de acabado para los pasos {first}–{last} añadido como paso {number}"
+
+#: drehzyklen/gui.py:1978
+#, python-brace-format
+msgid "finishing switched off in step(s) {numbers}"
+msgstr "acabado desactivado en el/los paso(s) {numbers}"
+
+#: drehzyklen/gui.py:2011
 #, python-brace-format
 msgid "{steps} step(s), {tools} tool(s)"
 msgstr "{steps} paso(s), {tools} herramienta(s)"
 
-#: drehzyklen/gui.py:1460
+#: drehzyklen/gui.py:2013
 #, python-brace-format
 msgid "{count} error(s)"
 msgstr "{count} error(es)"
 
-#: drehzyklen/gui.py:1467
+#: drehzyklen/gui.py:2039
 msgid "The program does not contain any cycles yet."
 msgstr "El programa aún no contiene ciclos."
 
-#: drehzyklen/gui.py:1470
-msgid "The program contains errors:"
-msgstr "El programa contiene errores:"
+#: drehzyklen/gui.py:2047
+msgid "Program with errors"
+msgstr "Programa con errores"
 
-#: drehzyklen/gui.py:1495
+#: drehzyklen/gui.py:2050
+msgid "Send anyway"
+msgstr "Enviar de todos modos"
+
+#: drehzyklen/gui.py:2061
+#, python-brace-format
+msgid "The program contains {count} error(s):"
+msgstr "El programa contiene {count} error(es):"
+
+#: drehzyklen/gui.py:2075
+msgid "Steps with errors are left out of the G-code or may be wrong. Better correct the red steps in the program list."
+msgstr "Los pasos con errores faltan en el código G o pueden ser incorrectos. Mejor corregir los pasos rojos en la lista del programa."
+
+#: drehzyklen/gui.py:2080
+msgid "I have read the errors and want to send the program anyway"
+msgstr "He leído los errores y quiero enviar el programa de todos modos"
+
+#: drehzyklen/gui.py:2110
 msgid "G-code - show and complete"
 msgstr "Código G – mostrar y completar"
 
-#: drehzyklen/gui.py:1497
+#: drehzyklen/gui.py:2114
 msgid "Close"
 msgstr "Cerrar"
 
-#: drehzyklen/gui.py:1497
+#: drehzyklen/gui.py:2114
 msgid "Save as …"
 msgstr "Guardar como …"
 
-#: drehzyklen/gui.py:1498
-msgid "Load into LinuxCNC"
-msgstr "Cargar en LinuxCNC"
+#: drehzyklen/gui.py:2115
+msgid "Send to LinuxCNC"
+msgstr "Enviar a LinuxCNC"
 
-#: drehzyklen/gui.py:1505
+#: drehzyklen/gui.py:2122
 msgid "LinuxCNC is not running"
 msgstr "LinuxCNC no está en marcha"
 
-#: drehzyklen/gui.py:1507
+#: drehzyklen/gui.py:2124
 msgid "Additions here apply to this file only. Code that should stay between two cycles belongs in a »G-code« step (with snippets)."
 msgstr "Lo que se añada aquí solo vale para este archivo. El código que deba quedar entre dos ciclos va en un paso »Código G« (con bloques de texto)."
 
-#: drehzyklen/gui.py:1524
+#: drehzyklen/gui.py:2141
 msgid "Save G-code"
 msgstr "Guardar código G"
 
-#: drehzyklen/gui.py:1538
-msgid "LinuxCNC is not running - the program cannot be loaded.\nTo save it, use »G-code« → »Save as …«."
-msgstr "LinuxCNC no está en marcha – no se puede cargar el programa.\nPara guardarlo use »Código G« → »Guardar como …«."
+#: drehzyklen/gui.py:2142 drehzyklen/cycles/gcodeblock.py:36 drehzyklen/cycles/gcodeblock.py:37 drehzyklen/cycles/gcodeblock.py:42
+#: drehzyklen/ui/drehzyklen.ui:750
+msgid "G-code"
+msgstr "Código G"
 
-#: drehzyklen/gui.py:1552
+#: drehzyklen/gui.py:2160
 #, python-brace-format
 msgid "Saved as\n{path}\n\nLinuxCNC Python module not found - please open the file by hand."
 msgstr "Guardado como\n{path}\n\nNo se encontró el módulo Python de LinuxCNC – abra el archivo manualmente."
 
-#: drehzyklen/gui.py:1560
+#: drehzyklen/gui.py:2168
 msgid "LinuxCNC is running a program - loading is not possible."
 msgstr "LinuxCNC está ejecutando un programa – no es posible cargar."
 
-#: drehzyklen/gui.py:1567
+#: drehzyklen/gui.py:2175
 #, python-brace-format
 msgid "Loaded into LinuxCNC: {path}"
 msgstr "Cargado en LinuxCNC: {path}"
 
-#: drehzyklen/gui.py:1570
+#: drehzyklen/gui.py:2178
 msgid "Program loaded. Please note the hints in the »Program« view."
 msgstr "Programa cargado. Tenga en cuenta los avisos de la vista »Programa«."
 
-#: drehzyklen/gui.py:1574
+#: drehzyklen/gui.py:2182
 #, python-brace-format
 msgid "LinuxCNC error: {error}\nThe file is at {path}"
 msgstr "Error de LinuxCNC: {error}\nEl archivo está en {path}"
 
-#: drehzyklen/gui.py:1584 drehzyklen/gui.py:1711
+#: drehzyklen/gui.py:2192 drehzyklen/gui.py:2319
 #, python-brace-format
 msgid "Saving failed: {error}"
 msgstr "Error al guardar: {error}"
 
-#: drehzyklen/gui.py:1587
+#: drehzyklen/gui.py:2195
 #, python-brace-format
 msgid "Saved: {path}"
 msgstr "Guardado: {path}"
 
-#: drehzyklen/gui.py:1592
+#: drehzyklen/gui.py:2200
 msgid "Discard the current program? (the stock stays)"
 msgstr "¿Descartar el programa actual? (la pieza en bruto se mantiene)"
 
-#: drehzyklen/gui.py:1614
+#: drehzyklen/gui.py:2222
 msgid "Open project"
 msgstr "Abrir proyecto"
 
-#: drehzyklen/gui.py:1615 drehzyklen/gui.py:1632
+#: drehzyklen/gui.py:2223 drehzyklen/gui.py:2240
 msgid "Drehzyklen project"
 msgstr "Proyecto Drehzyklen"
 
-#: drehzyklen/gui.py:1622
+#: drehzyklen/gui.py:2230
 #, python-brace-format
 msgid "The project cannot be read: {error}"
 msgstr "No se puede leer el proyecto: {error}"
 
-#: drehzyklen/gui.py:1630
+#: drehzyklen/gui.py:2238
 msgid "Save project"
 msgstr "Guardar proyecto"
 
-#: drehzyklen/gui.py:1654
+#: drehzyklen/gui.py:2262
 msgid "Please enter a program folder."
 msgstr "Indique una carpeta de programas."
 
-#: drehzyklen/gui.py:1657
+#: drehzyklen/gui.py:2265
 #, python-brace-format
 msgid "The program folder\n{folder}\ndoes not exist. Create it now?"
 msgstr "La carpeta de programas\n{folder}\nno existe. ¿Crearla ahora?"
 
-#: drehzyklen/gui.py:1659
+#: drehzyklen/gui.py:2267
 msgid "Program folder not applied - please enter an existing folder."
 msgstr "Carpeta de programas no aplicada – indique una carpeta existente."
 
-#: drehzyklen/gui.py:1665
+#: drehzyklen/gui.py:2273
 #, python-brace-format
 msgid "The folder cannot be created: {error}"
 msgstr "No se puede crear la carpeta: {error}"
 
-#: drehzyklen/gui.py:1671
+#: drehzyklen/gui.py:2279
 #, python-brace-format
 msgid "The INI file\n{path}\ndoes not exist."
 msgstr "El archivo INI\n{path}\nno existe."
 
-#: drehzyklen/gui.py:1679
-msgid "machine tab"
-msgstr "pestaña Máquina"
+#: drehzyklen/gui.py:2287
+msgid "settings"
+msgstr "ajustes"
 
-#: drehzyklen/gui.py:1688
+#: drehzyklen/gui.py:2296
 msgid "LinuxCNC already passed an INI at the start - the entered INI is only used without a running LinuxCNC."
 msgstr "LinuxCNC ya entregó un INI al arrancar – el INI indicado solo se usa sin LinuxCNC en marcha."
 
-#: drehzyklen/gui.py:1708
+#: drehzyklen/gui.py:2316
 #, python-brace-format
 msgid "Machine data saved: {path}"
 msgstr "Datos de la máquina guardados: {path}"
 
-#: drehzyklen/gui.py:1744 drehzyklen/gui.py:1765
-msgid "Cancel"
-msgstr "Cancelar"
+#: drehzyklen/gui.py:2370 drehzyklen/ui/drehzyklen.ui:162 drehzyklen/ui/drehzyklen.ui:1031
+msgid "Save"
+msgstr "Guardar"
 
-#: drehzyklen/gui.py:1831
+#: drehzyklen/gui.py:2372 drehzyklen/ui/drehzyklen.ui:118
+msgid "Open"
+msgstr "Abrir"
+
+#: drehzyklen/gui.py:2453
 msgid "Drehzyklen - LinuxCNC"
 msgstr "Drehzyklen – LinuxCNC"
 
-#: drehzyklen/gui.py:1878
+#: drehzyklen/gui.py:2498
 #, python-brace-format
 msgid "Project {path} cannot be read: {error}"
 msgstr "No se puede leer el proyecto {path}: {error}"
@@ -750,220 +684,236 @@ msgstr "sí"
 msgid "no"
 msgstr "no"
 
-#: drehzyklen/helpdraw.py:403 drehzyklen/cycles/edgebreak.py:46 drehzyklen/cycles/params.py:74
+#: drehzyklen/helpdraw.py:404 drehzyklen/cycles/edgebreak.py:47 drehzyklen/cycles/params.py:74
 msgid "Chamfer"
 msgstr "Chaflán"
 
-#: drehzyklen/helpdraw.py:403 drehzyklen/widgets.py:234 drehzyklen/cycles/params.py:75
+#: drehzyklen/helpdraw.py:404 drehzyklen/widgets.py:732 drehzyklen/cycles/params.py:75
 msgid "Radius"
 msgstr "Radio"
 
-#: drehzyklen/helpdraw.py:408 drehzyklen/widgets.py:237 drehzyklen/cycles/params.py:74
+#: drehzyklen/helpdraw.py:409 drehzyklen/widgets.py:735 drehzyklen/cycles/params.py:74
 msgid "none"
 msgstr "ninguna"
 
-#: drehzyklen/helpdraw.py:541 drehzyklen/cycles/taper.py:48
+#: drehzyklen/helpdraw.py:542 drehzyklen/cycles/taper.py:50
 msgid "Angle"
 msgstr "Ángulo"
 
-#: drehzyklen/helpdraw.py:543 drehzyklen/cycles/taper.py:48
+#: drehzyklen/helpdraw.py:544 drehzyklen/cycles/taper.py:50
 msgid "End diameter"
 msgstr "Diámetro final"
 
-#: drehzyklen/helpdraw.py:544 drehzyklen/cycles/taper.py:47
+#: drehzyklen/helpdraw.py:545 drehzyklen/cycles/taper.py:49
 msgid "Given by"
 msgstr "Indicado por"
 
-#: drehzyklen/helpdraw.py:581 drehzyklen/widgets.py:246
+#: drehzyklen/helpdraw.py:582 drehzyklen/widgets.py:744
 msgid "Start"
 msgstr "Inicio"
 
-#: drehzyklen/helpdraw.py:689 drehzyklen/cycles/edgebreak.py:52
+#: drehzyklen/helpdraw.py:690 drehzyklen/cycles/edgebreak.py:53
 msgid "Back edge"
 msgstr "Arista posterior"
 
-#: drehzyklen/helpdraw.py:689
+#: drehzyklen/helpdraw.py:690
 msgid "entered obliquely"
 msgstr "entrada en oblicuo"
 
-#: drehzyklen/helpdraw.py:761
+#: drehzyklen/helpdraw.py:762
 msgid "Z2 (tip)"
 msgstr "Z2 (punta)"
 
-#: drehzyklen/helpdraw.py:763
+#: drehzyklen/helpdraw.py:764
 msgid "Z2 (full Ø)"
 msgstr "Z2 (Ø completo)"
 
-#: drehzyklen/helpdraw.py:809 drehzyklen/helpdraw.py:869
+#: drehzyklen/helpdraw.py:849 drehzyklen/helpdraw.py:909
 msgid "(radial depth of cut)"
 msgstr "(profundidad de pasada radial)"
 
-#: drehzyklen/helpdraw.py:903
+#: drehzyklen/helpdraw.py:943
 msgid "0 (solid)"
 msgstr "0 (macizo)"
 
-#: drehzyklen/helpdraw.py:911 drehzyklen/cycles/stock.py:35
+#: drehzyklen/helpdraw.py:951 drehzyklen/cycles/stock.py:36
 msgid "Front face"
 msgstr "Cara frontal"
 
-#: drehzyklen/helpdraw.py:914 drehzyklen/cycles/stock.py:35
+#: drehzyklen/helpdraw.py:954 drehzyklen/cycles/stock.py:36
 msgid "Chuck"
 msgstr "Plato"
 
-#: drehzyklen/helpdraw.py:921
+#: drehzyklen/helpdraw.py:961
 msgid "L: length out of the chuck to the stock front"
 msgstr "L: voladizo desde el plato hasta la cara de la pieza"
 
-#: drehzyklen/helpdraw.py:922
+#: drehzyklen/helpdraw.py:962
 msgid "s: safety distance - moves behind it are errors,"
 msgstr "s: distancia de seguridad – movimientos detrás son errores,"
 
-#: drehzyklen/helpdraw.py:923
+#: drehzyklen/helpdraw.py:963
 msgid "    drilling/inside behind it only a warning"
 msgstr "    taladrado/interior detrás solo un aviso"
 
-#: drehzyklen/helpdraw.py:928
+#: drehzyklen/helpdraw.py:968
 msgid "Own G-code is inserted unchanged between two cycles."
 msgstr "El código G propio se inserta sin cambios entre dos ciclos."
 
-#: drehzyklen/helpdraw.py:930
+#: drehzyklen/helpdraw.py:970
 msgid "Snippets: choosing one replaces the code field, »Insert« adds it at the"
 msgstr "Bloques: elegir uno sustituye el campo, »Insertar« lo añade en el"
 
-#: drehzyklen/helpdraw.py:931
+#: drehzyklen/helpdraw.py:971
 msgid "cursor, »Clear« empties the field, »Save …« stores own snippets."
 msgstr "cursor, »Vaciar« vacía el campo, »Guardar …« crea bloques propios."
 
-#: drehzyklen/helpdraw.py:933
+#: drehzyklen/helpdraw.py:973
 msgid "Example remove chips:"
 msgstr "Ejemplo retirar virutas:"
 
-#: drehzyklen/helpdraw.py:934
+#: drehzyklen/helpdraw.py:974
 msgid "   M5        spindle off"
 msgstr "   M5        husillo parado"
 
-#: drehzyklen/helpdraw.py:935
+#: drehzyklen/helpdraw.py:975
 msgid "   M9        coolant off"
 msgstr "   M9        refrigerante desactivado"
 
-#: drehzyklen/helpdraw.py:936
+#: drehzyklen/helpdraw.py:976
 msgid "   M0        stop (M1 only with optional stop switched on)"
 msgstr "   M0        parada (M1 solo con parada opcional activada)"
 
-#: drehzyklen/helpdraw.py:938
+#: drehzyklen/helpdraw.py:978
 msgid "The tool is at the retract plane in front of the part."
 msgstr "La herramienta está en el plano de retirada delante de la pieza."
 
-#: drehzyklen/helpdraw.py:939
+#: drehzyklen/helpdraw.py:979
 msgid "Own moves must return there."
 msgstr "Los movimientos propios deben volver allí."
 
-#: drehzyklen/helpdraw.py:940
+#: drehzyklen/helpdraw.py:980
 msgid "With »Spindle/coolant on again« the speed,"
 msgstr "Con »Reactivar husillo/refrig.« se emiten de"
 
-#: drehzyklen/helpdraw.py:941
+#: drehzyklen/helpdraw.py:981
 msgid "M3/M4 and M8 are output again after the block."
 msgstr "nuevo la velocidad, M3/M4 y M8 tras el bloque."
 
-#: drehzyklen/helpdraw.py:947
+#: drehzyklen/helpdraw.py:987
 msgid "X Z: line, U W incremental"
 msgstr "X Z: recta, U W incremental"
 
-#: drehzyklen/helpdraw.py:948
+#: drehzyklen/helpdraw.py:988
 msgid "R5: corner radius"
 msgstr "R5: radio de esquina"
 
-#: drehzyklen/helpdraw.py:949
+#: drehzyklen/helpdraw.py:989
 msgid "C2: chamfer 45°"
 msgstr "C2: chaflán 45°"
 
-#: drehzyklen/helpdraw.py:950
+#: drehzyklen/helpdraw.py:990
 msgid "C2 A30: 2 mm on the incoming"
 msgstr "C2 A30: 2 mm en la arista"
 
-#: drehzyklen/helpdraw.py:951
+#: drehzyklen/helpdraw.py:991
 msgid "      edge, 30° to it"
 msgstr "      entrante, 30° respecto a ella"
 
-#: drehzyklen/helpdraw.py:952
+#: drehzyklen/helpdraw.py:992
 msgid "C2 B30: same, outgoing edge"
 msgstr "C2 B30: igual, arista saliente"
 
-#: drehzyklen/helpdraw.py:953
+#: drehzyklen/helpdraw.py:993
 msgid "G2/G3 X Z R: arc"
 msgstr "G2/G3 X Z R: arco"
 
-#: drehzyklen/helpdraw.py:954
+#: drehzyklen/helpdraw.py:994
 msgid "LA: arc > 180°"
 msgstr "LA: arco > 180°"
 
-#: drehzyklen/helpdraw.py:955
+#: drehzyklen/helpdraw.py:995
 msgid "I K: centre (relative)"
 msgstr "I K: centro (relativo)"
 
-#: drehzyklen/helpdraw.py:956
+#: drehzyklen/helpdraw.py:996
 msgid "TS / TE: tangential start/end"
 msgstr "TS / TE: tangente inicio/final"
 
-#: drehzyklen/helpdraw.py:957
+#: drehzyklen/helpdraw.py:997
 msgid "RND / CHR: corner after an arc"
 msgstr "RND / CHR: esquina tras un arco"
 
-#: drehzyklen/helpdraw.py:958
+#: drehzyklen/helpdraw.py:998
 msgid "R0: keep the corner sharp"
 msgstr "R0: dejar la esquina viva"
 
-#: drehzyklen/helpdraw.py:959
+#: drehzyklen/helpdraw.py:999
 msgid "Direction: first -> last point"
 msgstr "Dirección: primer -> último punto"
 
-#: drehzyklen/helpdraw.py:1007
+#: drehzyklen/helpdraw.py:1047
 #, python-brace-format
 msgid "H: {count} spring pass(es)"
 msgstr "H: {count} pasada(s) en vacío"
 
-#: drehzyklen/helpdraw.py:1008
+#: drehzyklen/helpdraw.py:1048
 #, python-brace-format
 msgid "L: {value} (0 none, 1 entry, 2 exit, 3 both)"
 msgstr "L: {value} (0 ninguno, 1 entrada, 2 salida, 3 ambos)"
 
-#: drehzyklen/helpdraw.py:1010
+#: drehzyklen/helpdraw.py:1050
 #, python-brace-format
 msgid "S: {speed} 1/min (G97)"
 msgstr "S: {speed} 1/min (G97)"
 
-#: drehzyklen/helpdraw.py:1029 drehzyklen/cycles/drill.py:46
-msgid "Straight"
-msgstr "Continuo"
+#: drehzyklen/helpdraw.py:1074
+msgid "Plunges from the front flank, shifted by 80 % of the tool width"
+msgstr "Penetraciones desde el flanco delantero, desplazadas un 80 % del ancho de la herramienta"
 
-#: drehzyklen/helpdraw.py:1029 drehzyklen/cycles/drill.py:46
-msgid "Chip breaking"
-msgstr "Rotura de viruta"
+#: drehzyklen/helpdraw.py:1075
+msgid "Q > 0: chip breaking, back by Rb after every step"
+msgstr "Q > 0: rotura de viruta, retroceder Rb tras cada paso"
 
-#: drehzyklen/helpdraw.py:1030 drehzyklen/cycles/drill.py:47
-msgid "Peck drilling"
-msgstr "Descarga de viruta"
-
-#: drehzyklen/helpdraw.py:1033
-#, python-brace-format
-msgid "Mode: {mode}"
-msgstr "Modo: {mode}"
-
-#: drehzyklen/helpdraw.py:1034
-msgid "Chip breaking: back by Rb after every step Q"
-msgstr "Rotura de viruta: retroceder Rb tras cada paso Q"
-
-#: drehzyklen/helpdraw.py:1035
-msgid "Peck drilling: all the way out after every step"
-msgstr "Descarga de viruta: salir del todo tras cada paso"
-
-#: drehzyklen/helpdraw.py:1036
+#: drehzyklen/helpdraw.py:1076 drehzyklen/helpdraw.py:1088
 #, python-brace-format
 msgid "P: dwell {seconds} s"
 msgstr "P: espera {seconds} s"
 
-#: drehzyklen/helpdraw.py:1076
+#: drehzyklen/helpdraw.py:1081 drehzyklen/cycles/drill.py:46
+msgid "Straight"
+msgstr "Continuo"
+
+#: drehzyklen/helpdraw.py:1081 drehzyklen/cycles/drill.py:46
+msgid "Chip breaking"
+msgstr "Rotura de viruta"
+
+#: drehzyklen/helpdraw.py:1082 drehzyklen/cycles/drill.py:47
+msgid "Peck drilling"
+msgstr "Descarga de viruta"
+
+#: drehzyklen/helpdraw.py:1085
+#, python-brace-format
+msgid "Mode: {mode}"
+msgstr "Modo: {mode}"
+
+#: drehzyklen/helpdraw.py:1086
+msgid "Chip breaking: back by Rb after every step Q"
+msgstr "Rotura de viruta: retroceder Rb tras cada paso Q"
+
+#: drehzyklen/helpdraw.py:1087
+msgid "Peck drilling: all the way out after every step"
+msgstr "Descarga de viruta: salir del todo tras cada paso"
+
+#: drehzyklen/helpdraw.py:1093
+msgid "Finishing pass over the contour of the steps »from step« … »to step«."
+msgstr "Pasada de acabado sobre el contorno de los pasos »desde el paso« … »hasta el paso«."
+
+#: drehzyklen/helpdraw.py:1094
+msgid "The steps stay; the noses at their transitions are removed."
+msgstr "Los pasos se mantienen; se eliminan las narices en sus transiciones."
+
+#: drehzyklen/helpdraw.py:1141
 msgid "No parameter picture"
 msgstr "Sin imagen de parámetros"
 
@@ -1085,15 +1035,15 @@ msgstr "Releer automáticamente la tabla de herramientas cuando cambie"
 msgid "No preview"
 msgstr "Sin vista previa"
 
-#: drehzyklen/render.py:267 drehzyklen/cycles/thread.py:51
+#: drehzyklen/render.py:267 drehzyklen/cycles/thread.py:55 drehzyklen/cycles/thread.py:56
 msgid "Thread"
 msgstr "Rosca"
 
-#: drehzyklen/render.py:267 drehzyklen/widgets.py:296 drehzyklen/widgets.py:333
+#: drehzyklen/render.py:267 drehzyklen/widgets.py:795 drehzyklen/widgets.py:832
 msgid "Arc"
 msgstr "Arco"
 
-#: drehzyklen/render.py:267 drehzyklen/cycles/drill.py:73
+#: drehzyklen/render.py:267 drehzyklen/cycles/drill.py:73 drehzyklen/cycles/groove.py:64
 msgid "Feed"
 msgstr "Avance"
 
@@ -1141,50 +1091,59 @@ msgstr "Whitworth BSW (55°)"
 msgid "Pipe thread G / BSP (55°)"
 msgstr "Rosca de tubo G / BSP (55°)"
 
-#: drehzyklen/threads.py:88
+#: drehzyklen/threads.py:46
+msgid "NPT taper pipe thread (1:16, 60°)"
+msgstr "NPT rosca cónica de tubo (1:16, 60°)"
+
+#: drehzyklen/threads.py:104
 #, python-brace-format
 msgid "{tpi:g} tpi = P{pitch:.4g}"
 msgstr "{tpi:g} hilos/pulgada = P{pitch:.4g}"
 
-#: drehzyklen/threads.py:129
+#: drehzyklen/threads.py:145
 msgid "Ø and pitch must be greater than 0"
 msgstr "Ø y paso deben ser mayores que 0"
 
-#: drehzyklen/threads.py:143
+#: drehzyklen/threads.py:175
 #, python-brace-format
 msgid "{file}: entry {entry!r} skipped ({error})"
 msgstr "{file}: entrada {entry!r} omitida ({error})"
 
-#: drehzyklen/threads.py:153
+#: drehzyklen/threads.py:185
 #, python-brace-format
 msgid "Own threads from {path}"
 msgstr "Roscas propias de {path}"
 
-#: drehzyklen/threads.py:178
+#: drehzyklen/threads.py:210
 #, python-brace-format
 msgid "{path} cannot be read: {error}"
 msgstr "No se puede leer {path}: {error}"
 
-#: drehzyklen/tooldraw.py:50
+#: drehzyklen/tooldraw.py:61
 msgid "No tool selected"
 msgstr "Ninguna herramienta elegida"
 
-#: drehzyklen/tooldraw.py:64
+#: drehzyklen/tooldraw.py:75
 msgid "Drill on the centre line, drills towards -Z"
 msgstr "Broca en el eje, taladra hacia -Z"
 
-#: drehzyklen/tooldraw.py:69
+#: drehzyklen/tooldraw.py:80
 msgid "Enter type, hand and position (fields below) - only then can the tool be checked"
 msgstr "Indique tipo, mano y posición (campos abajo) – solo entonces se puede comprobar la herramienta"
 
-#: drehzyklen/tooldraw.py:126 drehzyklen/tooldraw.py:129
+#: drehzyklen/tooldraw.py:91 drehzyklen/tooldraw.py:94
 msgid "Cut"
 msgstr "Corte"
 
-#: drehzyklen/tooldraw.py:135
+#: drehzyklen/tooldraw.py:100
 #, python-brace-format
 msgid "{hand}, {position} · {angles} · source: {source}"
 msgstr "{hand}, {position} · {angles} · origen: {source}"
+
+#: drehzyklen/tooldraw.py:330
+#, python-brace-format
+msgid "{angle}° (clearance {clearance}°)"
+msgstr "{angle}° (ángulo libre {clearance}°)"
 
 #: drehzyklen/tools.py:52
 msgid "ISO C 80°"
@@ -1230,290 +1189,400 @@ msgstr "Forma especial"
 msgid "unknown"
 msgstr "desconocida"
 
-#: drehzyklen/tools.py:74
-msgid "right"
-msgstr "derecha"
+#: drehzyklen/tools.py:71
+msgid "auto (machine)"
+msgstr "auto (máquina)"
 
-#: drehzyklen/tools.py:74
-msgid "left"
-msgstr "izquierda"
+#: drehzyklen/tools.py:73
+msgid "left corner"
+msgstr "esquina izquierda"
 
-#: drehzyklen/tools.py:74 drehzyklen/tools.py:77
-msgid "neutral"
-msgstr "neutra"
-
-#: drehzyklen/tools.py:75 drehzyklen/cycles/base.py:134
-msgid "outside"
-msgstr "exterior"
-
-#: drehzyklen/tools.py:75
+#: drehzyklen/tools.py:73 drehzyklen/tools.py:82
 msgid "centre"
 msgstr "centro"
 
-#: drehzyklen/tools.py:76
+#: drehzyklen/tools.py:74
+msgid "right corner"
+msgstr "esquina derecha"
+
+#: drehzyklen/tools.py:81
+msgid "right"
+msgstr "derecha"
+
+#: drehzyklen/tools.py:81
+msgid "left"
+msgstr "izquierda"
+
+#: drehzyklen/tools.py:81 drehzyklen/tools.py:84
+msgid "neutral"
+msgstr "neutra"
+
+#: drehzyklen/tools.py:82 drehzyklen/cycles/base.py:198
+msgid "outside"
+msgstr "exterior"
+
+#: drehzyklen/tools.py:83
 msgid "right (cuts towards -Z)"
 msgstr "derecha (corta hacia -Z)"
 
-#: drehzyklen/tools.py:76
+#: drehzyklen/tools.py:83
 msgid "left (cuts towards +Z)"
 msgstr "izquierda (corta hacia +Z)"
 
-#: drehzyklen/tools.py:88
+#: drehzyklen/tools.py:95
 msgid "preset"
 msgstr "predefinida"
 
-#: drehzyklen/tools.py:89
+#: drehzyklen/tools.py:96
 msgid "user"
 msgstr "usuario"
 
-#: drehzyklen/tools.py:89
+#: drehzyklen/tools.py:96
 msgid "tool.tbl + entry"
 msgstr "tool.tbl + indicación"
 
-#: drehzyklen/tools.py:168
+#: drehzyklen/tools.py:182
 #, python-brace-format
 msgid "Threading tool {angle:g}°"
 msgstr "Herramienta de roscar {angle:g}°"
 
-#: drehzyklen/tools.py:191
+#: drehzyklen/tools.py:205
 msgid "input missing"
 msgstr "falta indicación"
 
-#: drehzyklen/tools.py:193
+#: drehzyklen/tools.py:207
 msgid "(not yet in tool.tbl)"
 msgstr "(aún no en tool.tbl)"
 
-#: drehzyklen/tools.py:395
+#: drehzyklen/tools.py:432
 #, python-brace-format
 msgid "tool.tbl written, LinuxCNC did not reload it ({error})"
 msgstr "tool.tbl escrita, LinuxCNC no la recargó ({error})"
 
-#: drehzyklen/tools.py:599
+#: drehzyklen/tools.py:557
+msgid "Lead angle κ must be between 0° and 180°."
+msgstr "El ángulo de posición κ debe estar entre 0° y 180°."
+
+#: drehzyklen/tools.py:560
+#, python-brace-format
+msgid "κ {lead:g}° + ε {insert:g}° is more than 180°: the minor cutting edge would rub on the part ({clearance:g}°). With this insert κ may be at most {maximum:g}°."
+msgstr "κ {lead:g}° + ε {insert:g}° supera 180°: el filo secundario rozaría la pieza ({clearance:g}°). Con esta plaquita κ puede ser como máximo {maximum:g}°."
+
+#: drehzyklen/tools.py:685
 #, python-brace-format
 msgid "Tools from {file}"
 msgstr "Herramientas de {file}"
 
-#: drehzyklen/tools.py:603
+#: drehzyklen/tools.py:689
 msgid "Preset tools (ISO C, D, T, V left/right, grooving, threading, drill, boring bar)"
 msgstr "Herramientas predefinidas (ISO C, D, T, V izquierda/derecha, ranurar, roscar, broca, barra de mandrinar)"
 
-#: drehzyklen/tools.py:612
+#: drehzyklen/tools.py:699
 #, python-brace-format
 msgid "tool.tbl cannot be read: {error}"
 msgstr "No se puede leer la tool.tbl: {error}"
 
-#: drehzyklen/tools.py:624
+#: drehzyklen/tools.py:712
 #, python-brace-format
 msgid "{count} tools from {path}"
 msgstr "{count} herramientas de {path}"
 
-#: drehzyklen/tools.py:627
+#: drehzyklen/tools.py:715
 #, python-brace-format
 msgid "input missing for {numbers}"
 msgstr "falta indicación en {numbers}"
 
-#: drehzyklen/tools.py:689
+#: drehzyklen/tools.py:799
 #, python-brace-format
 msgid "Tools not saved: {error}"
 msgstr "Herramientas no guardadas: {error}"
 
-#: drehzyklen/tools.py:745
+#: drehzyklen/tools.py:857
 msgid "No tool.tbl known from the LinuxCNC INI"
 msgstr "No se conoce ninguna tool.tbl del INI de LinuxCNC"
 
-#: drehzyklen/tools.py:748
+#: drehzyklen/tools.py:860
 #, python-brace-format
 msgid "T{number}: type, hand and position are missing - nothing written"
 msgstr "T{number}: faltan tipo, mano y posición – no se escribió nada"
 
-#: drehzyklen/tools.py:759
+#: drehzyklen/tools.py:871
 #, python-brace-format
 msgid "tool.tbl cannot be written: {error}"
 msgstr "No se puede escribir la tool.tbl: {error}"
 
-#: drehzyklen/widgets.py:81
+#: drehzyklen/variables.py:49
+msgid "outer Ø of the stock (D)"
+msgstr "Ø exterior de la pieza en bruto (D)"
+
+#: drehzyklen/variables.py:50
+msgid "inner Ø of the stock (d)"
+msgstr "Ø interior de la pieza en bruto (d)"
+
+#: drehzyklen/variables.py:51
+msgid "length out of the chuck (L)"
+msgstr "voladizo (L)"
+
+#: drehzyklen/variables.py:52
+msgid "facing allowance in front of Z0 (a)"
+msgstr "sobremetal de refrentado delante de Z0 (a)"
+
+#: drehzyklen/variables.py:71
+msgid "empty calculation"
+msgstr "cálculo vacío"
+
+#: drehzyklen/variables.py:73
+#, python-brace-format
+msgid "»{text}« is not a calculation"
+msgstr "»{text}« no es un cálculo"
+
+#: drehzyklen/variables.py:77
+#, python-brace-format
+msgid "»{text}« cannot be calculated ({error})"
+msgstr "no se puede calcular »{text}« ({error})"
+
+#: drehzyklen/variables.py:93
+#, python-brace-format
+msgid "Line {line}: write »Name = value« (letters, digits, _)"
+msgstr "Línea {line}: escriba »Nombre = valor« (letras, cifras, _)"
+
+#: drehzyklen/variables.py:96
+#, python-brace-format
+msgid "Line {line}: ${name} is a stock variable - set it in the stock tab"
+msgstr "Línea {line}: ${name} es una variable de la pieza en bruto – se ajusta en la pestaña Pieza en bruto"
+
+#: drehzyklen/variables.py:99
+#, python-brace-format
+msgid "Line {line}: ${name} is defined twice"
+msgstr "Línea {line}: ${name} está definida dos veces"
+
+#: drehzyklen/variables.py:145
+#, python-brace-format
+msgid "unknown variable ${name}"
+msgstr "variable desconocida ${name}"
+
+#: drehzyklen/variables.py:148
+#, python-brace-format
+msgid "the variables refer to each other: {loop}"
+msgstr "las variables se refieren unas a otras: {loop}"
+
+#: drehzyklen/widgets.py:96
 msgid "Keypad"
 msgstr "Teclado numérico"
 
-#: drehzyklen/widgets.py:234
+#: drehzyklen/widgets.py:149
+#, python-brace-format
+msgid "Cannot be calculated: {formula}"
+msgstr "No se puede calcular: {formula}"
+
+#: drehzyklen/widgets.py:155
+#, python-brace-format
+msgid "Calculated: {formula}"
+msgstr "Calculado: {formula}"
+
+#: drehzyklen/widgets.py:250
+msgid "No variables in this field"
+msgstr "No hay variables en este campo"
+
+#: drehzyklen/widgets.py:252
+msgid "Choose a variable"
+msgstr "Elegir una variable"
+
+#: drehzyklen/widgets.py:261
+msgid "Calculation and $variables"
+msgstr "Cálculo y $variables"
+
+#: drehzyklen/widgets.py:288
+msgid "Back"
+msgstr "Atrás"
+
+#: drehzyklen/widgets.py:297
+msgid "No variables defined"
+msgstr "No hay variables definidas"
+
+#: drehzyklen/widgets.py:732
 msgid "Radius, arc > 180°"
 msgstr "Radio, arco > 180°"
 
-#: drehzyklen/widgets.py:235
+#: drehzyklen/widgets.py:733
 msgid "tangential at the start"
 msgstr "tangente al inicio"
 
-#: drehzyklen/widgets.py:235
+#: drehzyklen/widgets.py:733
 msgid "tangential at the end"
 msgstr "tangente al final"
 
-#: drehzyklen/widgets.py:236
+#: drehzyklen/widgets.py:734
 msgid "Centre I/K"
 msgstr "Centro I/K"
 
-#: drehzyklen/widgets.py:237
+#: drehzyklen/widgets.py:735
 msgid "Default (all other corners)"
 msgstr "Por defecto (todas las demás)"
 
-#: drehzyklen/widgets.py:238
+#: drehzyklen/widgets.py:736
 msgid "Radius R"
 msgstr "Radio R"
 
-#: drehzyklen/widgets.py:238
+#: drehzyklen/widgets.py:736
 msgid "Chamfer 45°"
 msgstr "Chaflán 45°"
 
-#: drehzyklen/widgets.py:239
+#: drehzyklen/widgets.py:737
 msgid "Chamfer L × angle to the incoming edge"
 msgstr "Chaflán L × ángulo respecto a la arista entrante"
 
-#: drehzyklen/widgets.py:240
+#: drehzyklen/widgets.py:738
 msgid "Chamfer L × angle to the outgoing edge"
 msgstr "Chaflán L × ángulo respecto a la arista saliente"
 
-#: drehzyklen/widgets.py:241
+#: drehzyklen/widgets.py:739
 #, python-brace-format
 msgid "R{} >180°"
 msgstr "R{} >180°"
 
-#: drehzyklen/widgets.py:241
+#: drehzyklen/widgets.py:739
 msgid "tang. start"
 msgstr "tang. inicio"
 
-#: drehzyklen/widgets.py:241
+#: drehzyklen/widgets.py:739
 msgid "tang. end"
 msgstr "tang. final"
 
-#: drehzyklen/widgets.py:259
+#: drehzyklen/widgets.py:757
 msgid "sharp"
 msgstr "viva"
 
-#: drehzyklen/widgets.py:278
+#: drehzyklen/widgets.py:777
 msgid "List"
 msgstr "Lista"
 
-#: drehzyklen/widgets.py:278
+#: drehzyklen/widgets.py:777
 msgid "Edit point by point"
 msgstr "Editar punto a punto"
 
-#: drehzyklen/widgets.py:279
+#: drehzyklen/widgets.py:778
 msgid "Text"
 msgstr "Texto"
 
-#: drehzyklen/widgets.py:279
+#: drehzyklen/widgets.py:778
 msgid "Edit the contour text directly"
 msgstr "Editar directamente el texto del contorno"
 
-#: drehzyklen/widgets.py:296 drehzyklen/cycles/edgebreak.py:49
+#: drehzyklen/widgets.py:795 drehzyklen/cycles/edgebreak.py:50
 msgid "Kind"
 msgstr "Tipo"
 
-#: drehzyklen/widgets.py:296 drehzyklen/widgets.py:343
+#: drehzyklen/widgets.py:795 drehzyklen/widgets.py:842
 msgid "Corner"
 msgstr "Esquina"
 
-#: drehzyklen/widgets.py:311
+#: drehzyklen/widgets.py:810
 msgid "Line G1"
 msgstr "Recta G1"
 
-#: drehzyklen/widgets.py:311
+#: drehzyklen/widgets.py:810
 msgid "Arc G2"
 msgstr "Arco G2"
 
-#: drehzyklen/widgets.py:311
+#: drehzyklen/widgets.py:810
 msgid "Arc G3"
 msgstr "Arco G3"
 
-#: drehzyklen/widgets.py:324 drehzyklen/cycles/thread.py:89
+#: drehzyklen/widgets.py:823 drehzyklen/cycles/thread.py:97
 msgid "Size"
 msgstr "Tamaño"
 
-#: drehzyklen/widgets.py:325
+#: drehzyklen/widgets.py:824
 msgid "Angle °"
 msgstr "Ángulo °"
 
-#: drehzyklen/widgets.py:327
+#: drehzyklen/widgets.py:826
 msgid "Element"
 msgstr "Elemento"
 
-#: drehzyklen/widgets.py:352
+#: drehzyklen/widgets.py:851
 msgid "＋ Append"
 msgstr "＋ Añadir"
 
-#: drehzyklen/widgets.py:352
+#: drehzyklen/widgets.py:851
 msgid "Insert a new element after the marked one"
 msgstr "Insertar un elemento nuevo detrás del marcado"
 
-#: drehzyklen/widgets.py:353
+#: drehzyklen/widgets.py:852
 msgid "✔ Change"
 msgstr "✔ Modificar"
 
-#: drehzyklen/widgets.py:353
+#: drehzyklen/widgets.py:852
 msgid "Overwrite the marked element with the fields"
 msgstr "Sobrescribir el elemento marcado con los campos"
 
-#: drehzyklen/widgets.py:393
+#: drehzyklen/widgets.py:894
 msgid "X Z · R5 · C2 · C2 A30 / B30 · G2/G3 X Z R|LA|I K|TS|TE · RND/CHR · R0  (the »Picture« view shows the contour)"
 msgstr "X Z · R5 · C2 · C2 A30 / B30 · G2/G3 X Z R|LA|I K|TS|TE · RND/CHR · R0  (la vista »Imagen« muestra el contorno)"
 
-#: drehzyklen/widgets.py:520 drehzyklen/widgets.py:523
+#: drehzyklen/widgets.py:935
+msgid "Contour with $variables - the list shows the calculated values, change it as text"
+msgstr "Contorno con $variables – la lista muestra los valores calculados, modifíquelo como texto"
+
+#: drehzyklen/widgets.py:1042 drehzyklen/widgets.py:1045
 msgid "Arc radius R is missing"
 msgstr "Falta el radio del arco R"
 
-#: drehzyklen/widgets.py:539
+#: drehzyklen/widgets.py:1061
 msgid "The size of the corner is missing"
 msgstr "Falta el tamaño de la esquina"
 
-#: drehzyklen/widgets.py:548
+#: drehzyklen/widgets.py:1070
 msgid "The chamfer angle is missing (0…180°)"
 msgstr "Falta el ángulo del chaflán (0…180°)"
 
-#: drehzyklen/widgets.py:555
+#: drehzyklen/widgets.py:1077
 msgid "Enter X and Z"
 msgstr "Indicar X y Z"
 
-#: drehzyklen/widgets.py:717
+#: drehzyklen/widgets.py:1272
 #, python-brace-format
 msgid "T{number}  (not in the tool table)"
 msgstr "T{number}  (no está en la tabla de herramientas)"
 
-#: drehzyklen/widgets.py:881
+#: drehzyklen/widgets.py:1474
 #, python-brace-format
 msgid "{field}: invalid number"
 msgstr "{field}: número no válido"
 
-#: drehzyklen/widgets.py:888
+#: drehzyklen/widgets.py:1486 drehzyklen/cycles/base.py:135
 #, python-brace-format
 msgid "{field}: at least {limit}"
 msgstr "{field}: como mínimo {limit}"
 
-#: drehzyklen/widgets.py:891
+#: drehzyklen/widgets.py:1489 drehzyklen/cycles/base.py:138
 #, python-brace-format
 msgid "{field}: at most {limit}"
 msgstr "{field}: como máximo {limit}"
 
-#: drehzyklen/cycles/contour.py:35 drehzyklen/cycles/contour.py:36 drehzyklen/cycles/contour.py:38
+#: drehzyklen/cycles/contour.py:37 drehzyklen/cycles/contour.py:38 drehzyklen/cycles/contour.py:40
 msgid "Contour"
 msgstr "Contorno"
 
-#: drehzyklen/cycles/contour.py:39
+#: drehzyklen/cycles/contour.py:41
 msgid "All other corners"
 msgstr "Todas las demás esquinas"
 
-#: drehzyklen/cycles/contour.py:41
+#: drehzyklen/cycles/contour.py:43
 msgid "Applies to all corners without their own entry"
 msgstr "Vale para todas las esquinas sin indicación propia"
 
-#: drehzyklen/cycles/contour.py:42
+#: drehzyklen/cycles/contour.py:44
 msgid "Size for all other corners"
 msgstr "Tamaño para las demás esquinas"
 
-#: drehzyklen/cycles/contour.py:72
+#: drehzyklen/cycles/contour.py:86
 #, python-brace-format
 msgid "{side} {count} points Z{first}…{last}"
 msgstr "{side} {count} puntos Z{first}…{last}"
 
-#: drehzyklen/cycles/contour.py:76
+#: drehzyklen/cycles/contour.py:90
 #, python-brace-format
 msgid "Error: {message}"
 msgstr "Error: {message}"
@@ -1521,6 +1590,10 @@ msgstr "Error: {message}"
 #: drehzyklen/cycles/drill.py:52
 msgid "Drilling"
 msgstr "Taladrado"
+
+#: drehzyklen/cycles/drill.py:57 drehzyklen/ui/drehzyklen.ui:1483
+msgid "Drill Ø"
+msgstr "Ø de la broca"
 
 #: drehzyklen/cycles/drill.py:58
 msgid "Point angle"
@@ -1562,189 +1635,237 @@ msgstr "Rotura de viruta: retroceso corto tras cada paso. Descarga: salir del to
 msgid "Step depth"
 msgstr "Profundidad de paso"
 
-#: drehzyklen/cycles/drill.py:70
+#: drehzyklen/cycles/drill.py:70 drehzyklen/cycles/groove.py:62
 msgid "Chip breaking retract"
 msgstr "Retroceso rotura de viruta"
 
-#: drehzyklen/cycles/drill.py:72
+#: drehzyklen/cycles/drill.py:72 drehzyklen/cycles/groove.py:63
 msgid "Dwell at the bottom"
 msgstr "Espera en el fondo"
 
-#: drehzyklen/cycles/drill.py:116
+#: drehzyklen/cycles/drill.py:115
 msgid "Drilling only works towards -Z: Z end must be smaller than Z start"
 msgstr "Solo se taladra hacia -Z: Z final debe ser menor que Z inicio"
 
-#: drehzyklen/cycles/drill.py:135
+#: drehzyklen/cycles/drill.py:134
 #, python-brace-format
 msgid "{tool}: drilling needs a drill"
 msgstr "{tool}: el taladrado necesita una broca"
 
-#: drehzyklen/cycles/drill.py:137
+#: drehzyklen/cycles/drill.py:136
 #, python-brace-format
 msgid "T{number}: drill Ø {tool_diameter:g} does not fit D {diameter:g}"
 msgstr "T{number}: el Ø de broca {tool_diameter:g} no coincide con D {diameter:g}"
 
-#: drehzyklen/cycles/edgebreak.py:45
+#: drehzyklen/cycles/drill.py:140
+#, python-brace-format
+msgid "T{number}: drilling depth {depth:.1f} mm (with the tip) is longer than the usable length {length:g} mm"
+msgstr "T{number}: la profundidad de taladrado {depth:.1f} mm (con la punta) supera la longitud útil {length:g} mm"
+
+#: drehzyklen/cycles/edgebreak.py:46
 msgid "Chamfer / edge radius"
 msgstr "Chaflán / radio de arista"
 
-#: drehzyklen/cycles/edgebreak.py:51
+#: drehzyklen/cycles/edgebreak.py:52
 msgid "Edge"
 msgstr "Arista"
 
-#: drehzyklen/cycles/edgebreak.py:52
+#: drehzyklen/cycles/edgebreak.py:53
 msgid "Front edge"
 msgstr "Arista frontal"
 
-#: drehzyklen/cycles/edgebreak.py:53
+#: drehzyklen/cycles/edgebreak.py:54
 msgid "Front edge: the face points to +Z. Back edge: the face points to -Z (undercut, entered obliquely)"
 msgstr "Arista frontal: la cara mira hacia +Z. Arista posterior: la cara mira hacia -Z (entalla, entrada en oblicuo)"
 
-#: drehzyklen/cycles/edgebreak.py:55
+#: drehzyklen/cycles/edgebreak.py:56
 msgid "Chamfer length / radius"
 msgstr "Long. chaflán / radio"
 
-#: drehzyklen/cycles/edgebreak.py:56
+#: drehzyklen/cycles/edgebreak.py:57
 msgid "Chamfer: length in Z, radius: radius"
 msgstr "Chaflán: longitud en Z, radio: radio"
 
-#: drehzyklen/cycles/edgebreak.py:57
+#: drehzyklen/cycles/edgebreak.py:58
 msgid "Chamfer angle to Z"
 msgstr "Ángulo chaflán a Z"
 
-#: drehzyklen/cycles/edgebreak.py:59
+#: drehzyklen/cycles/edgebreak.py:60
 msgid "45° = equal legs. A negative angle puts the chamfer on the back edge"
 msgstr "45° = catetos iguales. Un ángulo negativo pone el chaflán en la arista posterior"
 
-#: drehzyklen/cycles/edgebreak.py:60
+#: drehzyklen/cycles/edgebreak.py:61
 msgid "Ø of the edge"
 msgstr "Ø de la arista"
 
-#: drehzyklen/cycles/edgebreak.py:61
+#: drehzyklen/cycles/edgebreak.py:62
 msgid "Z of the face"
 msgstr "Z de la cara"
 
-#: drehzyklen/cycles/edgebreak.py:62 drehzyklen/cycles/params.py:162
+#: drehzyklen/cycles/edgebreak.py:63 drehzyklen/cycles/params.py:163
 msgid "Depth of cut (radial)"
 msgstr "Profundidad de pasada (radial)"
 
-#: drehzyklen/cycles/edgebreak.py:63 drehzyklen/cycles/facing.py:82 drehzyklen/cycles/params.py:163
+#: drehzyklen/cycles/edgebreak.py:64 drehzyklen/cycles/facing.py:83 drehzyklen/cycles/params.py:164
 msgid "Feed roughing"
 msgstr "Avance de desbaste"
 
-#: drehzyklen/cycles/edgebreak.py:64 drehzyklen/cycles/facing.py:83 drehzyklen/cycles/params.py:164
+#: drehzyklen/cycles/edgebreak.py:65 drehzyklen/cycles/facing.py:84 drehzyklen/cycles/finish.py:46 drehzyklen/cycles/params.py:165
 msgid "Feed finishing"
 msgstr "Avance de acabado"
 
-#: drehzyklen/cycles/edgebreak.py:65 drehzyklen/cycles/params.py:165
+#: drehzyklen/cycles/edgebreak.py:66 drehzyklen/cycles/params.py:166
 msgid "Finishing allowance X (Ø)"
 msgstr "Sobremetal de acabado X (Ø)"
 
-#: drehzyklen/cycles/edgebreak.py:66 drehzyklen/cycles/facing.py:84 drehzyklen/cycles/params.py:166
+#: drehzyklen/cycles/edgebreak.py:67 drehzyklen/cycles/facing.py:85 drehzyklen/cycles/params.py:167
 msgid "Finishing allowance Z"
 msgstr "Sobremetal de acabado Z"
 
-#: drehzyklen/cycles/edgebreak.py:67 drehzyklen/cycles/params.py:169
+#: drehzyklen/cycles/edgebreak.py:68 drehzyklen/cycles/finish.py:47 drehzyklen/cycles/params.py:170
 msgid "Tool nose radius compensation"
 msgstr "Compensación del radio de punta"
 
-#: drehzyklen/cycles/edgebreak.py:87
+#: drehzyklen/cycles/edgebreak.py:88
 #, python-brace-format
 msgid "Chamfer {size}×{angle}°"
 msgstr "Chaflán {size}×{angle}°"
 
-#: drehzyklen/cycles/edgebreak.py:92
+#: drehzyklen/cycles/edgebreak.py:93
 msgid "back edge"
 msgstr "arista posterior"
 
-#: drehzyklen/cycles/edgebreak.py:93
+#: drehzyklen/cycles/edgebreak.py:94
 #, python-brace-format
 msgid "{side} {edge} at Ø{diameter} Z{z}"
 msgstr "{side} {edge} en Ø{diameter} Z{z}"
 
-#: drehzyklen/cycles/edgebreak.py:98
+#: drehzyklen/cycles/edgebreak.py:99
 msgid "The chamfer angle must not be 0°"
 msgstr "El ángulo del chaflán no puede ser 0°"
 
-#: drehzyklen/cycles/edgebreak.py:100
+#: drehzyklen/cycles/edgebreak.py:101
 msgid "Chamfer/radius is too large for this diameter"
 msgstr "El chaflán/radio es demasiado grande para este diámetro"
 
-#: drehzyklen/cycles/facing.py:69
+#: drehzyklen/cycles/facing.py:70
 msgid "Facing"
 msgstr "Refrentado"
 
-#: drehzyklen/cycles/facing.py:70
+#: drehzyklen/cycles/facing.py:71
 msgid "Face"
 msgstr "Refrentar"
 
-#: drehzyklen/cycles/facing.py:73 drehzyklen/cycles/longturning.py:44
+#: drehzyklen/cycles/facing.py:74 drehzyklen/cycles/longturning.py:47
 msgid "Ø start"
 msgstr "Ø inicial"
 
-#: drehzyklen/cycles/facing.py:74 drehzyklen/cycles/longturning.py:46
+#: drehzyklen/cycles/facing.py:75 drehzyklen/cycles/longturning.py:49
 msgid "Ø end"
 msgstr "Ø final"
 
-#: drehzyklen/cycles/facing.py:75
+#: drehzyklen/cycles/facing.py:76
 msgid "Outside: 0 = to the centre, slightly negative so that no pip remains. D > d: facing towards the centre, D < d: outwards"
 msgstr "Exterior: 0 = hasta el centro, algo negativo para que no quede pezón. D > d: refrentado hacia el centro, D < d: hacia fuera"
 
-#: drehzyklen/cycles/facing.py:77 drehzyklen/cycles/longturning.py:47 drehzyklen/cycles/taper.py:52
+#: drehzyklen/cycles/facing.py:78 drehzyklen/cycles/longturning.py:50 drehzyklen/cycles/taper.py:54
 msgid "Z start"
 msgstr "Z inicial"
 
-#: drehzyklen/cycles/facing.py:78
+#: drehzyklen/cycles/facing.py:79
 msgid "Z1 > Z2: removal towards -Z (front face), Z1 < Z2: removal towards +Z (back face)"
 msgstr "Z1 > Z2: arranque hacia -Z (cara frontal), Z1 < Z2: arranque hacia +Z (cara posterior)"
 
-#: drehzyklen/cycles/facing.py:80 drehzyklen/cycles/longturning.py:49 drehzyklen/cycles/taper.py:53
+#: drehzyklen/cycles/facing.py:81 drehzyklen/cycles/longturning.py:52 drehzyklen/cycles/taper.py:55
 msgid "Z end"
 msgstr "Z final"
 
-#: drehzyklen/cycles/facing.py:81
+#: drehzyklen/cycles/facing.py:82
 msgid "Depth of cut (Z)"
 msgstr "Profundidad de pasada (Z)"
 
-#: drehzyklen/cycles/facing.py:99 drehzyklen/cycles/longturning.py:98 drehzyklen/cycles/taper.py:123
+#: drehzyklen/cycles/facing.py:100 drehzyklen/cycles/longturning.py:101 drehzyklen/cycles/taper.py:125
 msgid "Z start and Z end are equal"
 msgstr "Z inicial y Z final son iguales"
 
-#: drehzyklen/cycles/facing.py:101
+#: drehzyklen/cycles/facing.py:102
 msgid "Ø start and Ø end are equal"
 msgstr "Ø inicial y Ø final son iguales"
 
-#: drehzyklen/cycles/facing.py:121
+#: drehzyklen/cycles/facing.py:122
 #, python-brace-format
 msgid "{tool}: not suitable for facing"
 msgstr "{tool}: no apta para refrentar"
 
-#: drehzyklen/cycles/facing.py:123
+#: drehzyklen/cycles/facing.py:124
 #, python-brace-format
 msgid "{tool}: outside tool - inside facing needs an inside tool (boring bar)"
 msgstr "{tool}: herramienta exterior – el refrentado interior necesita una herramienta interior (barra de mandrinar)"
 
-#: drehzyklen/cycles/facing.py:126
+#: drehzyklen/cycles/facing.py:127
 #, python-brace-format
 msgid "{tool}: inside tool - outside facing needs an outside tool"
 msgstr "{tool}: herramienta interior – el refrentado exterior necesita una herramienta exterior"
 
-#: drehzyklen/cycles/facing.py:146
+#: drehzyklen/cycles/facing.py:147
 msgid "towards the centre"
 msgstr "hacia el centro"
 
-#: drehzyklen/cycles/facing.py:148
+#: drehzyklen/cycles/facing.py:149
 msgid "outwards"
 msgstr "hacia fuera"
 
-#: drehzyklen/cycles/facing.py:153
+#: drehzyklen/cycles/facing.py:154
 #, python-brace-format
 msgid "{tool}: tool position/hand does not fit this facing operation (direction {radial}, removal towards {axial})"
 msgstr "{tool}: posición/mano de la herramienta no apta para este refrentado (dirección {radial}, arranque hacia {axial})"
 
-#: drehzyklen/cycles/facing.py:177 drehzyklen/cycles/params.py:168 drehzyklen/cycles/turning.py:178
+#: drehzyklen/cycles/facing.py:178 drehzyklen/cycles/params.py:169 drehzyklen/cycles/turning.py:178
 msgid "Finishing"
 msgstr "Acabado"
+
+#: drehzyklen/cycles/finish.py:39
+msgid "Finish contour"
+msgstr "Acabado de contorno"
+
+#: drehzyklen/cycles/finish.py:40
+msgid "Finish"
+msgstr "Acabado"
+
+#: drehzyklen/cycles/finish.py:43
+msgid "First step of the contour (long turning, taper, contour, chamfer)"
+msgstr "Primer paso del contorno (cilindrado, cono, contorno, chaflán)"
+
+#: drehzyklen/cycles/finish.py:45
+msgid "Last step of the contour; all steps in between belong to it"
+msgstr "Último paso del contorno; todos los pasos intermedios pertenecen a él"
+
+#: drehzyklen/cycles/finish.py:49
+msgid "auto chooses the side from the machining direction. Needs a tool table with radius and orientation."
+msgstr "auto elige el lado según la dirección de mecanizado. Necesita una tabla de herramientas con radio y orientación."
+
+#: drehzyklen/cycles/finish.py:57
+msgid "not linked to the program yet"
+msgstr "aún no vinculado al programa"
+
+#: drehzyklen/cycles/finish.py:75
+#, python-brace-format
+msgid "»From step« {first} is after »to step« {last}"
+msgstr "»Desde el paso« {first} está después de »hasta el paso« {last}"
+
+#: drehzyklen/cycles/finish.py:78
+#, python-brace-format
+msgid "Step {number} does not lie before this finishing step"
+msgstr "El paso {number} no está antes de este paso de acabado"
+
+#: drehzyklen/cycles/finish.py:85
+msgid "The steps are machined on the other side (outside/inside)"
+msgstr "Los pasos se mecanizan por el otro lado (exterior/interior)"
+
+#: drehzyklen/cycles/finish.py:110
+#, python-brace-format
+msgid "{side} finish steps {first}–{last}"
+msgstr "{side} acabado de los pasos {first}–{last}"
 
 #: drehzyklen/cycles/gcodeblock.py:43
 msgid "Inserted unchanged at this point. The tool is at the retract plane; own moves must return there."
@@ -1766,61 +1887,191 @@ msgstr "--- código G propio ---"
 msgid "--- end of own G-code ---"
 msgstr "--- fin del código G propio ---"
 
-#: drehzyklen/cycles/longturning.py:40
+#: drehzyklen/cycles/groove.py:52
+msgid "Grooving"
+msgstr "Ranurado"
+
+#: drehzyklen/cycles/groove.py:53
+msgid "Groove"
+msgstr "Ranura"
+
+#: drehzyklen/cycles/groove.py:55
+msgid "Ø surface"
+msgstr "Ø superficie"
+
+#: drehzyklen/cycles/groove.py:56
+msgid "Ø groove bottom"
+msgstr "Ø fondo de ranura"
+
+#: drehzyklen/cycles/groove.py:57
+msgid "Outside d < D, inside d > D"
+msgstr "Exterior d < D, interior d > D"
+
+#: drehzyklen/cycles/groove.py:58
+msgid "Z flank 1"
+msgstr "Z flanco 1"
+
+#: drehzyklen/cycles/groove.py:59
+msgid "Z flank 2"
+msgstr "Z flanco 2"
+
+#: drehzyklen/cycles/groove.py:60
+msgid "The groove lies between Z1 and Z2; wider than the tool: several plunges"
+msgstr "La ranura está entre Z1 y Z2; más ancha que la herramienta: varias penetraciones"
+
+#: drehzyklen/cycles/groove.py:61
+msgid "Step depth (0 = one plunge)"
+msgstr "Paso (0 = de una vez)"
+
+#: drehzyklen/cycles/groove.py:103
+msgid "Z1 and Z2 are equal - the groove has no width"
+msgstr "Z1 y Z2 son iguales – la ranura no tiene ancho"
+
+#: drehzyklen/cycles/groove.py:105
+msgid "Ø surface and Ø groove bottom are equal"
+msgstr "Ø superficie y Ø fondo de ranura son iguales"
+
+#: drehzyklen/cycles/groove.py:107
+msgid "Outside the groove bottom d must be smaller than D"
+msgstr "En exterior el fondo de ranura d debe ser menor que D"
+
+#: drehzyklen/cycles/groove.py:109
+msgid "Inside the groove bottom d must be larger than D"
+msgstr "En interior el fondo de ranura d debe ser mayor que D"
+
+#: drehzyklen/cycles/groove.py:150
+#, python-brace-format
+msgid "{tool}: grooving needs a grooving tool"
+msgstr "{tool}: el ranurado necesita una herramienta de ranurar"
+
+#: drehzyklen/cycles/groove.py:153
+#, python-brace-format
+msgid "{tool}: an inside groove needs an inside grooving tool"
+msgstr "{tool}: una ranura interior necesita una herramienta de ranurar interior"
+
+#: drehzyklen/cycles/groove.py:156
+#, python-brace-format
+msgid "{tool}: an outside groove needs an outside grooving tool"
+msgstr "{tool}: una ranura exterior necesita una herramienta de ranurar exterior"
+
+#: drehzyklen/cycles/groove.py:160
+#, python-brace-format
+msgid "{tool}: the tool (b{width:g}) is wider than the groove ({groove:g} mm)"
+msgstr "{tool}: la herramienta (b{width:g}) es más ancha que la ranura ({groove:g} mm)"
+
+#: drehzyklen/cycles/groove.py:164
+#, python-brace-format
+msgid "{tool}: groove depth {depth:g} mm is larger than the grooving depth of the tool ({limit:g} mm)"
+msgstr "{tool}: la profundidad de ranura {depth:g} mm supera la de la herramienta ({limit:g} mm)"
+
+#: drehzyklen/cycles/longturning.py:43
 msgid "Longitudinal turning"
 msgstr "Cilindrado"
 
-#: drehzyklen/cycles/longturning.py:41
+#: drehzyklen/cycles/longturning.py:44
 msgid "Turn"
 msgstr "Cilindrar"
 
-#: drehzyklen/cycles/longturning.py:45
+#: drehzyklen/cycles/longturning.py:48
 msgid "Outside D ≥ d, inside D ≤ d"
 msgstr "Exterior D ≥ d, interior D ≤ d"
 
-#: drehzyklen/cycles/longturning.py:48
+#: drehzyklen/cycles/longturning.py:51
 msgid "Z1 > Z2: towards -Z, Z1 < Z2: towards +Z (left-hand tool)"
 msgstr "Z1 > Z2: hacia -Z, Z1 < Z2: hacia +Z (herramienta a izquierdas)"
 
-#: drehzyklen/cycles/longturning.py:50
+#: drehzyklen/cycles/longturning.py:53
 msgid "Edge at the start"
 msgstr "Arista al inicio"
 
-#: drehzyklen/cycles/longturning.py:52
+#: drehzyklen/cycles/longturning.py:55
 msgid "Size at the start"
 msgstr "Tamaño al inicio"
 
-#: drehzyklen/cycles/longturning.py:54
+#: drehzyklen/cycles/longturning.py:57
 msgid "Chamfer 45° or radius"
 msgstr "Chaflán 45° o radio"
 
-#: drehzyklen/cycles/longturning.py:55
+#: drehzyklen/cycles/longturning.py:58
 msgid "Edge at the end (shoulder/bottom)"
 msgstr "Arista al final (resalte/fondo)"
 
-#: drehzyklen/cycles/longturning.py:57
+#: drehzyklen/cycles/longturning.py:60
 msgid "Size at the end"
 msgstr "Tamaño al final"
 
-#: drehzyklen/cycles/longturning.py:59
+#: drehzyklen/cycles/longturning.py:62
 msgid "May be larger than the step to D - the edge then ends at D"
 msgstr "Puede ser mayor que el escalón hasta D – la arista termina entonces en D"
 
-#: drehzyklen/cycles/longturning.py:90
+#: drehzyklen/cycles/longturning.py:93
 msgid "Outside the start Ø D must be greater than or equal to the end Ø d"
 msgstr "En exterior el Ø inicial D debe ser mayor o igual que el Ø final d"
 
-#: drehzyklen/cycles/longturning.py:93
+#: drehzyklen/cycles/longturning.py:96
 msgid "Inside the start Ø D must be smaller than or equal to the end Ø d"
 msgstr "En interior el Ø inicial D debe ser menor o igual que el Ø final d"
 
-#: drehzyklen/cycles/longturning.py:96
+#: drehzyklen/cycles/longturning.py:99
 msgid "Ø start and Ø end are equal - nothing to remove"
 msgstr "Ø inicial y Ø final son iguales – nada que arrancar"
 
-#: drehzyklen/cycles/longturning.py:129
+#: drehzyklen/cycles/longturning.py:132
 msgid "The edges do not fit the length Z1…Z2 or the diameter - make the edges smaller"
 msgstr "Las aristas no caben en la longitud Z1…Z2 o en el diámetro – reduzca las aristas"
+
+#: drehzyklen/cycles/merge.py:62
+#, python-brace-format
+msgid "Step {number} does not exist"
+msgstr "El paso {number} no existe"
+
+#: drehzyklen/cycles/merge.py:67
+msgid "Choose at least two steps, one of them long turning, taper or contour"
+msgstr "Elegir al menos dos pasos, uno de ellos cilindrado, cono o contorno"
+
+#: drehzyklen/cycles/merge.py:72
+#, python-brace-format
+msgid "Step {number} ({title}) cannot be part of a contour"
+msgstr "El paso {number} ({title}) no puede formar parte de un contorno"
+
+#: drehzyklen/cycles/merge.py:79
+#, python-brace-format
+msgid "Step {number}: all steps must be outside or all inside"
+msgstr "Paso {number}: todos los pasos deben ser exteriores o todos interiores"
+
+#: drehzyklen/cycles/merge.py:82
+#, python-brace-format
+msgid "Step {number}: other tool (T{tool}) - one contour is turned with one tool"
+msgstr "Paso {number}: otra herramienta (T{tool}) – un contorno se tornea con una herramienta"
+
+#: drehzyklen/cycles/merge.py:85
+#, python-brace-format
+msgid "Step {number}: {error}"
+msgstr "Paso {number}: {error}"
+
+#: drehzyklen/cycles/merge.py:101
+#, python-brace-format
+msgid "{title}: {error}"
+msgstr "{title}: {error}"
+
+#: drehzyklen/cycles/merge.py:114
+#, python-brace-format
+msgid "{title}: runs in the other Z direction than the steps before"
+msgstr "{title}: va en la otra dirección Z que los pasos anteriores"
+
+#: drehzyklen/cycles/merge.py:120
+#, python-brace-format
+msgid "{title}: starts before the end of the step before - the steps overlap"
+msgstr "{title}: empieza antes del final del paso anterior – los pasos se solapan"
+
+#: drehzyklen/cycles/merge.py:125
+msgid "The steps have no contour"
+msgstr "Los pasos no tienen contorno"
+
+#: drehzyklen/cycles/merge.py:206
+#, python-brace-format
+msgid "{title}: the edge Ø{diameter:g} Z{z:g} is not a corner of the contour"
+msgstr "{title}: la arista Ø{diameter:g} Z{z:g} no es una esquina del contorno"
 
 #: drehzyklen/cycles/params.py:64
 msgid "Machining"
@@ -1874,408 +2125,431 @@ msgstr "Liberar herramienta pese al aviso"
 msgid "Lifts the block of the tool check (e.g. form or special threads)"
 msgstr "Levanta el bloqueo de la comprobación de herramienta (p. ej. roscas redondas o especiales)"
 
-#: drehzyklen/cycles/params.py:132
+#: drehzyklen/cycles/params.py:132 drehzyklen/ui/drehzyklen.ui:1606
 msgid "Spindle direction"
 msgstr "Sentido de giro"
 
 #: drehzyklen/cycles/params.py:134
-msgid "auto: tool in front of the centre line M3, behind it M4 (machine tab)"
-msgstr "auto: herramienta delante del eje M3, detrás del eje M4 (pestaña Máquina)"
+msgid "auto: the direction set for the tool, otherwise tool in front of the centre line M3, behind it M4 (settings)"
+msgstr "auto: el sentido ajustado en la herramienta; si no, herramienta delante del eje M3, detrás M4 (ajustes)"
 
-#: drehzyklen/cycles/params.py:135
+#: drehzyklen/cycles/params.py:136
 msgid "Coolant M8"
 msgstr "Refrigerante M8"
 
-#: drehzyklen/cycles/params.py:138
+#: drehzyklen/cycles/params.py:139
 msgid "Speed/feed"
 msgstr "Velocidad/avance"
 
-#: drehzyklen/cycles/params.py:140
+#: drehzyklen/cycles/params.py:141
 msgid "G96 constant cutting speed, G97 fixed spindle speed; G95 feed per revolution, G94 feed per minute"
 msgstr "G96 velocidad de corte constante, G97 velocidad de giro fija; G95 avance por vuelta, G94 avance por minuto"
 
-#: drehzyklen/cycles/params.py:142
+#: drehzyklen/cycles/params.py:143
 msgid "Speed"
 msgstr "Velocidad"
 
-#: drehzyklen/cycles/params.py:143
+#: drehzyklen/cycles/params.py:144
 msgid "Compared with the machine limits and reduced if necessary"
 msgstr "Se compara con los límites de la máquina y se reduce si hace falta"
 
-#: drehzyklen/cycles/params.py:149
+#: drehzyklen/cycles/params.py:150
 msgid "Spindle speed n"
 msgstr "Velocidad de giro n"
 
-#: drehzyklen/cycles/params.py:150
+#: drehzyklen/cycles/params.py:151
 msgid "Limited by the machine limits and the Z velocity"
 msgstr "Limitada por los límites de la máquina y la velocidad en Z"
 
-#: drehzyklen/cycles/params.py:167
+#: drehzyklen/cycles/params.py:168
 msgid "Roughing"
 msgstr "Desbaste"
 
-#: drehzyklen/cycles/params.py:171
+#: drehzyklen/cycles/params.py:172
 msgid "Finishing pass only; auto chooses the side from the machining direction. Needs a tool table with radius and orientation."
 msgstr "Solo en el acabado; auto elige el lado según la dirección de mecanizado. Requiere una tabla de herramientas con radio y orientación."
 
-#: drehzyklen/cycles/program.py:58
-msgid "No tool change position defined (INI [CHANGE_POSITION] or machine tab) - the change happens at the retract position"
-msgstr "No hay posición de cambio de herramienta (INI [CHANGE_POSITION] o pestaña Máquina) – el cambio se hace en la posición de retirada"
+#: drehzyklen/cycles/program.py:63
+msgid "No tool change position defined (INI [CHANGE_POSITION] or settings) - the change happens at the retract position"
+msgstr "No hay posición de cambio de herramienta (INI [CHANGE_POSITION] o ajustes) – el cambio se hace en la posición de retirada"
 
-#: drehzyklen/cycles/program.py:125
+#: drehzyklen/cycles/program.py:166
 #, python-brace-format
 msgid "feed {feed:g} mm/min limited to {limit:.0f} mm/min (machine limit)"
 msgstr "avance {feed:g} mm/min limitado a {limit:.0f} mm/min (límite de la máquina)"
 
-#: drehzyklen/cycles/program.py:139
+#: drehzyklen/cycles/program.py:180
 #, python-brace-format
 msgid "speed limited to {limit:.0f} 1/min, otherwise the feed {feed:g} mm/rev would exceed the axis velocity"
 msgstr "velocidad limitada a {limit:.0f} 1/min, si no el avance {feed:g} mm/rev superaría la velocidad del eje"
 
-#: drehzyklen/cycles/program.py:155
+#: drehzyklen/cycles/program.py:199
 #, python-brace-format
 msgid "speed {rpm:.0f} → {limit:.0f} 1/min limited"
 msgstr "velocidad {rpm:.0f} → {limit:.0f} 1/min limitada"
 
-#: drehzyklen/cycles/program.py:159
+#: drehzyklen/cycles/program.py:203
 #, python-brace-format
 msgid "speed {rpm:.0f} below the minimum, raised to {minimum:.0f}"
 msgstr "velocidad {rpm:.0f} por debajo del mínimo, elevada a {minimum:.0f}"
 
-#: drehzyklen/cycles/program.py:167
+#: drehzyklen/cycles/program.py:211
 #, python-brace-format
 msgid "at Ø{diameter:.1f} Vc {speed:g} would give only {rpm:.0f} 1/min (minimum {minimum:.0f})"
 msgstr "en Ø{diameter:.1f} Vc {speed:g} daría solo {rpm:.0f} 1/min (mínimo {minimum:.0f})"
 
-#: drehzyklen/cycles/program.py:178
+#: drehzyklen/cycles/program.py:222
 #, python-brace-format
 msgid "Tool change position G53 ({source})"
 msgstr "Posición de cambio de herramienta G53 ({source})"
 
-#: drehzyklen/cycles/program.py:199
+#: drehzyklen/cycles/program.py:243
 #, python-brace-format
 msgid "tool T{number} is not in the tool table"
 msgstr "la herramienta T{number} no está en la tabla de herramientas"
 
-#: drehzyklen/cycles/program.py:203
+#: drehzyklen/cycles/program.py:247
 #, python-brace-format
 msgid "T{number}: enter type, hand and position in the tools tab"
 msgstr "T{number}: indique tipo, mano y posición en la pestaña Herramientas"
 
-#: drehzyklen/cycles/program.py:208
+#: drehzyklen/cycles/program.py:252 drehzyklen/cycles/program.py:269
 msgid "released: "
 msgstr "liberado: "
 
-#: drehzyklen/cycles/program.py:210
+#: drehzyklen/cycles/program.py:254 drehzyklen/cycles/program.py:271
 msgid " (release: »Release tool despite warning«)"
 msgstr " (liberar: »Liberar la herramienta pese al aviso«)"
 
-#: drehzyklen/cycles/program.py:226
+#: drehzyklen/cycles/program.py:287
 #, python-brace-format
 msgid "moves to Z{z:.2f} - deeper than the chuck face Z{chuck:g} (check the bore/tool near the chuck)"
 msgstr "llega a Z{z:.2f} – más profundo que la cara del plato Z{chuck:g} (comprobar taladro/herramienta cerca del plato)"
 
-#: drehzyklen/cycles/program.py:230
+#: drehzyklen/cycles/program.py:291
 #, python-brace-format
 msgid "collision: moves to Z{z:.2f}, the chuck face is at Z{chuck:g}"
 msgstr "colisión: llega a Z{z:.2f}, la cara del plato está en Z{chuck:g}"
 
-#: drehzyklen/cycles/program.py:233
+#: drehzyklen/cycles/program.py:294
 #, python-brace-format
 msgid "moves to Z{z:.2f}, only {gap:.2f} mm in front of the chuck (safety distance {clearance:g})"
 msgstr "llega a Z{z:.2f}, solo {gap:.2f} mm delante del plato (distancia de seguridad {clearance:g})"
 
-#: drehzyklen/cycles/program.py:250
+#: drehzyklen/cycles/program.py:314
 #, python-brace-format
 msgid "rapid move through material at Z{z:.2f} X{x:.2f} - check the order of operations, Z1/Z2 or Ø"
 msgstr "movimiento rápido a través del material en Z{z:.2f} X{x:.2f} – comprobar el orden de operaciones, Z1/Z2 o Ø"
 
-#: drehzyklen/cycles/program.py:257
+#: drehzyklen/cycles/program.py:334
 #, python-brace-format
 msgid "Op {number} ({title}): "
 msgstr "Op {number} ({title}): "
 
-#: drehzyklen/cycles/program.py:276
+#: drehzyklen/cycles/program.py:360
 #, python-brace-format
 msgid "Ø{diameter:.1f} larger than the maximum turning diameter {limit:.0f}"
 msgstr "Ø{diameter:.1f} mayor que el diámetro máximo de torneado {limit:.0f}"
 
-#: drehzyklen/cycles/program.py:282
+#: drehzyklen/cycles/program.py:366
 #, python-brace-format
 msgid "the stock front Z{front:g} lies in front of Z1 {z1:g} - the first cut would be too deep"
 msgstr "la cara de la pieza en bruto Z{front:g} está delante de Z1 {z1:g} – la primera pasada sería demasiado profunda"
 
-#: drehzyklen/cycles/program.py:296
+#: drehzyklen/cycles/program.py:380
 #, python-brace-format
 msgid "{name} - generated with Drehzyklen {date}"
 msgstr "{name} - generado con Drehzyklen {date}"
 
-#: drehzyklen/cycles/program.py:298
+#: drehzyklen/cycles/program.py:382
 #, python-brace-format
 msgid "Machine: {summary}"
 msgstr "Máquina: {summary}"
 
-#: drehzyklen/cycles/program.py:339
+#: drehzyklen/cycles/program.py:423
 msgid "Spindle/coolant are switched on by the next cycle after the tool change"
 msgstr "El siguiente ciclo activa husillo/refrigerante tras el cambio de herramienta"
 
-#: drehzyklen/cycles/program.py:346
+#: drehzyklen/cycles/program.py:430
 msgid "Switch spindle/coolant on again"
 msgstr "Volver a activar husillo/refrigerante"
 
-#: drehzyklen/cycles/program.py:366
+#: drehzyklen/cycles/program.py:450
 #, python-brace-format
 msgid "same tool T{number} - no tool change"
 msgstr "misma herramienta T{number} – sin cambio"
 
-#: drehzyklen/cycles/program.py:420
+#: drehzyklen/cycles/program.py:510
 #, python-brace-format
 msgid "Retract plane Z{z}, outside X{x_out}, inside X{x_in}"
 msgstr "Plano de retirada Z{z}, exterior X{x_out}, interior X{x_in}"
 
-#: drehzyklen/cycles/stock.py:30
+#: drehzyklen/cycles/stock.py:31
 msgid "Outer Ø"
 msgstr "Ø exterior"
 
-#: drehzyklen/cycles/stock.py:31
+#: drehzyklen/cycles/stock.py:32
 msgid "Inner Ø (0 = solid)"
 msgstr "Ø interior (0 = macizo)"
 
-#: drehzyklen/cycles/stock.py:32
+#: drehzyklen/cycles/stock.py:33
 msgid "Length out of the chuck"
 msgstr "Voladizo"
 
-#: drehzyklen/cycles/stock.py:33
+#: drehzyklen/cycles/stock.py:34
 msgid "From the chuck face to the stock front"
 msgstr "Desde la cara del plato hasta la cara de la pieza en bruto"
 
-#: drehzyklen/cycles/stock.py:34
+#: drehzyklen/cycles/stock.py:35
 msgid "Workpiece zero Z0"
 msgstr "Cero pieza Z0"
 
-#: drehzyklen/cycles/stock.py:36
+#: drehzyklen/cycles/stock.py:37
 msgid "Front face: Z0 at the finished front face, chuck: Z0 at the chuck face"
 msgstr "Cara frontal: Z0 en la cara frontal terminada, plato: Z0 en la cara del plato"
 
-#: drehzyklen/cycles/stock.py:37
+#: drehzyklen/cycles/stock.py:38
 msgid "Facing allowance"
 msgstr "Sobremetal refrentado"
 
-#: drehzyklen/cycles/stock.py:39
+#: drehzyklen/cycles/stock.py:40
 msgid "The stock protrudes this much in front of Z0 (removed by facing)"
 msgstr "La pieza en bruto sobresale esto delante de Z0 (se elimina refrentando)"
 
-#: drehzyklen/cycles/stock.py:40
+#: drehzyklen/cycles/stock.py:41
 msgid "Distance to the chuck"
 msgstr "Distancia al plato"
 
-#: drehzyklen/cycles/stock.py:41
+#: drehzyklen/cycles/stock.py:42
 msgid "Safety distance - moves closer to the chuck are errors"
 msgstr "Distancia de seguridad – acercarse más al plato es un error"
 
-#: drehzyklen/cycles/stock.py:83
+#: drehzyklen/cycles/stock.py:99
+#, python-brace-format
+msgid "Stock: {error}"
+msgstr "Pieza en bruto: {error}"
+
+#: drehzyklen/cycles/stock.py:101
 msgid "Stock: the inner Ø must be smaller than the outer Ø"
 msgstr "Pieza en bruto: el Ø interior debe ser menor que el exterior"
 
-#: drehzyklen/cycles/stock.py:87
+#: drehzyklen/cycles/stock.py:105
 #, python-brace-format
 msgid "Stock Ø{outer}"
 msgstr "Pieza en bruto Ø{outer}"
 
-#: drehzyklen/cycles/stock.py:90
+#: drehzyklen/cycles/stock.py:108
 #, python-brace-format
 msgid ", Z{front}…chuck Z{chuck}"
 msgstr ", Z{front}…plato Z{chuck}"
 
-#: drehzyklen/cycles/taper.py:44 drehzyklen/cycles/taper.py:45
+#: drehzyklen/cycles/taper.py:46 drehzyklen/cycles/taper.py:47
 msgid "Taper"
 msgstr "Cono"
 
-#: drehzyklen/cycles/taper.py:49
+#: drehzyklen/cycles/taper.py:51
 msgid "When switching, the other value is calculated"
 msgstr "Al cambiar se calcula el otro valor"
 
-#: drehzyklen/cycles/taper.py:50
+#: drehzyklen/cycles/taper.py:52
 msgid "Ø start (at Z1)"
 msgstr "Ø inicial (en Z1)"
 
-#: drehzyklen/cycles/taper.py:51
+#: drehzyklen/cycles/taper.py:53
 msgid "Ø end (at Z2)"
 msgstr "Ø final (en Z2)"
 
-#: drehzyklen/cycles/taper.py:54
+#: drehzyklen/cycles/taper.py:56
 msgid "Half taper angle"
 msgstr "Semiángulo del cono"
 
-#: drehzyklen/cycles/taper.py:56
+#: drehzyklen/cycles/taper.py:58
 msgid "Positive = the Ø grows in machining direction, negative = it gets smaller (falling taper, entered obliquely). Z end is calculated"
 msgstr "Positivo = el Ø crece en la dirección de mecanizado, negativo = decrece (cono descendente, entrada en oblicuo). Z final se calcula"
 
-#: drehzyklen/cycles/taper.py:68
+#: drehzyklen/cycles/taper.py:70
 msgid "The angle does not fit the diameters (sign or 0°)"
 msgstr "El ángulo no encaja con los diámetros (signo o 0°)"
 
-#: drehzyklen/cycles/taper.py:125
+#: drehzyklen/cycles/taper.py:127
 msgid "Ø start and Ø end are equal - that is a cylinder"
 msgstr "Ø inicial y Ø final son iguales – eso es un cilindro"
 
-#: drehzyklen/cycles/thread.py:50
-msgid "Thread (G76)"
-msgstr "Roscado (G76)"
-
-#: drehzyklen/cycles/thread.py:55
+#: drehzyklen/cycles/thread.py:60
 msgid "Nominal Ø"
 msgstr "Ø nominal"
 
-#: drehzyklen/cycles/thread.py:56
+#: drehzyklen/cycles/thread.py:61
 msgid "Core hole Ø"
 msgstr "Ø del agujero"
 
-#: drehzyklen/cycles/thread.py:57
+#: drehzyklen/cycles/thread.py:62
 msgid "Pitch"
 msgstr "Paso"
 
-#: drehzyklen/cycles/thread.py:58
+#: drehzyklen/cycles/thread.py:63
 msgid "Z start of thread"
 msgstr "Z inicio de rosca"
 
-#: drehzyklen/cycles/thread.py:59
+#: drehzyklen/cycles/thread.py:64
 msgid "Z end of thread"
 msgstr "Z final de rosca"
 
-#: drehzyklen/cycles/thread.py:60
+#: drehzyklen/cycles/thread.py:65
 msgid "Z2 < Z1: thread towards -Z, Z2 > Z1: thread towards +Z"
 msgstr "Z2 < Z1: rosca hacia -Z, Z2 > Z1: rosca hacia +Z"
 
-#: drehzyklen/cycles/thread.py:61
+#: drehzyklen/cycles/thread.py:66
 msgid "Start point (run-in)"
 msgstr "Punto inicial (entrada)"
 
-#: drehzyklen/cycles/thread.py:62
+#: drehzyklen/cycles/thread.py:67
 msgid "Lies before the start of the thread, against the thread direction"
 msgstr "Está antes del inicio de la rosca, contra la dirección de roscado"
 
-#: drehzyklen/cycles/thread.py:63
+#: drehzyklen/cycles/thread.py:68
 msgid "Thread depth (0 = auto)"
 msgstr "Prof. de rosca (0 = auto)"
 
-#: drehzyklen/cycles/thread.py:64
+#: drehzyklen/cycles/thread.py:69
 msgid "0 = calculated from the basic profile"
 msgstr "0 = calculada a partir del perfil básico"
 
-#: drehzyklen/cycles/thread.py:65
+#: drehzyklen/cycles/thread.py:70
 msgid "First depth of cut"
 msgstr "Primera pasada"
 
-#: drehzyklen/cycles/thread.py:66
+#: drehzyklen/cycles/thread.py:71
 msgid "Degression (1-3)"
 msgstr "Degresión (1–3)"
 
-#: drehzyklen/cycles/thread.py:67
+#: drehzyklen/cycles/thread.py:72
 msgid "Infeed angle"
 msgstr "Ángulo de penetración"
 
-#: drehzyklen/cycles/thread.py:68
+#: drehzyklen/cycles/thread.py:73
 msgid "Spring passes"
 msgstr "Pasadas en vacío"
 
-#: drehzyklen/cycles/thread.py:69
+#: drehzyklen/cycles/thread.py:74
 msgid "Taper at (0…3)"
 msgstr "Cono en (0…3)"
 
-#: drehzyklen/cycles/thread.py:70
+#: drehzyklen/cycles/thread.py:75
 msgid "0 none, 1 entry, 2 exit, 3 both"
 msgstr "0 ninguno, 1 entrada, 2 salida, 3 ambos"
 
-#: drehzyklen/cycles/thread.py:71
+#: drehzyklen/cycles/thread.py:76
 msgid "Taper length entry/exit"
 msgstr "Longitud del cono entrada/salida"
 
-#: drehzyklen/cycles/thread.py:72
+#: drehzyklen/cycles/thread.py:77
 msgid "Drive line distance"
 msgstr "Distancia línea guía"
 
-#: drehzyklen/cycles/thread.py:73
+#: drehzyklen/cycles/thread.py:78
 msgid "Distance of the drive line from the thread (G76 I)"
 msgstr "Distancia de la línea guía a la rosca (G76 I)"
 
-#: drehzyklen/cycles/thread.py:83
+#: drehzyklen/cycles/thread.py:79
+msgid "Taper 1:k (0 = straight)"
+msgstr "Cono 1:k (0 = cilíndrico)"
+
+#: drehzyklen/cycles/thread.py:80
+msgid "Taper thread (e.g. NPT 1:16 on the Ø): D is the Ø at Z1, outside the Ø grows towards Z2, inside it gets smaller. Cut with G33 passes instead of G76"
+msgstr "Rosca cónica (p. ej. NPT 1:16 sobre el Ø): D es el Ø en Z1; en exterior el Ø crece hacia Z2, en interior disminuye. Se corta con pasadas G33 en lugar de G76"
+
+#: drehzyklen/cycles/thread.py:91
 msgid "Thread from table"
 msgstr "Rosca de la tabla"
 
-#: drehzyklen/cycles/thread.py:85
+#: drehzyklen/cycles/thread.py:93
 msgid "Choose norm and size: Ø, pitch, depth and infeed angle are filled in (can be changed by hand afterwards)"
 msgstr "Elegir norma y tamaño: se rellenan Ø, paso, profundidad y ángulo de penetración (modificables después a mano)"
 
-#: drehzyklen/cycles/thread.py:127
+#: drehzyklen/cycles/thread.py:147
+#, python-brace-format
+msgid "Pre-turn the taper 1:{taper:g} from Ø{first:.2f} at Z{z1:g} to Ø{second:.2f} at Z{z2:g} (taper cycle)"
+msgstr "Tornear previamente el cono 1:{taper:g} de Ø{first:.2f} en Z{z1:g} a Ø{second:.2f} en Z{z2:g} (ciclo Cono)"
+
+#: drehzyklen/cycles/thread.py:156
 #, python-brace-format
 msgid "Pre-turn the bore to Ø{pre:.2f} (core Ø D1 {core:.2f} + 0.1·P)"
 msgstr "Mandrinar previamente a Ø{pre:.2f} (Ø de núcleo D1 {core:.2f} + 0,1·P)"
 
-#: drehzyklen/cycles/thread.py:131
+#: drehzyklen/cycles/thread.py:160
 #, python-brace-format
 msgid "Pre-turn to Ø{pre:.2f} (nominal Ø - 0.1·P)"
 msgstr "Tornear previamente a Ø{pre:.2f} (Ø nominal − 0,1·P)"
 
-#: drehzyklen/cycles/thread.py:158
+#: drehzyklen/cycles/thread.py:200
 #, python-brace-format
 msgid "inside core hole Ø{diameter}×P{pitch}"
 msgstr "interior agujero Ø{diameter}×P{pitch}"
 
-#: drehzyklen/cycles/thread.py:161
+#: drehzyklen/cycles/thread.py:203
 #, python-brace-format
 msgid "outside M{diameter}×{pitch}"
 msgstr "exterior M{diameter}×{pitch}"
 
-#: drehzyklen/cycles/thread.py:216
+#: drehzyklen/cycles/thread.py:262
 msgid "Start and end of the thread are equal"
 msgstr "El inicio y el final de la rosca son iguales"
 
-#: drehzyklen/cycles/thread.py:219
+#: drehzyklen/cycles/thread.py:265
 msgid "The start point Zs must lie before the start of the thread (against the thread direction)"
 msgstr "El punto de inicio Zs debe estar antes del inicio de la rosca (contra la dirección de roscado)"
 
-#: drehzyklen/cycles/thread.py:222
+#: drehzyklen/cycles/thread.py:268
 msgid "The first depth of cut is larger than the thread depth"
 msgstr "La primera profundidad de pasada es mayor que la profundidad de la rosca"
 
-#: drehzyklen/cycles/thread.py:224
+#: drehzyklen/cycles/thread.py:270
 msgid "The distance of the drive line is larger than the core hole radius"
 msgstr "La distancia de la línea de aproximación es mayor que el radio del agujero"
 
-#: drehzyklen/cycles/thread.py:230
+#: drehzyklen/cycles/thread.py:276
 #, python-brace-format
 msgid "Run-in {run_in:.2f} mm is short (acceleration distance ≈ {needed:.2f} mm) - move the start point further away or reduce the speed"
 msgstr "La entrada de {run_in:.2f} mm es corta (recorrido de aceleración ≈ {needed:.2f} mm) – alejar el punto de inicio o reducir la velocidad"
 
-#: drehzyklen/cycles/thread.py:234
+#: drehzyklen/cycles/thread.py:280
+msgid "Taper thread: the entry/exit tapers L/E are not cut (G33 passes)"
+msgstr "Rosca cónica: los conos de entrada/salida L/E no se cortan (pasadas G33)"
+
+#: drehzyklen/cycles/thread.py:283
 #, python-brace-format
 msgid "{passes} thread passes + {spring} spring pass(es); spindle encoder required"
 msgstr "{passes} pasadas de roscado + {spring} pasada(s) en vacío; se requiere encóder en el husillo"
 
-#: drehzyklen/cycles/thread.py:252
+#: drehzyklen/cycles/thread.py:306
 #, python-brace-format
 msgid "{tool}: a {kind} cannot cut a thread - choose a threading tool"
 msgstr "{tool}: con {kind} no se puede roscar – elegir una herramienta de roscar"
 
-#: drehzyklen/cycles/thread.py:255
+#: drehzyklen/cycles/thread.py:309
 #, python-brace-format
 msgid "{tool}: an inside thread needs an inside threading tool"
 msgstr "{tool}: una rosca interior necesita una herramienta de roscar interior"
 
-#: drehzyklen/cycles/thread.py:258
+#: drehzyklen/cycles/thread.py:312
 #, python-brace-format
 msgid "{tool}: an outside thread needs an outside threading tool"
 msgstr "{tool}: una rosca exterior necesita una herramienta de roscar exterior"
 
-#: drehzyklen/cycles/thread.py:262
+#: drehzyklen/cycles/thread.py:316
 #, python-brace-format
 msgid "{tool}: tip angle {angle:g}° does not fit {thread} ({needed:g}°)"
 msgstr "{tool}: el ángulo de punta {angle:g}° no encaja con {thread} ({needed:g}°)"
 
-#: drehzyklen/cycles/thread.py:279
+#: drehzyklen/cycles/thread.py:336
 msgid "G76 in radius mode G8 (I, J, K as radius values), then back to G7"
 msgstr "G76 en modo radio G8 (I, J, K como radios), después vuelta a G7"
+
+#: drehzyklen/cycles/thread.py:392
+#, python-brace-format
+msgid "Taper thread 1:{taper:g} with G33 passes (G76 cannot cut a taper)"
+msgstr "Rosca cónica 1:{taper:g} con pasadas G33 (G76 no puede cortar un cono)"
 
 #: drehzyklen/cycles/toolcheck.py:45
 #, python-brace-format
@@ -2315,6 +2589,21 @@ msgstr "{tool}: dirección de corte incorrecta – aquí se necesita una herrami
 msgid "{tool}: clearance angle too small for the contour (a section falls by {angle:.0f}°) - choose a tool with a sharper insert (e.g. ISO V) or the matching hand"
 msgstr "{tool}: ángulo de incidencia insuficiente para el contorno (un tramo cae {angle:.0f}°) – elegir una plaquita más aguda (p. ej. ISO V) o la mano adecuada"
 
+#: drehzyklen/cycles/toolcheck.py:88
+#, python-brace-format
+msgid "{tool}: corner radius r{radius:g} is larger than half the width b{width:g}"
+msgstr "{tool}: el radio de esquina r{radius:g} es mayor que la mitad del ancho b{width:g}"
+
+#: drehzyklen/cycles/toolcheck.py:106
+#, python-brace-format
+msgid "{tool}: reaches {reach:.1f} mm into the bore, usable length only {length:g} mm"
+msgstr "{tool}: entra {reach:.1f} mm en el agujero, longitud útil solo {length:g} mm"
+
+#: drehzyklen/cycles/toolcheck.py:117
+#, python-brace-format
+msgid "{tool}: needs a bore of at least Ø{needed:g}, the bore is only Ø{bore:.1f}"
+msgstr "{tool}: necesita un agujero de al menos Ø{needed:g}, el agujero solo tiene Ø{bore:.1f}"
+
 #: drehzyklen/cycles/turning.py:71
 msgid "The bore is too small for the safety distance"
 msgstr "El agujero es demasiado pequeño para la distancia de seguridad"
@@ -2328,7 +2617,223 @@ msgstr "Desbaste: {count} niveles"
 msgid "Contour with arcs in radius mode G8: X = radius, I/K = centre relative"
 msgstr "Contorno con arcos en modo radio G8: X = radio, I/K = centro relativo"
 
-#: drehzyklen/cycles/turning.py:298
+#: drehzyklen/cycles/turning.py:306
 #, python-brace-format
 msgid "There is no pre-drilled hole between Z{low:g} and Z{high:g} - drill first (drilling tab) or enter an inner Ø for the stock"
 msgstr "Entre Z{low:g} y Z{high:g} falta un taladro previo – taladrar primero (pestaña Taladrado) o indicar un Ø interior en la pieza en bruto"
+
+#: drehzyklen/ui/drehzyklen.ui:54
+msgid "New program (the stock stays)"
+msgstr "Programa nuevo (la pieza en bruto se mantiene)"
+
+#: drehzyklen/ui/drehzyklen.ui:74
+msgid "New"
+msgstr "Nuevo"
+
+#: drehzyklen/ui/drehzyklen.ui:98
+msgid "Open a project (.dzp)"
+msgstr "Abrir un proyecto (.dzp)"
+
+#: drehzyklen/ui/drehzyklen.ui:142
+msgid "Save the project (.dzp)"
+msgstr "Guardar el proyecto (.dzp)"
+
+#: drehzyklen/ui/drehzyklen.ui:186
+msgid "Show the G-code, complete it, save it or send it to LinuxCNC"
+msgstr "Mostrar el código G, completarlo, guardarlo o enviarlo a LinuxCNC"
+
+#: drehzyklen/ui/drehzyklen.ui:208
+msgid "Send"
+msgstr "Enviar"
+
+#: drehzyklen/ui/drehzyklen.ui:232
+msgid "Settings: machine data and language"
+msgstr "Ajustes: datos de la máquina e idioma"
+
+#: drehzyklen/ui/drehzyklen.ui:256
+msgid "Settings"
+msgstr "Ajustes"
+
+#: drehzyklen/ui/drehzyklen.ui:281
+msgid "Tool table"
+msgstr "Tabla de herramientas"
+
+#: drehzyklen/ui/drehzyklen.ui:304 drehzyklen/ui/drehzyklen.ui:1185
+msgid "Tools"
+msgstr "Herramientas"
+
+#: drehzyklen/ui/drehzyklen.ui:354 drehzyklen/ui/drehzyklen.ui:796
+msgid "Program"
+msgstr "Programa"
+
+#: drehzyklen/ui/drehzyklen.ui:369
+msgid "Program name"
+msgstr "Nombre del programa"
+
+#: drehzyklen/ui/drehzyklen.ui:379
+msgid "$ Variables …"
+msgstr "$ Variables …"
+
+#: drehzyklen/ui/drehzyklen.ui:382
+msgid "Own variables for variants of the part, e.g. Length = 40. Use them in every field as $Length or as a calculation like $StockDiameter - 2"
+msgstr "Variables propias para variantes de la pieza, p. ej. Length = 40. Úselas en cualquier campo como $Length o en un cálculo como $StockDiameter - 2"
+
+#: drehzyklen/ui/drehzyklen.ui:417 drehzyklen/ui/drehzyklen.ui:656
+msgid "Cycle"
+msgstr "Ciclo"
+
+#: drehzyklen/ui/drehzyklen.ui:445
+msgid "Data"
+msgstr "Datos"
+
+#: drehzyklen/ui/drehzyklen.ui:484
+msgid "Move up"
+msgstr "Subir"
+
+#: drehzyklen/ui/drehzyklen.ui:498
+msgid "Move down"
+msgstr "Bajar"
+
+#: drehzyklen/ui/drehzyklen.ui:512
+msgid "Edit (also double click)"
+msgstr "Editar (también doble clic)"
+
+#: drehzyklen/ui/drehzyklen.ui:526
+msgid "Duplicate"
+msgstr "Duplicar"
+
+#: drehzyklen/ui/drehzyklen.ui:554
+msgid "Several steps as one contour: merge them or add a finishing step (removes the noses at the transitions)"
+msgstr "Varios pasos como un contorno: unirlos o añadir un paso de acabado (elimina las narices en las transiciones)"
+
+#: drehzyklen/ui/drehzyklen.ui:635
+msgid "Preview of the current tab with stock and removal; the mouse wheel zooms, the left mouse button pans, a double click resets"
+msgstr "Vista previa de la pestaña actual con pieza en bruto y arranque; la rueda del ratón amplía, el botón izquierdo desplaza, el doble clic restablece"
+
+#: drehzyklen/ui/drehzyklen.ui:680
+msgid "Parameter picture of the current tab"
+msgstr "Imagen de parámetros de la pestaña actual"
+
+#: drehzyklen/ui/drehzyklen.ui:702
+msgid "Picture"
+msgstr "Imagen"
+
+#: drehzyklen/ui/drehzyklen.ui:726
+msgid "Generated G-code, jumps to the marked program step"
+msgstr "Código G generado, salta al paso de programa marcado"
+
+#: drehzyklen/ui/drehzyklen.ui:774
+msgid "The whole program, the marked step highlighted"
+msgstr "Programa completo, el paso marcado resaltado"
+
+#: drehzyklen/ui/drehzyklen.ui:864
+msgid "Rapids"
+msgstr "Rápidos"
+
+#: drehzyklen/ui/drehzyklen.ui:934
+msgid "Language"
+msgstr "Idioma"
+
+#: drehzyklen/ui/drehzyklen.ui:948
+msgid "Language of the user interface and of the G-code comments"
+msgstr "Idioma de la interfaz y de los comentarios del código G"
+
+#: drehzyklen/ui/drehzyklen.ui:975
+msgid "Machine"
+msgstr "Máquina"
+
+#: drehzyklen/ui/drehzyklen.ui:1044
+msgid "Reload from INI"
+msgstr "Recargar desde INI"
+
+#: drehzyklen/ui/drehzyklen.ui:1087
+msgid "Machine picture"
+msgstr "Imagen de la máquina"
+
+#: drehzyklen/ui/drehzyklen.ui:1240 drehzyklen/ui/drehzyklen.ui:1338
+msgid "Type"
+msgstr "Tipo"
+
+#: drehzyklen/ui/drehzyklen.ui:1255 drehzyklen/ui/drehzyklen.ui:1362
+msgid "Hand"
+msgstr "Mano"
+
+#: drehzyklen/ui/drehzyklen.ui:1267 drehzyklen/ui/drehzyklen.ui:1385
+msgid "Position"
+msgstr "Posición"
+
+#: drehzyklen/ui/drehzyklen.ui:1408
+msgid "Lead angle κ [°]"
+msgstr "Ángulo de posición κ [°]"
+
+#: drehzyklen/ui/drehzyklen.ui:1433
+msgid "Nose radius r"
+msgstr "Radio de punta r"
+
+#: drehzyklen/ui/drehzyklen.ui:1458
+msgid "Grooving width b"
+msgstr "Ancho de ranurado b"
+
+#: drehzyklen/ui/drehzyklen.ui:1508
+msgid "Usable length [mm]"
+msgstr "Longitud útil [mm]"
+
+#: drehzyklen/ui/drehzyklen.ui:1533
+msgid "Smallest bore Ø [mm]"
+msgstr "Ø de agujero mínimo [mm]"
+
+#: drehzyklen/ui/drehzyklen.ui:1558
+msgid "Grooving depth [mm]"
+msgstr "Profundidad de ranurado [mm]"
+
+#: drehzyklen/ui/drehzyklen.ui:1583
+msgid "Reference point"
+msgstr "Punto de referencia"
+
+#: drehzyklen/ui/drehzyklen.ui:1629
+msgid "Thread point angle ε [°]"
+msgstr "Ángulo de punta de roscar ε [°]"
+
+#: drehzyklen/ui/drehzyklen.ui:1654
+msgid "Front angle I [°]"
+msgstr "Ángulo frontal I [°]"
+
+#: drehzyklen/ui/drehzyklen.ui:1679
+msgid "Back angle J [°]"
+msgstr "Ángulo posterior J [°]"
+
+#: drehzyklen/ui/drehzyklen.ui:1704
+msgid "Tool axis [°]"
+msgstr "Eje de la herramienta [°]"
+
+#: drehzyklen/ui/drehzyklen.ui:1729
+msgid "Description"
+msgstr "Descripción"
+
+#: drehzyklen/ui/drehzyklen.ui:1777
+msgid "＋ New"
+msgstr "＋ Nueva"
+
+#: drehzyklen/ui/drehzyklen.ui:1803
+msgid "⟳ Reload"
+msgstr "⟳ Releer"
+
+#: drehzyklen/ui/drehzyklen.ui:1807
+msgid "Read the tool table again (automatically: switch in the settings)"
+msgstr "Leer de nuevo la tabla de herramientas (automáticamente: interruptor en los ajustes)"
+
+#: drehzyklen/ui/drehzyklen.ui:1823
+msgid "→ Write to tool.tbl"
+msgstr "→ Escribir en tool.tbl"
+
+#: drehzyklen/ui/drehzyklen.ui:1826
+msgid "Enter the selected tool with D, I, J, Q into the tool.tbl (X, Z and all other values stay); LinuxCNC reloads the table"
+msgstr "Escribir la herramienta elegida con D, I, J, Q en la tool.tbl (X, Z y los demás valores se mantienen); LinuxCNC recarga la tabla"
+
+#: drehzyklen/ui/drehzyklen.ui:1836
+msgid "Mirror the angles I/J of the tool.tbl in Z"
+msgstr "Invertir en Z los ángulos I/J de la tool.tbl"
+
+#: drehzyklen/ui/drehzyklen.ui:1840
+msgid "If the picture shows a right-hand tool as a left-hand one: switch once and check with a known tool"
+msgstr "Si el dibujo muestra una herramienta a derechas como a izquierdas: cambiar una vez y comprobar con una herramienta conocida"

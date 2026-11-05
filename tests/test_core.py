@@ -326,7 +326,7 @@ def test_tool_checks():
     thread = Thread({"tool": 1})
     result = Program(Machine(), [thread], tools=table).generate()
     assert any("cannot cut a thread" in error for error in result.errors)
-    thread.v["tool_ok"] = True
+    thread.set("tool_ok", True)
     result = Program(Machine(), [thread], tools=table).generate()
     assert not result.errors and any("released" in warning for warning in result.warnings)
     left_tool = Program(Machine(), [LongTurning({"tool": 2})], tools=table).generate()
@@ -334,7 +334,7 @@ def test_tool_checks():
     falling = Taper({"d_start": 44, "d_end": 30, "z_start": 0, "z_end": -10, "tool": 1})
     result = Program(Machine(), [falling], stock=Stock({"D": 44}), tools=table).generate()
     assert any("clearance angle" in error for error in result.errors)
-    falling.v["tool"] = 7
+    falling.set("tool", 7)
     result = Program(Machine(), [falling], stock=Stock({"D": 44}), tools=table).generate()
     assert not result.errors, result.errors
     inside = LongTurning({"side": "inside", "d_start": 16, "d_end": 20, "z_end": -10, "tool": 1})
@@ -547,6 +547,10 @@ def test_orientation_angles_and_table_writing():
     assert table_angles(tool, False) == (240.0, 300.0, 7)
     boring_bar = preset_tools()[11]
     assert table_angles(boring_bar, False) == (273.0, 328.0, 3)  # written as positive angles
+    # front angle I = main cutting edge: right-hand edge towards -Z, left-hand towards +Z
+    assert table_angles(preset_tools()[0], False) == (85.0, 5.0, 2)      # ISO C right
+    assert table_angles(preset_tools()[1], False) == (95.0, 175.0, 1)    # ISO C left
+    assert table_angles(preset_tools()[9], False) == (120.0, 60.0, 6)    # threading 60°
     folder = tempfile.mkdtemp()
     path = os.path.join(folder, "tool.tbl")
     with open(path, "w", encoding="utf-8") as file:
@@ -609,7 +613,235 @@ def test_special_tool_from_front_and_back_angle():
     assert tool.shank_direction() == 80
     set_special_angles(tool, 120, 70, None, back_tool=False)
     assert tool.shank_direction() == 95
-    assert table_angles(tool, back_tool=False)[:2] == (70, 120)
+    assert table_angles(tool, back_tool=False)[:2] == (120, 70)          # as entered
+
+
+
+def test_glade_file_matches_the_code():
+    """Every object the code needs is in the Glade file, every signal handler exists."""
+    import ast
+    from xml.etree import ElementTree
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    gui_source = open(os.path.join(root, "drehzyklen", "gui.py"), encoding="utf-8").read()
+    tree = ast.parse(gui_source)
+    required = None
+    names = set()
+    for node in ast.walk(tree):
+        target_name = ""
+        if isinstance(node, ast.Assign):
+            target_name = getattr(node.targets[0], "id", "")
+        if target_name == "REQUIRED_OBJECTS":
+            required = ast.literal_eval(node.value)
+        if isinstance(node, ast.FunctionDef) and node.name == "handlers":
+            for inner in ast.walk(node):
+                if isinstance(inner, ast.Dict):
+                    names.update(key.value for key in inner.keys)
+    ui = ElementTree.parse(os.path.join(root, "drehzyklen", "ui", "drehzyklen.ui"))
+    ids = {element.get("id") for element in ui.iter("object")}
+    assert required and not set(required) - ids, set(required) - ids
+    used = {signal.get("handler") for signal in ui.iter("signal")}
+    assert not used - names, used - names
+
+
+
+def test_lead_angle_limit_and_free_holder_axis():
+    """κ + ε must not exceed 180° (minor edge would rub); the holder angle is independent."""
+    from drehzyklen.tools import lead_angle_problem, table_angles
+    assert lead_angle_problem("C", 95.0) == ""
+    assert lead_angle_problem("C", 100.0) == ""                 # minor edge exactly 0°
+    assert "100" in lead_angle_problem("C", 105.0)              # -5°: maximum 100° for ISO C
+    assert lead_angle_problem("V", 140.0) == ""
+    assert lead_angle_problem("thread", 170.0) == ""            # κ not used there
+    machine = Machine()
+    table = ToolTable(machine, os.path.join(tempfile.mkdtemp(), "tools.json"))
+    tool = table.get(1)                                         # ISO C right, κ 95°
+    table.assign(tool, "C", "right", "outside", 95.0, 0.8, 0, 0, "", 0.0, None, 90.0)
+    assert tool.sector() == (5.0, 85.0)                         # insert unchanged by the holder
+    assert tool.shank_direction() == 90.0 and tool.entered_axis
+    assert table_angles(tool, False) == (85.0, 5.0, 6)          # Q from the holder direction
+    reloaded = ToolTable(machine, table.data_path).get(1)
+    assert reloaded.shank_direction() == 90.0
+    table.assign(tool, "C", "right", "outside", 95.0, 0.8, 0, 0, "", 0.0, None, None)
+    assert tool.shank_direction() == 45.0                       # empty = bisector
+
+
+
+def test_variables_make_part_variants():
+    """Fields with $variables: changing a variable changes the part (a variant)."""
+    from drehzyklen.variables import VariableError, parse_definitions
+    definitions = parse_definitions("Diameter = $StockDiameter - 4  ; finished Ø\n"
+                                    "Length = 30\nHalf = $Length / 2")
+    stock = Stock({"D": 50})
+    long_turning = LongTurning({"tool": 1, "d_start": "$StockDiameter", "d_end": "$Diameter",
+                                "z_start": 0, "z_end": "-$Length"})
+    contour = Contour({"tool": 7, "contour": "X0 Z0\nX[$Diameter - 10] Z0\n"
+                                           "X[$Diameter - 10] Z[-$Half]\nX$Diameter Z[-$Half]"})
+    program = Program(Machine(), [long_turning, contour], stock=stock, tools=tool_table(),
+                      variables=definitions)
+    result = program.generate()
+    assert not result.errors, result.errors
+    assert long_turning.d_end == 46 and long_turning.z_end == -30
+    assert "X36 Z-15" in contour.contour
+    # variant: thicker stock, longer part
+    program.stock = Stock({"D": 60}, definitions)
+    program.variables = parse_definitions("Diameter = $StockDiameter - 4\nLength = 40\n"
+                                          "Half = $Length / 2")
+    program.generate()
+    assert long_turning.d_end == 56 and long_turning.z_end == -40
+    # saved as entered, read back the same
+    loaded = Program.from_json(program.to_json(), Machine(), tool_table())
+    assert loaded.ops[0].raw["d_end"] == "$Diameter" and loaded.ops[0].d_end == 56
+    # errors: unknown variable, loop
+    broken = LongTurning({"tool": 1, "d_end": "$Missing"})
+    errors = Program(Machine(), [broken], tools=tool_table()).generate().errors
+    assert any("$Missing" in error for error in errors)
+    try:
+        parse_definitions("A = $B\nB = $A")
+        looping = Program(Machine(), [], variables=parse_definitions("A = $B\nB = $A"))
+        looping.variable_set().value("A")
+    except VariableError as error:
+        assert "refer to each other" in str(error)
+    else:
+        raise AssertionError("loop not found")
+
+
+
+def test_npt_taper_thread_with_g33():
+    """NPT 1/2: taper 1:16, D at the small end, every pass a G33 move along the taper."""
+    from drehzyklen import threads
+    spec = threads.find("NPT", "1/2 NPT")
+    assert spec.taper == 16 and abs(spec.pitch - 25.4 / 14) < 1e-9
+    values = {"tool": 10, "norm": "NPT", "size_npt": "1/2 NPT", "z_begin": 0, "z_end": -30,
+              "z_start": 5}
+    values.update(Thread.switch("size_npt", values))
+    assert values["taper"] == 16 and abs(values["z_end"] + spec.length) < 1e-3
+    thread = Thread(values)
+    result = Program(Machine(), [thread], stock=Stock({"D": 22}), tools=tool_table()).generate()
+    assert not result.errors, result.errors
+    moves = [line for line in result.gcode.splitlines() if line.startswith("G33")]
+    assert moves and not any(line.startswith("G76") for line in result.gcode.splitlines())
+    assert len(moves) == len(thread.passes()) + thread.spring
+    # last pass: crest Ø at Z2 minus twice the depth (0.8·P)
+    final = float(moves[-1].split()[1][1:])
+    expected = thread.diameter + spec.length / 16 - 2 * 0.8 * spec.pitch
+    assert abs(final - expected) < 1e-3
+
+
+def test_variable_change_out_of_limits_is_an_error():
+    """A calculated value outside the limits of its field (here Ø end < 0 after the stock was
+    made thinner) is an error of that step, shown in red in the program list."""
+    long_turning = LongTurning({"tool": 1, "d_start": "$StockDiameter",
+                                "d_end": "$StockDiameter - 20", "z_start": 0, "z_end": -20})
+    program = Program(Machine(), [long_turning], stock=Stock({"D": 50}), tools=tool_table())
+    assert not any("d:" in error for error in program.generate().errors)
+    program.stock = Stock({"D": 15})
+    errors = program.generate().errors
+    assert any("d:" in error and "(-5)" in error for error in errors), errors
+    assert 1 in program.errors_by_row(errors)
+
+
+def test_end_point_is_the_start_of_the_next_cycle():
+    """End points (Ø, Z) a following cycle starts at; the start fields they go into."""
+    assert LongTurning({"d_end": 50, "z_end": -30}).end_point() == (50, -30)
+    assert Taper({"d_end": 44, "z_end": -55}).end_point() == (44, -55)
+    assert EdgeBreak({"diameter": 40, "z_start": 0}).end_point() == (40, 0)
+    assert Contour({"contour": "X0 Z0\nX40 Z0\nX40 Z-20"}).end_point() == (40, -20)
+    assert Facing({}).end_point() is None            # ends in the centre - no start point
+    assert LongTurning.START_KEYS == ("d_end", "z_start")   # Ø start stays the material
+    assert Taper.START_KEYS == ("d_start", "z_start")
+    assert Facing.START_KEYS is None
+
+
+def test_groove_bottom_has_the_corner_radius_of_the_tool():
+    """The corner radius of the grooving tool rounds the groove bottom - also in the preview of
+    the removed material (not a sharp rectangle)."""
+    from types import SimpleNamespace
+    from drehzyklen.cycles.groove import Groove
+    tool = SimpleNamespace(kind="groove", width=3.0, reference="left", nose_radius=0.5)
+    groove = Groove({"side": "outside", "d_start": 50, "d_end": 40, "z_start": -20,
+                     "z_end": -26})
+    assert groove.corner_radius() == 0                # without tool data: sharp
+    groove.prepare(tool)
+    assert groove.corner_radius() == 0.5
+    assert [element.kind for element in groove.outline()].count("arc") == 2
+    material = simulate(Stock({"D": 50}), [groove], None)
+    index = min(range(material.count), key=lambda i: abs(material.z[i] - -20.05))
+    middle = min(range(material.count), key=lambda i: abs(material.z[i] - -23))
+    assert abs(material.outer[middle] - 20) < 1e-6    # groove bottom
+    assert material.outer[index] > 20.2               # material left in the rounded corner
+
+
+def test_tool_corner_radius_rounds_inner_corners():
+    """A turning tool with corner radius r leaves the inner corners rounded with r (preview and
+    material for the following cycles); outer corners stay sharp."""
+    from types import SimpleNamespace
+    turning = LongTurning({"d_start": 64, "d_end": 50, "z_start": 0, "z_end": -30})
+    turning.prepare(SimpleNamespace(nose_radius=3.0, kind="C"))
+    material = simulate(Stock({"D": 64, "L": 70}), [turning], None)
+
+    def outer(z):
+        return material.outer[min(range(material.count), key=lambda i: abs(material.z[i] - z))]
+    assert abs(outer(-10) - 25) < 1e-6                       # turned Ø50
+    assert abs(outer(-29) - (28 - math.sqrt(9 - 4))) < 0.05  # arc r3 in the shoulder corner
+    assert abs(outer(-35) - 32) < 1e-6                       # shoulder untouched
+    sharp = simulate(Stock({"D": 64, "L": 70}),
+                     [LongTurning({"d_start": 64, "d_end": 50, "z_start": 0, "z_end": -30})],
+                     None)
+    index = min(range(sharp.count), key=lambda i: abs(sharp.z[i] - -29.5))
+    assert abs(sharp.outer[index] - 25) < 1e-6               # without radius: sharp corner
+
+
+def test_steps_as_one_contour_merge_and_finishing_step():
+    """Long turning, taper and long turning (and a chamfer) as one contour: merged into a
+    contour step or finished by a finishing step over all of them."""
+    from drehzyklen.cycles import FinishContour
+    from drehzyklen.cycles.merge import check_steps, contour_text, merged_values
+    ops = [LongTurning({"tool": 1, "d_start": 64, "d_end": 40, "z_start": 0, "z_end": -30,
+                        "end_kind": "radius", "end_size": 2}),
+           Taper({"tool": 1, "d_start": 44, "d_end": 56, "z_start": -30, "z_end": -40}),
+           LongTurning({"tool": 1, "d_start": 64, "d_end": 56, "z_start": -40, "z_end": -60}),
+           EdgeBreak({"tool": 1, "diameter": 40, "z_start": 0, "kind": "chamfer", "size": 1})]
+    assert not check_steps(ops, [1, 2, 3, 4])
+    text = contour_text(ops, [1, 2, 3, 4])
+    lines = text.splitlines()
+    assert lines[1] == "X40 Z0 C1" and lines[-1] == "X64 Z-60"
+    assert any(line.startswith("G2 X44 Z-30") for line in lines)     # radius as arc
+    contour = Contour(merged_values(ops, [1, 2, 3, 4]))
+    assert not Program(Machine(), [contour], stock=Stock({"D": 64, "L": 70})).generate().errors
+    # finishing step: the steps stay, the contour follows changes of the steps
+    finish = FinishContour({"tool": 1, "first": 1, "last": 4})
+    program = Program(Machine(), ops + [finish], stock=Stock({"D": 64, "L": 70}))
+    result = program.generate()
+    assert not result.errors, result.errors
+    assert "Z-60" in result.gcode.split("--- 5:")[1]
+    ops[2].set("z_end", -55)
+    program.generate()
+    assert "Z-55" in finish.contour and "Z-60" not in finish.contour
+    loaded = Program.from_json(program.to_json(), Machine())
+    loaded.resolve_all()
+    assert isinstance(loaded.ops[4], FinishContour) and not loaded.ops[4].source_error
+    # problems: other tool, a step after the finishing step
+    ops[1].set("tool", 3)
+    assert any("T3" in problem for problem in check_steps(ops, [1, 2]))
+    late = Program(Machine(), [FinishContour({"tool": 1, "first": 1, "last": 2})] + ops[:2])
+    assert late.generate().errors
+
+
+def test_roughing_only_leaves_the_finishing_allowance():
+    """Without its own finishing pass a step leaves the finishing allowance (preview and
+    material), the finishing step over the steps removes it."""
+    from drehzyklen.cycles import FinishContour
+    turning = LongTurning({"tool": 1, "d_start": 64, "d_end": 40, "z_start": 0, "z_end": -30,
+                           "allow_x": 0.4, "do_finish": False})
+    stock = Stock({"D": 64, "L": 70})
+
+    def outer(material, z):
+        return material.outer[min(range(material.count), key=lambda i: abs(material.z[i] - z))]
+    assert abs(outer(simulate(stock, [turning], None), -10) - 20.2) < 1e-6
+    finish = FinishContour({"tool": 1, "first": 1, "last": 1})
+    program = Program(Machine(), [turning, finish], stock=stock)
+    assert not program.generate().errors
+    assert abs(outer(simulate(stock, program.ops, None), -10) - 20.0) < 1e-6
 
 
 if __name__ == "__main__":

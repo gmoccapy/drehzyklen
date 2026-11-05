@@ -20,13 +20,16 @@ One module per cycle; each module explains the tool path of its cycle at the top
     facing.py       Facing          longturning.py  LongTurning
     taper.py        Taper           edgebreak.py    EdgeBreak (chamfer / edge radius)
     contour.py      Contour         thread.py       Thread (G76)
-    drill.py        Drill           gcodeblock.py   GCodeOp (free G-code)
+    finish.py       FinishContour (finishing pass over several steps)
+    groove.py       Groove          drill.py        Drill
+    gcodeblock.py   GCodeOp (free G-code)
 
 Shared parts:
 
     params.py       input field descriptions (P), choice keys, shared parameter groups
     base.py         Cycle base class: values, direction, speed/feed technology
     turning.py      TurningCycle and ContourTurner (roughing levels + finishing pass)
+    merge.py        the finished contour of several steps as one contour text
     toolcheck.py    does a tool fit a contour?
     stock.py        Stock (raw part and clamping)
     program.py      Program.generate(): checks, header, tool changes, material simulation
@@ -36,7 +39,9 @@ from .contour import Contour
 from .drill import Drill
 from .edgebreak import EdgeBreak
 from .facing import Facing
+from .finish import FinishContour
 from .gcodeblock import GCodeOp
+from .groove import Groove
 from .longturning import LongTurning
 from .params import (CORNER_KINDS, INSIDE, OUTSIDE, SIDE, SPEED_FEED_MODES, P, feed_mode_of,
                      spindle_mode_of)
@@ -48,6 +53,6 @@ from .turning import ContourTurner, TurningCycle
 
 __all__ = ["CORNER_KINDS", "CYCLES", "CYCLE_BY_KEY", "INSIDE", "OUTSIDE", "SIDE",
            "SPEED_FEED_MODES", "STOCK_PARAMS", "Contour", "ContourTurner", "Cycle", "Drill",
-           "EdgeBreak", "Facing", "GCodeOp", "LongTurning", "P", "Program", "Result",
+           "EdgeBreak", "Facing", "FinishContour", "GCodeOp", "Groove", "LongTurning", "P", "Program", "Result",
            "SpindleState", "Stock", "Taper", "Thread", "TurningCycle", "cycle_from_dict",
            "feed_mode_of", "spindle_mode_of"]

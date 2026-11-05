@@ -17,12 +17,12 @@
 
 Sources (later ones override earlier ones):
   1. defaults
-  2. machine.json (own settings, machine tab)
+  2. machine.json (own settings, settings page)
   3. LinuxCNC INI: spindle and axis limits, tool change position, program folder, tool table
 
 Which INI? In this order: the command line option --ini, the environment variable
 INI_FILE_NAME (set when LinuxCNC starts the program), the INI of a running LinuxCNC, and finally
-the INI entered in the machine tab (for use without LinuxCNC).
+the INI entered in the settings (for use without LinuxCNC).
 """
 from __future__ import annotations
 

@@ -34,33 +34,38 @@ import datetime
 import json
 import math
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from ..gcode import Emitter, Segment, fmt
 from ..geometry import ContourError, Element
 from ..i18n import N_, _
 from ..machine import Machine
 from ..material import Material, bounds
+from ..variables import Variables
 from .base import Cycle
+from .toolcheck import bore_problem, usage_problems
 from .contour import Contour
 from .drill import Drill
 from .edgebreak import EdgeBreak
 from .facing import Facing
+from .finish import FinishContour
+from .groove import Groove
 from .gcodeblock import GCodeOp
 from .longturning import LongTurning
 from .stock import Stock
 from .taper import Taper
 from .thread import Thread
 
-CYCLES = [Facing, LongTurning, Taper, Thread, EdgeBreak, Contour, Drill, GCodeOp]
+CYCLES = [Facing, LongTurning, Taper, Thread, EdgeBreak, Contour, FinishContour, Groove, Drill,
+          GCodeOp]
 CYCLE_BY_KEY = {cycle.KEY: cycle for cycle in CYCLES}
 CHECKED_ERRORS = (ContourError, ValueError, TypeError, ZeroDivisionError)
-NO_TOOL_CHANGE_WARNING = N_("No tool change position defined (INI [CHANGE_POSITION] or machine "
-                            "tab) - the change happens at the retract position")
+NO_TOOL_CHANGE_WARNING = N_("No tool change position defined (INI [CHANGE_POSITION] or "
+                            "settings) - the change happens at the retract position")
 
 
-def cycle_from_dict(data) -> Cycle:
-    return CYCLE_BY_KEY[data["cycle"]](data.get("values", {}))
+def cycle_from_dict(data, variables=None) -> Cycle:
+    return CYCLE_BY_KEY[data["cycle"]](data.get("values", {}), variables)
 
 
 @dataclass
@@ -90,7 +95,7 @@ class SpindleState:
 
 class Program:
     def __init__(self, machine: Machine, ops: Optional[List[Cycle]] = None, name="Part",
-                 stock: Optional[Stock] = None, tools=None):
+                 stock: Optional[Stock] = None, tools=None, variables=None):
         self.machine = machine
         if ops is None:
             ops = []
@@ -100,17 +105,53 @@ class Program:
             stock = Stock()
         self.stock = stock
         self.tools = tools
+        # own variables: [(name, calculation, comment)] (see variables.py)
+        self.variables: List[Tuple[str, str, str]] = list(variables or [])
+
+    # ---------------------------------------------------------------- variables
+    def variable_set(self) -> Variables:
+        """Own variables plus the stock variables ($StockDiameter …)."""
+        return Variables(self.variables, self.stock.raw)
+
+    def resolve_all(self):
+        """Calculate stock and cycles again with the current variables (after a change)."""
+        self.stock.resolve(self.variables)
+        variables = self.variable_set()
+        for op in self.ops:
+            op.resolve(variables)
+        for position, op in enumerate(self.ops):
+            self.prepare(op, position)
+
+    def prepare(self, op: Cycle, position: Optional[int] = None):
+        """Give the cycle its tool data (e.g. the grooving tool: width, corner radius - also
+        for the preview of the removed material); a finishing step takes its contour from the
+        steps before it (position: its index in the program, None = appended at the end)."""
+        if isinstance(op, FinishContour):
+            op.attach(self.ops, len(self.ops) if position is None else position)
+        if self.tools is not None and op.HAS_TOOL:
+            try:
+                op.prepare(self.tools.get(int(op.tool)))
+            except (TypeError, ValueError):
+                pass
 
     # ---------------------------------------------------------------- project file
     def to_json(self) -> str:
-        return json.dumps({"name": self.name, "stock": self.stock.to_dict(),
-                           "ops": [op.to_dict() for op in self.ops]}, indent=2, ensure_ascii=False)
+        data = {"name": self.name, "stock": self.stock.to_dict(),
+                "ops": [op.to_dict() for op in self.ops]}
+        if self.variables:
+            data["variables"] = [{"name": name, "value": expression, "comment": comment}
+                                 for name, expression, comment in self.variables]
+        return json.dumps(data, indent=2, ensure_ascii=False)
 
     @classmethod
     def from_json(cls, text: str, machine: Machine, tools=None) -> "Program":
         data = json.loads(text)
-        ops = [cycle_from_dict(entry) for entry in data.get("ops", [])]
-        return cls(machine, ops, data.get("name", ""), Stock(data.get("stock")), tools)
+        definitions = [(entry["name"], str(entry["value"]), entry.get("comment", ""))
+                       for entry in data.get("variables", [])]
+        stock = Stock(data.get("stock"), definitions)
+        variables = Variables(definitions, stock.raw)
+        ops = [cycle_from_dict(entry, variables) for entry in data.get("ops", [])]
+        return cls(machine, ops, data.get("name", ""), stock, tools, definitions)
 
     # ---------------------------------------------------------------- technology
     def limited_op(self, op: Cycle, tag: str, warnings: List[str]) -> Cycle:
@@ -141,7 +182,10 @@ class Program:
                     limit=limit, feed=max(feeds)))
         if op.KEY == "thread":
             limit = min(limit, op.rpm_limit(machine))
-        direction = op.spindle_direction(machine)
+        tool = None
+        if self.tools is not None and op.HAS_TOOL:
+            tool = self.tools.get(op.tool)
+        direction = op.spindle_direction(machine, tool)
         rpm = None
         if op.KEY == "drill":
             if op.spindle_mode() == "G96":
@@ -203,7 +247,24 @@ class Program:
             errors.append(tag + _("T{number}: enter type, hand and position in the tools "
                                   "tab").format(number=tool.number))
             return
-        for problem in op.tool_problems(tool):
+        for problem in op.tool_problems(tool) + usage_problems(op, tool, self.stock):
+            if op.v.get("tool_ok"):
+                warnings.append(tag + _("released: ") + problem)
+            else:
+                errors.append(tag + problem + _(" (release: »Release tool despite warning«)"))
+
+    def _bore_check(self, op, tag, material, warnings, errors):
+        """Inside tool: does it fit into the bore that exists before this cycle?"""
+        if self.tools is None or not op.HAS_TOOL or not getattr(op, "inside", False):
+            return
+        tool = self.tools.get(op.tool)
+        if tool is None:
+            return
+        low, high = op.z_range()
+        radius = material.min_inner(low, high)
+        if radius is None:
+            return
+        for problem in bore_problem(tool, 2 * radius):
             if op.v.get("tool_ok"):
                 warnings.append(tag + _("released: ") + problem)
             else:
@@ -235,8 +296,11 @@ class Program:
                     z=z, gap=z - chuck_z, clearance=clearance))
 
     @staticmethod
-    def _rapid_check(path, start_index, material: Material, tag, errors):
-        """Rapid moves must not pass through the material that remains after the cycle."""
+    def _rapid_check(path, start_index, material: Material, tag, errors, margin=0.1):
+        """Rapid moves must not pass through the material that remains after the cycle.
+
+        margin: tolerance around the programmed point - with the corner radius of the tool,
+        because the programmed (theoretical sharp) tip lies outside the rounded cutting edge."""
         for segment in path[start_index:]:
             if segment.kind != "rapid":
                 continue
@@ -246,11 +310,24 @@ class Program:
                 fraction = step / steps
                 z = segment.z0 + fraction * (segment.z1 - segment.z0)
                 r = (segment.x0 + fraction * (segment.x1 - segment.x0)) / 2
-                if material.contains(z, r, 0.1):
+                if material.contains(z, r, margin):
                     errors.append(tag + _("rapid move through material at Z{z:.2f} X{x:.2f} - "
                                           "check the order of operations, Z1/Z2 or Ø").format(
                         z=z, x=2 * r))
                     return
+
+    def errors_by_row(self, errors: List[str]) -> Dict[int, List[str]]:
+        """Errors sorted to the rows of the program list: 0 = stock, 1… = the cycles."""
+        rows: Dict[int, List[str]] = {}
+        tags = [(number, self.tag(number, op)) for number, op in enumerate(self.ops, 1)]
+        for error in errors:
+            row = 0
+            for number, tag in tags:
+                if error.startswith(tag):
+                    row = number
+                    break
+            rows.setdefault(row, []).append(error)
+        return rows
 
     @staticmethod
     def tag(number: int, op: Cycle) -> str:
@@ -268,6 +345,13 @@ class Program:
             errors.append(str(error))
         for number, op in numbered_ops:
             tag = self.tag(number, op)
+            if op.resolve_error:
+                errors.append(tag + op.resolve_error)
+                continue
+            limit_problems = op.limit_problems()
+            if limit_problems:
+                errors.extend(tag + problem for problem in limit_problems)
+                continue
             try:
                 for warning in op.check(machine):
                     warnings.append(tag + warning)
@@ -376,6 +460,9 @@ class Program:
         elif not op.coolant and state.coolant:
             emitter.emit("M9")
             state.coolant = False
+        self._bore_check(op, tag, material, warnings, errors)
+        if self.tools is not None:
+            op_limited.prepare(self.tools.get(op.tool))
         path_start = len(emitter.path)
         op_limited.body(emitter, machine, material)
         if op.inside:
@@ -387,7 +474,9 @@ class Program:
             emitter.rapid(x=max(x_out, current_x))
         emitter.rapid(z=z_safe)
         material.apply(op)
-        self._rapid_check(emitter.path, path_start, material, tag, errors)
+        tool = self.tools.get(op.tool) if self.tools is not None else None
+        nose_radius = max(0.0, getattr(tool, "nose_radius", 0.0) or 0.0)
+        self._rapid_check(emitter.path, path_start, material, tag, errors, 0.1 + nose_radius)
         state.tool = op.tool
 
     # ---------------------------------------------------------------- generate
@@ -397,6 +486,7 @@ class Program:
         emitter = Emitter()
         warnings: List[str] = []
         errors: List[str] = []
+        self.resolve_all()
         numbered_ops = list(enumerate(self.ops, 1))
         if only is not None:
             numbered_ops = [numbered_ops[only]]

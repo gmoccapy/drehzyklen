@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Optional
 from ..gcode import fmt
 from ..geometry import ContourError
 from ..i18n import N_, _
+from ..variables import VariableError, Variables, is_expression, resolve_values
 from .params import P, migrate_values
 
 ZERO_FRONT = "front"
@@ -45,7 +46,7 @@ STOCK_PARAMS = [
 class Stock:
     """Stock and clamping: outer/inner diameter, length out of the chuck, zero point."""
 
-    def __init__(self, values: Optional[Dict[str, Any]] = None):
+    def __init__(self, values: Optional[Dict[str, Any]] = None, definitions=None):
         self.v = {}
         for param in STOCK_PARAMS:
             self.v[param.key] = param.default
@@ -54,6 +55,21 @@ class Stock:
             for key, value in values.items():
                 if key in self.v:
                     self.v[key] = value
+        self.raw = dict(self.v)
+        self.resolve_error = ""
+        self.resolve(definitions)
+
+    def resolve(self, definitions):
+        """Calculate fields with $variables (own variables of the program, see variables.py)."""
+        variables = Variables(definitions, self.raw)
+        try:
+            self.v = resolve_values(STOCK_PARAMS, self.raw, variables)
+            self.resolve_error = ""
+        except VariableError as error:
+            self.resolve_error = str(error)
+            defaults = {param.key: param.default for param in STOCK_PARAMS}
+            self.v = {key: defaults[key] if is_expression(value) else value
+                      for key, value in self.raw.items()}
 
     def __getattr__(self, item):
         values = self.__dict__.get("v")
@@ -76,9 +92,11 @@ class Stock:
         return 0.0
 
     def to_dict(self):
-        return dict(self.v)
+        return dict(self.raw)
 
     def check(self) -> List[str]:
+        if self.resolve_error:
+            raise ContourError(_("Stock: {error}").format(error=self.resolve_error))
         if self.d >= self.D:
             raise ContourError(_("Stock: the inner Ø must be smaller than the outer Ø"))
         return []

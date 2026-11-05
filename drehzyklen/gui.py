@@ -15,13 +15,16 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """GTK3 user interface - stand-alone or as a user tab in gmoccapy (Gtk.Plug via XID).
 
-Layout (three columns, widths adjustable with the handles):
-  top     tabs: Stock | Facing | Turning | Taper | Thread | Chamfer | Contour | Drilling |
-          G-code | Tools | (Machine)
+The layout is defined in the Glade file ui/drehzyklen.ui (editable with Glade or Cambalache;
+an own copy in ~/.config/drehzyklen/drehzyklen.ui wins), the appearance in
+data/drehzyklen.css (own rules in ~/.config/drehzyklen/drehzyklen.css):
+  top     New | Open | Save | Send                                   Tools | ☰ Settings
   left    program (list of steps)
-  middle  parameters of the selected tab
-  right   view: Cycle | Picture | G-code | Program
-  bottom  large buttons: New, Open, Save, G-code, language, Machine, Load
+  middle  parameters of the selected cycle (frame)
+  right   view: Cycle | Picture | G-code | Program (frame)
+  bottom  cycles: Stock | Facing | Turning | Taper | Thread | Chamfer | Contour | Drilling | G-code
+The settings page (☰) uses the whole width: language, machine data and a picture of the
+machine (machine.svg / machine.png in the folder "bilder").
 
 Switching the language rebuilds the panel (``App.rebuild``); the program, the stock, the tool
 table and the values in all forms are carried over.
@@ -36,43 +39,45 @@ import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
 gi.require_version("Pango", "1.0")
-from gi.repository import Gdk, GLib, Gtk, Pango  # noqa: E402
+gi.require_version("GdkPixbuf", "2.0")
+from gi.repository import Gdk, GdkPixbuf, GLib, Gtk  # noqa: E402
 
 from . import i18n, threads, widgets  # noqa: E402
 from .cycles import (CYCLES, INSIDE, OUTSIDE, STOCK_PARAMS, Cycle, P, Program, Stock,  # noqa: E402
                      cycle_from_dict)
 from .cycles.program import NO_TOOL_CHANGE_WARNING  # noqa: E402
+from .cycles.finish import FinishContour  # noqa: E402
+from .cycles.merge import MERGE_KEYS, PIECE_KEYS, contour_text, merged_values  # noqa: E402
+from .cycles.toolcheck import corner_radius_problems, usage_problems  # noqa: E402
+from .geometry import ContourError  # noqa: E402
+from .variables import (STOCK_VARIABLE_HELP, STOCK_VARIABLES, VariableError,  # noqa: E402
+                        Variables, definitions_text, is_expression, parse_definitions)
+from .widgets import (connect_label_to_switch, error_markup, labeled_switch,  # noqa: E402
+                      number_text)
 from .i18n import N_, _  # noqa: E402
 from .machine import MACHINE_FIELDS, MACHINE_HELP, Machine  # noqa: E402
 from .material import simulate  # noqa: E402
 from .settings import Settings  # noqa: E402
 from .tools import (HAND_LABELS, HANDS, KIND_LABELS, NEW_SOURCE, POSITION_LABELS,  # noqa: E402
-                    NEUTRAL, POSITIONS, RIGHT, Tool, ToolTable, table_angles)
-from .widgets import (NumEntry, ParamForm, RadioBar, ViewArea, image_button,  # noqa: E402
-                      message_area, message_markup, short_combo)
+                    REFERENCE_CHOICES, REFERENCE_LABELS, SPINDLE_CHOICES, SPINDLE_LABELS,
+                    NEUTRAL, POSITIONS, RIGHT, Tool, ToolTable, lead_angle_problem,
+                    table_angles)
+from .widgets import (NumberField, ParamForm, RadioBar, ViewArea,  # noqa: E402
+                      ellipsize_combo, message_area, message_markup, short_combo)
 
-CSS = b"""
-.dz button { min-height: 30px; padding: 2px 8px; }
-.dz entry { min-height: 28px; }
-.dz .bottombar button, .dz .buttonbar button { min-height: 50px; min-width: 70px;
-                                                padding: 2px 8px; }
-.dz .buttonbar button:checked { box-shadow: inset 0 -3px #e0a422; }
-.dz .sidesw button, .dz .viewbar button { min-width: 56px; padding: 2px 4px; }
-.dz .selbar button { min-width: 64px; padding: 2px 6px; }
-.dz .viewswitch button { min-height: 28px; padding: 0 8px; }
-.dz .hint { opacity: 0.7; font-size: 90%; }
-.dz frame.column > border { border-radius: 6px; }
-.dz frame.column { margin: 2px; }
-.dz .msg { font-size: 92%; }
-.dz .numpad button { min-width: 54px; min-height: 46px; font-size: 16px; }
-.dz.compact button { min-height: 26px; padding: 1px 5px; }
-.dz.compact entry { min-height: 24px; }
-.dz.compact .bottombar button, .dz.compact .buttonbar button { min-height: 40px;
-                                                              min-width: 56px; }
-.dz.compact { font-size: 92%; }
-"""
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+CSS_FILE = "drehzyklen.css"
+USER_CONFIG_DIR = os.path.expanduser("~/.config/drehzyklen")
 
-BOTTOM_SPACING = 8
+
+def user_dirs(config_dir):
+    """Folders for own files (layout, CSS, pictures): ~/.config/drehzyklen and the folder of
+    the machine.json used (if different)."""
+    folders = [USER_CONFIG_DIR]
+    if os.path.abspath(config_dir) != os.path.abspath(USER_CONFIG_DIR):
+        folders.append(config_dir)
+    return folders
+
 COLUMN_SPACING = 4          # button bars inside the columns (outside/inside, views)
 DEFAULT_NAME = "Part"
 
@@ -90,14 +95,6 @@ def title_label(text):
     label = Gtk.Label(xalign=0)
     label.set_markup(f"<b>{GLib.markup_escape_text(text)}</b>")
     return label
-
-
-def column_frame(child):
-    frame = Gtk.Frame()
-    frame.set_shadow_type(Gtk.ShadowType.IN)
-    frame.get_style_context().add_class("column")
-    frame.add(child)
-    return frame
 
 
 def scrolled(child):
@@ -121,6 +118,7 @@ class CyclePage(Gtk.Box):
         self.errors = []
         self.help = (cycle_class.KEY, cycle_class().help_values(), False)
         self.edit_index: Optional[int] = None
+        self.chained_from = None                # end point taken over last (see chain_start)
         if cycle_class.HAS_SIDE:
             self.side_bar = RadioBar([(OUTSIDE, _("Outside"), "side_out", _("Outside machining")),
                                       (INSIDE, _("Inside"), "side_in", _("Inside machining"))],
@@ -132,7 +130,8 @@ class CyclePage(Gtk.Box):
         if cycle_class.KEY == "gcode":
             self.pack_start(self._snippet_bar(), False, False, 0)
         self.form = ParamForm(cycle_class.all_params(), panel.machine, self.on_param,
-                              panel.tool_choices)
+                              panel.tool_choices, panel.tools.get,
+                              lambda: panel.program.variable_set())
         self.pack_start(scrolled(self.form), True, True, 0)
         self.restore_cutting()
         button_box = Gtk.Box(spacing=4)
@@ -178,7 +177,7 @@ class CyclePage(Gtk.Box):
         box.attach(buttons, 0, 1, 2, 1)
         return box
 
-    def fill_snippets(self, active_name=None):
+    def fill_snippets(self, active_name=None, select_first=True):
         self.snippet_filling = True
         try:
             self.snippet_combo.remove_all()
@@ -186,7 +185,7 @@ class CyclePage(Gtk.Box):
                 self.snippet_combo.append(snippet["name"], _(snippet["name"]))
             if active_name is not None:
                 self.snippet_combo.set_active_id(active_name)
-            elif self.panel.settings.snippets:
+            elif self.panel.settings.snippets and select_first:
                 self.snippet_combo.set_active(0)
         finally:
             self.snippet_filling = False
@@ -234,7 +233,9 @@ class CyclePage(Gtk.Box):
         name = self.snippet_combo.get_active_id()
         if name and self.panel.confirm(_("Delete the snippet »{name}«?").format(name=name)):
             self.panel.settings.remove_snippet(name)
-            self.fill_snippets()
+            # the deleted snippet is gone - also from the code field, nothing is chosen
+            self.fill_snippets(select_first=False)
+            self.on_clear_code(None)
 
     # ---- last used cutting data (per cycle and outside/inside)
     def cutting_key(self):
@@ -266,14 +267,71 @@ class CyclePage(Gtk.Box):
         self.side = side
         self.form.set_side(side)
         self.restore_cutting()
+        self.chain_start()
         self.on_param("side", None)
+
+    def previous_step(self):
+        """The last step of the program with a position (G-code steps are skipped)."""
+        for op in reversed(self.panel.program.ops):
+            if op.KEY != "gcode":
+                return op
+        return None
+
+    def chain_start(self):
+        """A new cycle starts where the last step of the program ended: its end point (Ø, Z)
+        is put into the start fields. Only for a new cycle (not while a step is edited), on
+        the same side (outside/inside), once per end point - later changes stay; fields with
+        a $calculation are not overwritten."""
+        start_keys = self.cycle_class.START_KEYS
+        if start_keys is None or self.edit_index is not None:
+            return
+        previous = self.previous_step()
+        if previous is None:
+            return
+        end = previous.end_point()
+        if end is None:
+            return
+        if self.cycle_class.HAS_SIDE and previous.HAS_SIDE and \
+                previous.inside != (self.side == INSIDE):
+            return
+        marker = (len(self.panel.program.ops), id(previous), end, self.side)
+        if marker == self.chained_from:
+            return
+        self.chained_from = marker
+        changed = False
+        z_key = start_keys[1]
+        old_z = self.form._number(z_key)
+        for key, value in zip(start_keys, end):
+            if key in self.form.widgets and not self.form._has_variable(key):
+                self.form._set(key, value)
+                changed = True
+        # the material Ø (prefilled with the stock) is the stock again, not a value of the
+        # cycle edited before (e.g. long turning: Ø start)
+        stock_value = self.form._stock_value(self.form.stock, self.side)
+        if stock_value is not None:
+            for param in self.form.params:
+                if (param.skey and param.key not in start_keys
+                        and not self.form._has_variable(param.key)):
+                    self.form._set(param.key, stock_value)
+        # Z end moves along: the length of the cycle stays (no cycle running backwards)
+        new_z = self.form._number(z_key)
+        if (z_key == "z_start" and "z_end" in self.form.widgets and old_z is not None
+                and new_z is not None and not self.form._has_variable("z_end")):
+            old_end = self.form._number("z_end")
+            if old_end is not None:
+                self.form._set("z_end", old_end + new_z - old_z)
+        if changed:
+            self.schedule_update()
 
     def on_param(self, key=None, old_value=None):
         if key:
             values, _errors = self.form.get_values(lenient=True)
             if self.cycle_class.HAS_SIDE:
                 values["side"] = self.side
-            updates = self.cycle_class.switch(key, values, old_value)
+            try:
+                updates = self.cycle_class.switch(key, values, old_value)
+            except (TypeError, ValueError, ZeroDivisionError):
+                updates = {}                    # calculations with $variables are not converted
             if updates:
                 self.form.set_values(updates)
         self.add_button.set_sensitive(True)
@@ -294,15 +352,26 @@ class CyclePage(Gtk.Box):
             return None
         if self.cycle_class.HAS_SIDE:
             values["side"] = self.side
-        return self.cycle_class(values)
+        op = self.cycle_class(values, self.panel.program.variable_set())
+        if op.resolve_error:
+            self.errors = [op.resolve_error]
+            self.warnings = []
+            return None
+        self.panel.program.tools = self.panel.tools
+        # tool data (e.g. corner radius of the groove), contour of a finishing step
+        self.panel.program.prepare(op, self.edit_index)
+        return op
 
     def update(self):
         self.timer = None
         values, _errors = self.form.get_values(lenient=True)
         if self.cycle_class.HAS_SIDE:
             values["side"] = self.side
-        lenient_op = self.cycle_class(values)
+        lenient_op = self.cycle_class(values, self.panel.program.variable_set())
+        self.panel.program.prepare(lenient_op, self.edit_index)
         self.help = (self.cycle_class.KEY, lenient_op.help_values(), lenient_op.inside)
+        if lenient_op.HAS_TOOL:
+            self.form.set_tool_status(self.tool_status(lenient_op))
         op = self.build()
         if op is not None:
             self.remember_cutting(op.v)
@@ -321,7 +390,7 @@ class CyclePage(Gtk.Box):
             before = simulate(program.stock, program.ops, upto, extra=op)
             after = before.copy().apply(op)
             single = Program(self.panel.machine, [op], stock=program.stock,
-                             tools=self.panel.tools)
+                             tools=self.panel.tools, variables=program.variables)
             result = single.generate(start_material=before)
             self.scene = dict(path=result.path, outlines=result.outlines, stock=program.stock,
                               before=before, after=after)
@@ -333,6 +402,21 @@ class CyclePage(Gtk.Box):
             self.errors = [error.replace(prefix, "") for error in result.errors]
         self.panel.page_updated(self)
         return False
+
+    def tool_status(self, op) -> Dict[int, bool]:
+        """Which tools fit this operation (with the current values)? {number: fits}"""
+        status = {}
+        stock = self.panel.program.stock
+        for tool in self.panel.tools.sorted_tools():
+            if tool.needs_input:
+                status[tool.number] = False
+                continue
+            try:
+                problems = op.tool_problems(tool) + usage_problems(op, tool, stock)
+            except (ContourError, ValueError, TypeError, ZeroDivisionError, AttributeError):
+                continue
+            status[tool.number] = not problems
+        return status
 
     def set_title(self):
         title = f"<b>{GLib.markup_escape_text(self.cycle_class.title())}</b>"
@@ -348,7 +432,7 @@ class CyclePage(Gtk.Box):
             self.side_bar.buttons[side].set_active(True)
             self.side = side
             self.form.side = side
-        self.form.set_values(op.v)
+        self.form.set_values(op.raw)          # as entered (with $variables)
         self.apply_button.set_sensitive(False)
         self.add_button.set_sensitive(True)
         self.set_title()
@@ -399,7 +483,8 @@ class StockPage(Gtk.Box):
         self.timer = None
         self.errors = []
         self.pack_start(title_label(_("Stock and clamping")), False, False, 0)
-        self.form = ParamForm(STOCK_PARAMS, None, self.on_param)
+        self.form = ParamForm(STOCK_PARAMS, None, self.on_param,
+                              variables=lambda: panel.program.variable_set())
         self.pack_start(scrolled(self.form), True, True, 0)
         info = Gtk.Label(xalign=0, label=_(
             "The stock is set only here. The stock Ø prefills Ø start in facing and turning; "
@@ -417,15 +502,20 @@ class StockPage(Gtk.Box):
     def apply_values(self):
         self.timer = None
         values, errors = self.form.get_values()
+        stock = None
+        if not errors:
+            stock = Stock(values, self.panel.program.variables)
+            if stock.resolve_error:
+                errors = [stock.resolve_error]
         self.errors = errors
         if not errors:
-            self.panel.stock_changed(Stock(values))
+            self.panel.stock_changed(stock)
         else:
             self.panel.page_updated(self)
         return False
 
     def load(self, stock: Stock):
-        self.form.set_values(stock.v)
+        self.form.set_values(stock.raw)
 
 
 # =========================================================================== tool page (middle)
@@ -433,112 +523,109 @@ class StockPage(Gtk.Box):
 KIND_KEYS = ["C", "D", "T", "V", "W", "R", "groove", "thread", "drill", "special"]
 
 
-class ToolPage(Gtk.Box):
-    def __init__(self, panel: "DrehzyklenPanel"):
-        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=4, margin=4)
+class ToolPage:
+    """Tools tab. The widgets come from the Glade file (object ``tool_page``); the handle between
+    the list and the fields (``tool_paned``) enlarges the list."""
+
+    def __init__(self, panel: "DrehzyklenPanel", builder: Gtk.Builder):
         self.panel = panel
         self.loading = False
-        self.pack_start(title_label(_("Tools")), False, False, 0)
-        self.source_label = Gtk.Label(xalign=0)
-        self.source_label.set_line_wrap(True)
-        self.source_label.get_style_context().add_class("hint")
-        self.pack_start(self.source_label, False, False, 0)
-
-        self.store = Gtk.ListStore(int, str, str, str, str, str)
-        self.tree = Gtk.TreeView(model=self.store)
-        for index, title in enumerate(("T", _("Type"), _("Hand"), _("Position"), "r/b/Ø", "")):
-            renderer = Gtk.CellRendererText()
-            if index == 1:
-                renderer.set_property("ellipsize", Pango.EllipsizeMode.END)
-            column = Gtk.TreeViewColumn(title, renderer, text=index)
-            column.set_resizable(True)
-            column.set_expand(index == 1)
-            self.tree.append_column(column)
-        self.tree.get_selection().connect("changed", self.on_selection_changed)
-        list_scroller = Gtk.ScrolledWindow()
-        list_scroller.set_shadow_type(Gtk.ShadowType.IN)
-        list_scroller.set_min_content_height(120)
-        list_scroller.add(self.tree)
-        self.pack_start(list_scroller, True, True, 0)
-
-        grid = Gtk.Grid(row_spacing=4, column_spacing=6)
-        self.kind_combo = short_combo()
+        get = builder.get_object
+        self.widget = get("tool_page")
+        self.source_label = get("tool_source")
+        self.store = get("tool_store")
+        self.tree = get("tool_tree")
+        self.paned = get("tool_paned")
+        self.paned.set_position(170)
+        self.kind_combo = get("tool_kind")
+        self.hand_combo = get("tool_hand")
+        self.position_combo = get("tool_position")
+        for combo in (self.kind_combo, self.hand_combo, self.position_combo):
+            ellipsize_combo(combo)
         for key in KIND_KEYS:
             self.kind_combo.append(key, _(KIND_LABELS[key]))
-        self.kind_combo.connect("changed", self.on_kind_changed)
-        self.hand_combo = short_combo()
         for hand in HANDS:
             self.hand_combo.append(hand, _(HAND_LABELS[hand]))
-        self.position_combo = short_combo()
         for position in POSITIONS:
             self.position_combo.append(position, _(POSITION_LABELS[position]))
-        self.lead_entry = NumEntry(width=6)
-        self.radius_entry = NumEntry(width=6)
-        self.width_entry = NumEntry(width=6)
-        self.diameter_entry = NumEntry(width=6)
-        self.tip_entry = NumEntry(width=6)
+        self.position_combo.connect("changed", self.on_kind_changed)
+        self.lead_entry = NumberField(get("tool_lead"))
+        self.radius_entry = NumberField(get("tool_radius"))
+        self.width_entry = NumberField(get("tool_width"))
+        self.diameter_entry = NumberField(get("tool_diameter"))
+        self.tip_entry = NumberField(get("tool_tip"))
         self.tip_entry.set_tooltip_text(_("Point angle of the threading insert, e.g. 60° "
                                           "metric/UNF, 55° Whitworth"))
-        self.front_entry = NumEntry(width=6)
-        self.back_entry = NumEntry(width=6)
-        self.axis_entry = NumEntry(allow_empty=True, width=6)
+        self.front_entry = NumberField(get("tool_front"))
+        self.back_entry = NumberField(get("tool_back"))
+        self.axis_entry = NumberField(get("tool_axis"), allow_empty=True)
         angle_help = _("Special shape: angles as in the tool.tbl (I, J), clockwise from Z+. "
                        "Example I120 J70 gives a point angle of 50°")
         self.front_entry.set_tooltip_text(angle_help)
         self.back_entry.set_tooltip_text(angle_help)
-        self.axis_entry.set_tooltip_text(_("Direction of the tool axis (shank), same convention "
-                                           "as I/J. Empty = bisector of the insert. The insert "
-                                           "may sit asymmetrically, e.g. I120 J70 mounted at "
-                                           "80°"))
-        self.comment_entry = Gtk.Entry()
-        rows = [(_("Type"), self.kind_combo), (_("Hand"), self.hand_combo),
-                (_("Position"), self.position_combo), (_("Lead angle κ [°]"), self.lead_entry),
-                (_("Nose radius r"), self.radius_entry), (_("Grooving width b"), self.width_entry),
-                (_("Drill Ø"), self.diameter_entry),
-                (_("Thread point angle ε [°]"), self.tip_entry),
-                (_("Front angle I [°]"), self.front_entry),
-                (_("Back angle J [°]"), self.back_entry),
-                (_("Tool axis [°]"), self.axis_entry),
-                (_("Description"), self.comment_entry)]
-        for row, (text, widget) in enumerate(rows):
-            label = Gtk.Label(label=text, xalign=0)
-            label.set_line_wrap(True)
-            label.set_max_width_chars(16)
-            widget.set_hexpand(True)
-            grid.attach(label, 0, row, 1, 1)
-            grid.attach(widget, 1, row, 1, 1)
-        self.pack_start(grid, False, False, 0)
+        self.axis_entry.set_tooltip_text(_("Direction of the holder (shank), counted like I/J "
+                                           "clockwise from Z+: 90° = holder at right angles to "
+                                           "the spindle axis. Empty = bisector of the insert. "
+                                           "Independent of κ, e.g. ISO C with κ 95° in a holder "
+                                           "at 90°"))
+        self.length_entry = NumberField(get("tool_length"))
+        self.length_entry.set_tooltip_text(_("Drill: usable flute length. Inside tool: how deep "
+                                             "it can reach into the bore. 0 = not checked"))
+        self.min_bore_entry = NumberField(get("tool_min_bore"))
+        self.min_bore_entry.set_tooltip_text(_("Inside tool: smallest bore Ø the tool fits "
+                                               "into. 0 = not checked"))
+        self.groove_depth_entry = NumberField(get("tool_groove_depth"))
+        self.groove_depth_entry.set_tooltip_text(_("Grooving tool: largest grooving depth "
+                                                   "(radial). 0 = not checked"))
+        self.reference_combo = get("tool_reference")
+        self.reference_combo.set_tooltip_text(_("Grooving tool: the corner (or the centre) "
+                                                "used for touching off - the programmed point"))
+        self.spindle_combo = get("tool_spindle")
+        self.spindle_combo.set_tooltip_text(_("Spindle direction for this tool; cycles with "
+                                              "»auto« use it. auto = rule of the machine "
+                                              "(in front of the centre line M3, behind M4)"))
+        for combo in (self.reference_combo, self.spindle_combo):
+            ellipsize_combo(combo)
+        for key in REFERENCE_CHOICES:
+            self.reference_combo.append(key, _(REFERENCE_LABELS[key]))
+        for key in SPINDLE_CHOICES:
+            self.spindle_combo.append(key, _(SPINDLE_LABELS[key]))
+        self.comment_entry = get("tool_comment")
+        self.apply_button = get("tool_apply")
+        self.new_button = get("tool_new")
+        self.delete_button = get("tool_delete")
+        self.reload_button = get("tool_reload")
+        self.write_button = get("tool_write")
+        self.mirror_check = get("tool_mirror")
+        self.mirror_row = get("tool_mirror_row")
+        mirror_label = get("tool_mirror_label")
+        mirror_label.set_line_wrap(True)
+        connect_label_to_switch(get("tool_mirror_label_box"), self.mirror_check)
+        # Enter moves on to the next field
+        self.entry_order = [field.entry if isinstance(field, NumberField) else field
+                            for field in (self.lead_entry, self.radius_entry, self.width_entry,
+                                          self.diameter_entry, self.length_entry,
+                                          self.min_bore_entry, self.groove_depth_entry,
+                                          self.tip_entry, self.front_entry, self.back_entry,
+                                          self.axis_entry, self.comment_entry)]
+        for entry in self.entry_order:
+            entry.connect("activate", self.on_entry_activate)
 
-        self.apply_button = Gtk.Button(label=_("✔ Apply"))
-        self.apply_button.connect("clicked", self.on_apply)
-        self.new_button = Gtk.Button(label=_("＋ New"))
-        self.new_button.connect("clicked", self.on_new)
-        self.delete_button = Gtk.Button(label=_("Delete"))
-        self.delete_button.connect("clicked", self.on_delete)
-        self.reload_button = Gtk.Button(label=_("⟳ Reload"))
-        self.reload_button.set_tooltip_text(_("Read the tool table again (automatically: switch "
-                                              "in the machine tab)"))
-        self.reload_button.connect("clicked", self.on_reload)
-        buttons = Gtk.Grid(row_spacing=4, column_spacing=4, column_homogeneous=True)
-        for index, button in enumerate((self.apply_button, self.new_button, self.delete_button,
-                                        self.reload_button)):
-            button.set_hexpand(True)
-            buttons.attach(button, index % 2, index // 2, 1, 1)
-        self.pack_start(buttons, False, False, 0)
-        self.write_button = Gtk.Button(label=_("→ Write to tool.tbl"))
-        self.write_button.set_tooltip_text(_("Enter the selected tool with D, I, J, Q into the "
-                                             "tool.tbl (X, Z and all other values stay); "
-                                             "LinuxCNC reloads the table"))
-        self.write_button.connect("clicked", self.on_write_table)
-        self.pack_start(self.write_button, False, False, 0)
-        self.mirror_check = Gtk.CheckButton(label=_("Mirror the angles I/J of the tool.tbl in Z"))
-        self.mirror_check.set_tooltip_text(_("If the picture shows a right-hand tool as a "
-                                             "left-hand one: switch once and check with a known "
-                                             "tool"))
-        self.mirror_check.get_child().set_line_wrap(True)
-        self.mirror_check.connect("toggled", self.on_mirror_toggled)
-        self.pack_start(self.mirror_check, False, False, 0)
-        self.refresh()
+    def on_entry_activate(self, entry):
+        position = self.entry_order.index(entry)
+        for next_entry in self.entry_order[position + 1:]:
+            if next_entry.get_visible() and next_entry.get_sensitive():
+                next_entry.grab_focus()
+                return
+
+    def handlers(self):
+        """Signal handlers named in the Glade file."""
+        return {"on_tool_selection_changed": self.on_selection_changed,
+                "on_tool_kind_changed": self.on_kind_changed,
+                "on_tool_apply": self.on_apply, "on_tool_new": self.on_new,
+                "on_tool_delete": self.on_delete, "on_tool_reload": self.on_reload,
+                "on_tool_write": self.on_write_table,
+                "on_tool_mirror_toggled": self.on_mirror_toggled}
 
     # ---- list
     def refresh(self, select_number=None):
@@ -546,7 +633,7 @@ class ToolPage(Gtk.Box):
         self.loading = True
         self.mirror_check.set_active(table.mirror_table_angles)
         self.loading = False
-        self.mirror_check.set_visible(table.from_linuxcnc)
+        self.mirror_row.set_visible(table.from_linuxcnc)
         self.write_button.set_visible(table.from_linuxcnc)
         self.write_button.set_no_show_all(not table.from_linuxcnc)
         self.source_label.set_text(table.message)
@@ -610,6 +697,11 @@ class ToolPage(Gtk.Box):
         self.width_entry.set_value(tool.width)
         self.diameter_entry.set_value(tool.diameter)
         self.tip_entry.set_value(round(tool.insert_angle, 1))
+        self.length_entry.set_value(tool.usable_length)
+        self.min_bore_entry.set_value(tool.min_bore)
+        self.groove_depth_entry.set_value(tool.groove_depth)
+        self.reference_combo.set_active_id(tool.reference)
+        self.spindle_combo.set_active_id(tool.spindle)
         self.show_angles(tool)
         self.comment_entry.set_text(tool.comment)
         # values from the tool.tbl (radius, comment) are maintained in LinuxCNC; newly created
@@ -667,7 +759,22 @@ class ToolPage(Gtk.Box):
         self.tip_entry.set_sensitive(geometry_free and kind == "thread")
         self.front_entry.set_sensitive(special)
         self.back_entry.set_sensitive(special)
-        self.axis_entry.set_sensitive(special)
+        self.axis_entry.set_sensitive(self.axis_editable(kind, tool))
+        inside = self.position_combo.get_active_id() == INSIDE
+        self.length_entry.set_sensitive(kind == "drill" or inside)
+        self.min_bore_entry.set_sensitive(inside and kind != "drill")
+        self.groove_depth_entry.set_sensitive(kind == "groove")
+        self.reference_combo.set_sensitive(kind == "groove")
+        self.spindle_combo.set_sensitive(kind is not None)
+
+    def axis_editable(self, kind, tool) -> bool:
+        """The holder direction can be entered for every tool except drills, as long as the
+        tool.tbl does not fix it (then it comes from Q)."""
+        if kind in (None, "drill"):
+            return False
+        if self.special_editable(kind, tool):
+            return True
+        return tool is None or not tool.angles_from_table or tool.entered_axis
 
     def on_apply(self, _button):
         tool = self.selected_tool()
@@ -708,13 +815,39 @@ class ToolPage(Gtk.Box):
         if not kind or not hand or not position:
             self.panel.message(_("Choose type, hand and position."), Gtk.MessageType.ERROR)
             return
+        axis = None
+        if special_angles is None and self.axis_editable(kind, tool):
+            try:
+                axis = self.axis_entry.get_value()
+            except (ValueError, SyntaxError, ZeroDivisionError):
+                self.panel.message(_("Please enter valid numbers."), Gtk.MessageType.ERROR)
+                return
+        if not tool.angles_from_table:
+            problem = lead_angle_problem(kind, lead)
+            if problem:
+                self.panel.message(problem, Gtk.MessageType.ERROR)
+                return
         if kind == "thread" and not tool.angles_from_table and not 20.0 <= tip_angle <= 90.0:
             self.panel.message(_("Point angle of the threading tool: 20° … 90°."),
                                Gtk.MessageType.ERROR)
             return
+        try:
+            usable_length = self.length_entry.get_value()
+            min_bore = self.min_bore_entry.get_value()
+            groove_depth = self.groove_depth_entry.get_value()
+        except (ValueError, SyntaxError, ZeroDivisionError):
+            self.panel.message(_("Please enter valid numbers."), Gtk.MessageType.ERROR)
+            return
         self.panel.tools.assign(tool, kind, hand, position, lead, radius, width, diameter,
-                                self.comment_entry.get_text(), tip_angle, special_angles)
+                                self.comment_entry.get_text(), tip_angle, special_angles, axis)
+        self.panel.tools.set_extras(tool, usable_length=max(usable_length, 0.0),
+                                    min_bore=max(min_bore, 0.0),
+                                    groove_depth=max(groove_depth, 0.0),
+                                    reference=self.reference_combo.get_active_id() or "left",
+                                    spindle=self.spindle_combo.get_active_id() or "auto")
         self.panel.tools_changed(tool.number)
+        for problem in corner_radius_problems(tool):
+            self.panel.message(problem, Gtk.MessageType.WARNING)
 
     def on_new(self, _button):
         table = self.panel.tools
@@ -751,21 +884,46 @@ class ToolPage(Gtk.Box):
             self.panel.tools.remove(number)
             self.panel.tools_changed(None)
 
-    def on_mirror_toggled(self, check):
+    def on_mirror_toggled(self, check, _pspec=None):
         if self.loading:
             return
         self.panel.tools.set_mirror(check.get_active())
         self.panel.tools_changed(self.selected_number())
 
 
-# =========================================================================== machine page (middle)
+# =========================================================================== settings page
 
-class MachinePage(Gtk.Box):
-    def __init__(self, panel: "DrehzyklenPanel"):
-        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=4, margin=4)
+PROGRAM_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+MACHINE_PICTURE_NAMES = ("machine.svg", "machine.png")
+
+
+def machine_picture_dirs(config_dir):
+    """Folders searched for machine.svg / machine.png (the first one found is shown)."""
+    folders = [os.path.join(folder, "bilder") for folder in user_dirs(config_dir)]
+    return folders + [os.path.join(PROGRAM_ROOT, "bilder")]
+
+
+def find_machine_picture(config_dir) -> Optional[str]:
+    for folder in machine_picture_dirs(config_dir):
+        for name in MACHINE_PICTURE_NAMES:
+            path = os.path.join(folder, name)
+            if os.path.isfile(path):
+                return path
+    return None
+
+
+class SettingsPage:
+    """Settings (hamburger button): language, machine data and a picture of the machine.
+
+    The widgets come from the Glade file (object ``settings_page``); the input fields of the
+    machine data are created here (``machine_form_scroller``).
+    """
+
+    def __init__(self, panel: "DrehzyklenPanel", builder: Gtk.Builder):
         self.panel = panel
+        get = builder.get_object
+        self.widget = get("settings_page")
         machine = panel.machine
-        self.pack_start(title_label(_("Machine")), False, False, 0)
         params = []
         for key, label in MACHINE_FIELDS:
             value = getattr(machine, key)
@@ -777,20 +935,25 @@ class MachinePage(Gtk.Box):
                 kind = "str"
             params.append(P(key, label, value, kind, help=MACHINE_HELP.get(key, "")))
         self.form = ParamForm(params)
-        self.pack_start(scrolled(self.form), True, True, 0)
-        self.info = Gtk.Label(xalign=0)
-        self.info.set_line_wrap(True)
-        self.info.get_style_context().add_class("hint")
-        self.pack_start(self.info, False, False, 0)
-        buttons = Gtk.Grid(row_spacing=4, column_spacing=4)
-        actions = ((_("Apply"), panel.on_machine_apply), (_("Save"), panel.on_machine_save),
-                   (_("Reload from INI"), panel.on_machine_reload))
-        for index, (label, handler) in enumerate(actions):
-            button = Gtk.Button(label=label)
-            button.set_hexpand(True)
-            button.connect("clicked", handler)
-            buttons.attach(button, index % 2, index // 2, 1, 1)
-        self.pack_start(buttons, False, False, 0)
+        get("machine_form_scroller").add(self.form)
+        self.form.show_all()
+        self.info = get("machine_info")
+        self.language_combo = get("language_combo")
+        for code in i18n.available_languages():
+            self.language_combo.append(code, i18n.language_name(code))
+        self.language_combo.set_active_id(i18n.language())
+        self.picture_area = get("machine_picture")
+        self.picture_area.connect("draw", self.on_draw_picture)
+        self.picture_hint = get("machine_picture_hint")
+        self.picture_path = find_machine_picture(panel.config_dir)
+        self.picture_cache = None
+        if self.picture_path:
+            self.picture_hint.set_text(_("Picture: {path}").format(path=self.picture_path))
+        else:
+            folder = machine_picture_dirs(panel.config_dir)[0]
+            self.picture_hint.set_text(_("Put a picture of your machine as machine.svg or "
+                                         "machine.png into the folder {folder} - it is shown "
+                                         "here.").format(folder=folder))
         self.refresh()
 
     def refresh(self):
@@ -811,71 +974,76 @@ class MachinePage(Gtk.Box):
                 source=_(machine.tc_source or N_("machine")))
         self.info.set_text(text)
 
+    def picture(self, width, height):
+        """The machine picture scaled to the area (kept while the size stays)."""
+        if not self.picture_path or width < 20 or height < 20:
+            return None
+        if self.picture_cache is not None and self.picture_cache[0] == (width, height):
+            return self.picture_cache[1]
+        try:
+            pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(self.picture_path, width - 12,
+                                                             height - 12, True)
+        except GLib.Error as error:
+            self.picture_hint.set_text(_("The picture {path} cannot be read: {error}").format(
+                path=self.picture_path, error=error.message))
+            self.picture_path = None
+            return None
+        self.picture_cache = ((width, height), pixbuf)
+        return pixbuf
+
+    def on_draw_picture(self, area, cr):
+        width = area.get_allocated_width()
+        height = area.get_allocated_height()
+        pixbuf = self.picture(width, height)
+        if pixbuf is None:
+            return False
+        left = (width - pixbuf.get_width()) / 2
+        top = (height - pixbuf.get_height()) / 2
+        Gdk.cairo_set_source_pixbuf(cr, pixbuf, left, top)
+        cr.paint()
+        return False
+
 
 # =========================================================================== left column
 
-class ProgramColumn(Gtk.Box):
-    def __init__(self, panel: "DrehzyklenPanel"):
-        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=4, margin=4)
+ERROR_ROW_COLOR = "#d01b1b"           # program list: steps with errors
+
+
+class ProgramColumn:
+    """Program list; the widgets come from the Glade file (``program_column``)."""
+
+    def __init__(self, panel: "DrehzyklenPanel", builder: Gtk.Builder):
         self.panel = panel
-        self.pack_start(title_label(_("Program")), False, False, 0)
-        self.name_entry = Gtk.Entry(text=panel.program.name)
-        self.name_entry.set_width_chars(8)
-        self.name_entry.set_placeholder_text(_("Program name"))
-        self.name_entry.connect("changed", self.on_name_changed)
-        self.pack_start(self.name_entry, False, False, 0)
-        self.store = Gtk.ListStore(str, str, str, str, str)
-        self.tree = Gtk.TreeView(model=self.store)
-        for index, title in enumerate(("#", _("Cycle"), "T", _("Data"))):
-            renderer = Gtk.CellRendererText()
-            if index in (1, 3):
-                renderer.set_property("ellipsize", Pango.EllipsizeMode.END)
-            column = Gtk.TreeViewColumn(title, renderer, text=index)
-            column.set_resizable(True)
-            column.set_expand(index == 3)
-            if index == 1:
-                column.set_min_width(60)
-            self.tree.append_column(column)
-        self.tree.set_tooltip_column(4)
-        self.tree.connect("row-activated", self.on_row_activated)
-        self.tree.get_selection().connect("changed", self.on_selection_changed)
-        list_scroller = Gtk.ScrolledWindow()
-        list_scroller.set_shadow_type(Gtk.ShadowType.IN)
-        list_scroller.add(self.tree)
-        self.pack_start(list_scroller, True, True, 0)
-        tools = Gtk.Grid(row_spacing=4, column_spacing=4)
-        actions = (("▲", panel.on_move_up, _("Move up")),
-                   ("▼", panel.on_move_down, _("Move down")),
-                   ("✎", panel.on_edit, _("Edit (also double click)")),
-                   ("⧉", panel.on_duplicate, _("Duplicate")),
-                   ("✖", panel.on_delete, _("Delete")))
-        for index, (label, handler, tooltip) in enumerate(actions):
-            button = Gtk.Button(label=label)
-            button.set_tooltip_text(tooltip)
-            button.connect("clicked", handler)
-            button.set_hexpand(True)
-            tools.attach(button, index, 0, 1, 1)
-        self.pack_start(tools, False, False, 0)
-        self.status = Gtk.Label(xalign=0)
-        self.status.set_line_wrap(True)
-        self.status.set_max_width_chars(28)
-        self.status.get_style_context().add_class("hint")
-        self.pack_start(self.status, False, False, 0)
+        get = builder.get_object
+        self.widget = get("program_column")
+        self.name_entry = get("program_name")
+        self.name_entry.set_text(panel.program.name)
+        self.store = get("program_store")
+        self.tree = get("program_tree")
+        cycle_column = get("program_column_1")
+        if cycle_column is not None:
+            cycle_column.set_min_width(60)
+        self.status = get("program_status")
 
-    def on_name_changed(self, _entry):
-        self.panel.schedule_refresh()
-
-    def on_row_activated(self, *_args):
-        self.panel.on_edit(None)
-
-    def on_selection_changed(self, _selection):
-        self.panel.on_select()
-
-    def selected(self) -> Optional[int]:
+    # the first row is the stock (part of the program, not movable); the cycles follow
+    def selected_row(self) -> Optional[int]:
         model, tree_iter = self.tree.get_selection().get_selected()
         if tree_iter is None:
             return None
         return model.get_path(tree_iter).get_indices()[0]
+
+    def selected(self) -> Optional[int]:
+        """Index of the marked cycle in program.ops (None: nothing or the stock marked)."""
+        row = self.selected_row()
+        if row is None or row == 0:
+            return None
+        return row - 1
+
+    def stock_selected(self) -> bool:
+        return self.selected_row() == 0
+
+    def select(self, index: int):
+        self.tree.get_selection().select_path(Gtk.TreePath.new_from_indices([index + 1]))
 
     def unselect(self):
         self.tree.get_selection().unselect_all()
@@ -883,43 +1051,39 @@ class ProgramColumn(Gtk.Box):
 
 # =========================================================================== right column
 
-class ViewColumn(Gtk.Box):
-    MODES = [("cycle", N_("Cycle"), "theme:video-display",
-              N_("Preview of the current tab with stock and removal; the mouse wheel zooms, the "
-                 "left mouse button pans, a double click resets")),
-             ("help", N_("Picture"), "theme:image-x-generic",
-              N_("Parameter picture of the current tab")),
-             ("gcode", N_("G-code"), "theme:text-x-generic",
-              N_("Generated G-code, jumps to the marked program step")),
-             ("program", N_("Program"), "theme:x-office-document",
-              N_("The whole program, the marked step highlighted"))]
+VIEW_MODES = ("cycle", "help", "gcode", "program")
 
-    def __init__(self, panel: "DrehzyklenPanel"):
-        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=4, margin=4)
+
+class ButtonGroup:
+    """Buttons of one radio group by key (cycles, views)."""
+
+    def __init__(self, buttons):
+        self.buttons: Dict[str, Gtk.ToggleButton] = buttons
+
+    def queue_draw(self):
+        for button in self.buttons.values():
+            button.queue_draw()
+
+
+class ViewColumn:
+    """Preview, parameter picture, G-code and program view (``view_column`` in the Glade file)."""
+
+    def __init__(self, panel: "DrehzyklenPanel", builder: Gtk.Builder):
         self.panel = panel
         self.mode = "cycle"
-        top = Gtk.Box(spacing=6)
-        items = [(key, _(text), icon, _(tooltip)) for key, text, icon, tooltip in self.MODES]
-        self.mode_bar = RadioBar(items, "viewbar", self.on_mode, buttons=True,
-                                 spacing=COLUMN_SPACING)
-        top.pack_start(self.mode_bar, False, False, 0)
-        self.pack_start(top, False, False, 0)
-        # below the picture, so that the button bar keeps the column narrow
-        self.rapid_check = Gtk.CheckButton(label=_("Rapids"), active=True)
-        self.rapid_check.connect("toggled", self.on_rapids_toggled)
-        self.stack = Gtk.Stack()
+        get = builder.get_object
+        self.widget = get("view_column")
+        self.mode_bar = ButtonGroup({mode: get("view_" + mode) for mode in VIEW_MODES})
+        self.rapid_check = get("rapid_check")
+        connect_label_to_switch(get("rapid_label_box"), self.rapid_check)
+        self.stack = get("view_stack")
         self.view = ViewArea(panel.machine)
-        self.stack.add_named(self.view, "view")
-        self.gcode_view = Gtk.TextView(editable=False, monospace=True)
+        get("view_slot").pack_start(self.view, True, True, 0)
+        self.gcode_view = get("gcode_view")
         self.gcode_view.get_buffer().create_tag("current", background="#5a4a10",
                                                 foreground="#ffffff")
-        self.gcode_scroller = Gtk.ScrolledWindow()
-        self.gcode_scroller.add(self.gcode_view)
-        self.stack.add_named(self.gcode_scroller, "gcode")
-        self.pack_start(self.stack, True, True, 0)
-        self.pack_start(self.rapid_check, False, False, 0)
         message_scroller, self.message_label = message_area()
-        self.pack_start(message_scroller, False, True, 0)
+        get("message_slot").pack_start(message_scroller, True, True, 0)
 
     def set_mode(self, mode):
         self.mode_bar.buttons[mode].set_active(True)
@@ -932,7 +1096,7 @@ class ViewColumn(Gtk.Box):
             self.stack.set_visible_child_name("view")
         self.panel.update_view()
 
-    def on_rapids_toggled(self, check):
+    def on_rapids_toggled(self, check, _pspec=None):
         self.view.show_rapids = check.get_active()
         self.view.queue_draw()
 
@@ -957,27 +1121,122 @@ class ViewColumn(Gtk.Box):
         return False
 
 
+# =========================================================================== Glade file
+
+UI_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
+UI_FILE = "drehzyklen.ui"
+REQUIRED_OBJECTS = ("main_box", "main_stack", "outer_paned", "inner_paned", "page_stack",
+                    "cycle_bar", "page_tools", "page_settings", "program_column",
+                    "program_name", "program_tree", "program_status", "view_column",
+                    "view_cycle", "view_help", "view_gcode", "view_program", "view_stack",
+                    "view_slot", "gcode_view", "rapid_check", "rapid_label_box", "message_slot",
+                    "settings_page",
+                    "machine_form_scroller", "machine_info", "language_combo",
+                    "machine_picture", "machine_picture_hint", "tool_page", "tool_tree",
+                    "tool_paned", "tool_kind", "tool_hand", "tool_position", "tool_lead",
+                    "tool_radius", "tool_width", "tool_diameter", "tool_tip", "tool_front",
+                    "tool_back", "tool_axis", "tool_comment", "tool_apply", "tool_new",
+                    "tool_length", "tool_min_bore", "tool_groove_depth", "tool_reference",
+                    "tool_spindle", "button_variables", "button_merge",
+                    "tool_delete", "tool_reload", "tool_write", "tool_mirror", "tool_mirror_row",
+                    "tool_mirror_label", "tool_mirror_label_box", "tool_source")
+
+
+def ui_files(config_dir):
+    """The own copy in the configuration folder first, then the file of the program."""
+    own_files = [os.path.join(folder, UI_FILE) for folder in user_dirs(config_dir)]
+    return own_files + [os.path.join(UI_DIR, UI_FILE)]
+
+
+def load_builder(config_dir) -> Gtk.Builder:
+    """Read the Glade file. An own copy that cannot be used (error, missing objects after an
+    update) is skipped with a message on the console."""
+    for path in ui_files(config_dir):
+        if not os.path.isfile(path):
+            continue
+        builder = Gtk.Builder()
+        try:
+            builder.add_from_file(path)
+        except GLib.Error as error:
+            print(f"Drehzyklen: {path} cannot be used: {error.message}")
+            continue
+        missing = [name for name in REQUIRED_OBJECTS if builder.get_object(name) is None]
+        if missing:
+            print(f"Drehzyklen: {path} cannot be used, missing objects: {', '.join(missing)}")
+            continue
+        return builder
+    raise RuntimeError(f"no usable {UI_FILE} found")
+
+
+def translate_builder(builder: Gtk.Builder):
+    """Translate the texts of the Glade file into the active language (labels, tooltips,
+    column titles, placeholders). The texts in the file are English."""
+    for item in builder.get_objects():
+        if isinstance(item, Gtk.Label):
+            text = item.get_label()
+            if text and not item.get_use_markup():
+                item.set_label(_(text))
+        elif isinstance(item, Gtk.Button):
+            text = item.get_label()
+            if text and not item.get_use_stock():
+                item.set_label(_(text))
+        elif isinstance(item, Gtk.TreeViewColumn):
+            title = item.get_title()
+            if title:
+                item.set_title(_(title))
+        if isinstance(item, Gtk.Entry):
+            placeholder = item.get_placeholder_text()
+            if placeholder:
+                item.set_placeholder_text(_(placeholder))
+        if isinstance(item, Gtk.Widget):
+            tooltip = item.get_tooltip_text()
+            if tooltip:
+                item.set_tooltip_text(_(tooltip))
+
+
+def connect_drawn_icons(builder: Gtk.Builder):
+    """GtkDrawingArea with the widget name "icon:<key>" shows the drawn symbol <key>."""
+    for item in builder.get_objects():
+        if isinstance(item, Gtk.DrawingArea):
+            name = item.get_name() or ""
+            if name.startswith("icon:"):
+                size = max(item.get_size_request()[1], 16)
+                item.connect("draw", RadioBar.on_draw_icon, name[len("icon:"):], size)
+
+
+def button_text_labels(builder: Gtk.Builder):
+    """The texts under the symbols of the large buttons (hidden on narrow screens)."""
+    labels = []
+    for item in builder.get_objects():
+        if isinstance(item, Gtk.Label) and item.get_style_context().has_class("buttontext"):
+            labels.append(item)
+    return labels
+
+
 # =========================================================================== main panel
 
 class DrehzyklenPanel(Gtk.Box):
+    """The whole user interface. The layout comes from the Glade file ui/drehzyklen.ui (or an
+    own copy in the configuration folder); this class fills it and holds the logic."""
+
     def __init__(self, machine: Machine, machine_json: str, ini_path: Optional[str] = None,
                  embedded=False, settings: Optional[Settings] = None,
                  tools: Optional[ToolTable] = None, program: Optional[Program] = None,
                  on_language=None):
-        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.get_style_context().add_class("dz")
         self.machine = machine
         self.machine_json = machine_json
         self.ini_path = ini_path
         self.embedded = embedded
         self.on_language = on_language
-        config_dir = os.path.dirname(os.path.abspath(machine_json))
+        self.config_dir = os.path.dirname(os.path.abspath(machine_json))
         if settings is None:
-            settings = Settings(os.path.join(config_dir, "settings.json"))
-            threads.load(os.path.join(config_dir, "threads.json"))      # own threads
+            settings = Settings(os.path.join(self.config_dir, "settings.json"))
+            threads.load(os.path.join(self.config_dir, "threads.json"))      # own threads
         self.settings = settings
         if tools is None:
-            tools = ToolTable(machine, os.path.join(config_dir, "werkzeuge.json"))
+            tools = ToolTable(machine, os.path.join(self.config_dir, "werkzeuge.json"))
         self.tools = tools
         widgets.ICON_STATE["flipped"] = self.icons_flipped
         if program is None:
@@ -994,112 +1253,215 @@ class DrehzyklenPanel(Gtk.Box):
         self.active_dialog = None
         self.set_size_request(300, 200)
 
-        # ---- tab bar - the order of the tabs is defined here
+        # ---- layout from the Glade file
+        builder = load_builder(self.config_dir)
+        self.builder = builder
+        translate_builder(builder)
+        connect_drawn_icons(builder)
+        get = builder.get_object
+        self.pack_start(get("main_box"), True, True, 0)
+        self.main_stack = get("main_stack")
+        self.outer_paned = get("outer_paned")
+        self.inner_paned = get("inner_paned")
+        self.program_column = ProgramColumn(self, builder)
+        self.view_column = ViewColumn(self, builder)
+
+        # ---- pages of the middle column
+        # pages created in code must be visible before they are added: a Gtk.Stack ignores
+        # switching to an invisible page (it would stay on the tools page from the Glade file)
+        self.stack = get("page_stack")
+        self.stock_page = StockPage(self)
+        self.stock_page.show_all()
+        self.stack.add_named(self.stock_page, "stock")
+        self.pages: Dict[str, CyclePage] = {}
+        for cycle_class in CYCLES:
+            page = CyclePage(self, cycle_class)
+            page.show_all()
+            page.form.update_visibility()
+            self.pages[cycle_class.KEY] = page
+            self.stack.add_named(page, cycle_class.KEY)
+        self.tool_page = ToolPage(self, builder)
+        self.stack.add_named(self.tool_page.widget, "tools")
+        self.settings_page = SettingsPage(self, builder)
+        self.machine_page = self.settings_page          # machine data are on the settings page
+
+        # ---- cycle buttons (bottom); tools and settings (top) belong to the same group
         items = [("stock", _("Stock"), "stock", _("Stock and clamping"))]
         for cycle_class in CYCLES:
             items.append((cycle_class.KEY, cycle_class.short(), cycle_class.KEY,
                           cycle_class.title()))
-        items.append(("tools", _("Tools"), "tools", _("Tool table")))
-        items.append(("machine", _("Machine"), "machine", _("Machine data")))
-        self.selector = RadioBar(items, "selbar", self.show_page, icon_size=24, buttons=True,
-                                 spacing=6)
-        selector_scroller = Gtk.ScrolledWindow()
-        selector_scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
-        selector_scroller.set_propagate_natural_height(True)
-        selector_scroller.add(self.selector)
-        self.pack_start(selector_scroller, False, False, 0)
+        cycle_buttons = RadioBar(items, "cycles", self.show_page, icon_size=24, buttons=True,
+                                 spacing=8)
+        get("cycle_bar").pack_start(cycle_buttons, False, False, 0)
+        # the scrollbar (and the room for it) only when the buttons do not fit into the width
+        self.cycle_buttons = cycle_buttons
+        self.cycle_scroller = get("cycle_scroller")
+        self.cycle_scroller.connect("size-allocate", self.on_cycle_scroller_allocate)
+        page_tools = get("page_tools")
+        buttons = {}
+        for key, button in cycle_buttons.buttons.items():
+            button.join_group(page_tools)
+            buttons[key] = button
+        buttons["tools"] = page_tools
+        buttons["settings"] = get("page_settings")
+        self.selector = ButtonGroup(buttons)
+        self.text_labels = button_text_labels(builder) + [
+            button.text_label for button in cycle_buttons.buttons.values()]
+        self.send_button = get("button_send")
 
-        # ---- three columns
-        self.program_column = ProgramColumn(self)
-        self.stack = Gtk.Stack()
-        self.stack.set_transition_type(Gtk.StackTransitionType.NONE)
-        self.stock_page = StockPage(self)
-        self.stack.add_named(self.stock_page, "stock")
-        self.tool_page = ToolPage(self)
-        # the tools tab has many fields - it scrolls so that the panel stays low (1024×768)
-        self.stack.add_named(scrolled(self.tool_page), "tools")
-        self.pages: Dict[str, CyclePage] = {}
-        for cycle_class in CYCLES:
-            page = CyclePage(self, cycle_class)
-            self.pages[cycle_class.KEY] = page
-            self.stack.add_named(page, cycle_class.KEY)
-        self.machine_page = MachinePage(self)
-        self.stack.add_named(self.machine_page, "machine")
-        self.view_column = ViewColumn(self)
+        handlers = self.handlers()
+        handlers.update(self.tool_page.handlers())
+        builder.connect_signals(handlers)
 
-        self.outer_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        self.inner_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        self.outer_paned.set_wide_handle(True)
-        self.inner_paned.set_wide_handle(True)
-        self.outer_paned.pack1(self.program_column, False, False)
-        self.outer_paned.pack2(self.inner_paned, True, False)
-        # frames around the parameter column and the view column: their button bars
-        # (outside/inside, the four views) visibly belong to them
-        self.inner_paned.pack1(column_frame(self.stack), False, False)
-        self.inner_paned.pack2(column_frame(self.view_column), True, False)
-        self.pack_start(self.outer_paned, True, True, 0)
-
-        # ---- bottom button bar
-        bar = Gtk.Box(spacing=BOTTOM_SPACING)
-        bar.get_style_context().add_class("bottombar")
-        self.bottom_buttons = []
-        self._bottom_button(bar, _("New"), "document-new", self.on_new,
-                            _("New program (the stock stays)"))
-        self._bottom_button(bar, _("Open"), "document-open", self.on_open,
-                            _("Open a project (.dzp)"))
-        self._bottom_button(bar, _("Save"), "document-save", self.on_save_project,
-                            _("Save the project (.dzp)"))
-        self._bottom_button(bar, _("G-code"), "accessories-text-editor", self.on_gcode_editor,
-                            _("Show, complete and save the G-code"))
-        self.send_button = self._bottom_button(bar, _("Load"), "media-playback-start",
-                                               self.on_send,
-                                               _("Generate the G-code, save it and open it in "
-                                                 "LinuxCNC"), at_end=True)
-        self.machine_button = self._bottom_button(bar, _("Machine"), "preferences-system",
-                                                  self.on_toggle_machine,
-                                                  _("Show/hide the machine tab"), toggle=True,
-                                                  at_end=True)
-        bar.pack_end(self._language_box(), False, False, 0)
-        self.pack_start(bar, False, False, 0)
-
-        running = linuxcnc_running()
-        self.machine_button.set_active(not running)
-        self.selector.buttons["machine"].set_visible(not running)
+        self.tool_page.refresh()
         self.stock_page.load(self.program.stock)
         for page in self.pages.values():
             page.form.set_stock(self.program.stock, force=True)
+        self.selector.buttons["stock"].set_active(True)
+        self.show_page("stock")
         self.starting = False
         self.watch_timer = GLib.timeout_add_seconds(2, self.watch_tool_table)
         self.connect("size-allocate", self.on_size_allocate)
         self.connect("destroy", self.on_destroy)
         self.refresh_list()
 
-    def _bottom_button(self, bar, text, icon, handler, tooltip, toggle=False, at_end=False):
-        button = image_button(text, icon, tooltip, toggle)
-        if toggle:
-            button.connect("toggled", handler)
-        else:
-            button.connect("clicked", handler)
-        if at_end:
-            bar.pack_end(button, False, False, 0)
-        else:
-            bar.pack_start(button, False, False, 0)
-        self.bottom_buttons.append(button)
-        return button
+    def handlers(self):
+        """Signal handlers named in the Glade file."""
+        return {"on_new": self.on_new, "on_open": self.on_open,
+                "on_save_project": self.on_save_project, "on_send": self.on_send,
+                "on_page_toggled": self.on_page_toggled,
+                "on_view_mode_toggled": self.on_view_mode_toggled,
+                "on_rapids_toggled": self.view_column.on_rapids_toggled,
+                "on_program_name_changed": self.on_program_name_changed,
+                "on_program_row_activated": self.on_program_row_activated,
+                "on_program_selection_changed": self.on_program_selection_changed,
+                "on_move_up": self.on_move_up, "on_move_down": self.on_move_down,
+                "on_edit": self.on_edit, "on_duplicate": self.on_duplicate,
+                "on_delete": self.on_delete, "on_language_changed": self.on_language_changed,
+                "on_merge": self.on_merge,
+                "on_machine_apply": self.on_machine_apply,
+                "on_machine_save": self.on_machine_save,
+                "on_machine_reload": self.on_machine_reload,
+                "on_variables": self.on_variables}
 
-    def _language_box(self):
-        """Language selection; switching rebuilds the panel at once."""
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
-        box.set_valign(Gtk.Align.CENTER)
-        self.language_combo = Gtk.ComboBoxText()
-        for code in i18n.available_languages():
-            self.language_combo.append(code, i18n.language_name(code))
-        self.language_combo.set_active_id(i18n.language())
-        self.language_combo.set_tooltip_text(_("Language of the user interface and of the "
-                                               "G-code comments"))
-        self.language_combo.connect("changed", self.on_language_changed)
-        box.pack_start(self.language_combo, False, False, 0)
-        return box
+    def on_page_toggled(self, button):
+        if button.get_active():
+            for key, page_button in self.selector.buttons.items():
+                if page_button is button:
+                    self.show_page(key)
+                    break
+
+    def on_view_mode_toggled(self, button):
+        if button.get_active():
+            for mode, mode_button in self.view_column.mode_bar.buttons.items():
+                if mode_button is button:
+                    self.view_column.on_mode(mode)
+                    break
+
+    # ---------------------------------------------------------------- variables
+    def dialog_variables(self, text_view):
+        """Variables for the completion in the dialog: the lines typed so far (as far as they
+        can be read) plus the stock variables."""
+        def variables():
+            buffer = text_view.get_buffer()
+            text = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), True)
+            definitions = []
+            for line in text.splitlines():
+                try:
+                    definitions.extend(parse_definitions(line))
+                except VariableError:
+                    continue
+            return Variables(definitions, self.program.stock.raw)
+        return variables
+
+    def on_variables(self, _button):
+        """Edit the own variables of the program (variants of the part)."""
+        dialog = Gtk.Dialog(title=_("Variables"), transient_for=self.get_toplevel(), modal=True)
+        dialog.add_buttons(_("Cancel"), Gtk.ResponseType.CANCEL, _("Apply"), Gtk.ResponseType.OK)
+        dialog.set_default_size(560, 460)
+        content = dialog.get_content_area()
+        content.set_spacing(6)
+        info = Gtk.Label(xalign=0, label=_(
+            "One variable per line: Name = value or calculation ; comment. Use them in every "
+            "number field as $Name or as a calculation like $StockDiameter - 2, in the contour "
+            "as X[$Diameter - 2]. Changing a value gives a variant of the part."))
+        info.set_line_wrap(True)
+        content.pack_start(info, False, False, 0)
+        text_view = Gtk.TextView(monospace=True)
+        text_view.get_buffer().set_text(definitions_text(self.program.variables))
+        text_view.completer = widgets.VariableCompleter(text_view, self.dialog_variables(text_view))
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_shadow_type(Gtk.ShadowType.IN)
+        scroller.set_min_content_height(140)
+        scroller.add(text_view)
+        content.pack_start(scroller, True, True, 0)
+        values_label = Gtk.Label(xalign=0, yalign=0)
+        values_label.set_line_wrap(True)
+        values_label.set_selectable(True)
+        content.pack_start(values_label, False, False, 0)
+
+        def show_values(*_args):
+            buffer = text_view.get_buffer()
+            text = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), True)
+            try:
+                definitions = parse_definitions(text)
+            except VariableError as error:
+                values_label.set_markup(error_markup(str(error)))
+                return
+            variables = Variables(definitions, self.program.stock.raw)
+            lines = []
+            for name in STOCK_VARIABLES:
+                lines.append(f"${name} = {number_text(variables.value(name))}   "
+                             f"({_(STOCK_VARIABLE_HELP[name])})")
+            for name, _expression, _comment in definitions:
+                try:
+                    lines.append(f"${name} = {number_text(variables.value(name))}")
+                except VariableError as error:
+                    lines.append(f"${name}: {error}")
+            values_label.set_text("\n".join(lines))
+        text_view.get_buffer().connect("changed", show_values)
+        show_values()
+        dialog.show_all()
+        self.active_dialog = dialog
+        while True:
+            response = dialog.run()
+            if response != Gtk.ResponseType.OK:
+                break
+            buffer = text_view.get_buffer()
+            text = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), True)
+            try:
+                definitions = parse_definitions(text)
+                variables = Variables(definitions, self.program.stock.raw)
+                for name, _expression, _comment in definitions:
+                    variables.value(name)
+            except VariableError as error:
+                self.message(str(error), Gtk.MessageType.ERROR)
+                continue
+            self.program.variables = definitions
+            self.variables_changed()
+            break
+        self.active_dialog = None
+        dialog.destroy()
+
+    def variables_changed(self):
+        """Calculate stock and cycles with the new variables and show the result."""
+        self.program.resolve_all()
+        self.stock_page.load(self.program.stock)
+        for page in self.pages.values():
+            page.schedule_update()
+        self.refresh_list(self.program_column.selected())
+
+    def on_program_name_changed(self, _entry):
+        self.schedule_refresh()
+
+    def on_program_row_activated(self, *_args):
+        if self.program_column.stock_selected():
+            self.selector.buttons["stock"].set_active(True)
+            return
+        self.on_edit(None)
+
+    def on_program_selection_changed(self, _selection):
+        self.on_select()
 
     def on_language_changed(self, combo):
         code = combo.get_active_id()
@@ -1128,7 +1490,7 @@ class DrehzyklenPanel(Gtk.Box):
         return {"current": self.current, "view_mode": self.view_column.mode,
                 "selected": self.program_column.selected(),
                 "name": self.program_column.name_entry.get_text(),
-                "machine_tab": self.machine_button.get_active(),
+                "tool_list_height": self.tool_page.paned.get_position(),
                 "positions": (self.outer_paned.get_position(), self.inner_paned.get_position()),
                 "pages": {key: page.export_state() for key, page in self.pages.items()}}
 
@@ -1137,7 +1499,7 @@ class DrehzyklenPanel(Gtk.Box):
             if key in self.pages:
                 self.pages[key].import_state(page_state)
         self.program_column.name_entry.set_text(state.get("name", self.program.name))
-        self.machine_button.set_active(state.get("machine_tab", False))
+        self.tool_page.paned.set_position(state.get("tool_list_height", 170))
         left, middle = state.get("positions", (0, 0))
         if left > 50 and middle > 50:
             self.positioned = True
@@ -1167,6 +1529,12 @@ class DrehzyklenPanel(Gtk.Box):
             self.layout_state = layout
             GLib.idle_add(self.apply_layout, layout)
 
+    def on_cycle_scroller_allocate(self, scroller, allocation):
+        _minimum, natural = self.cycle_buttons.get_preferred_width()
+        policy = Gtk.PolicyType.EXTERNAL if natural <= allocation.width else Gtk.PolicyType.AUTOMATIC
+        if scroller.get_policy()[0] != policy:
+            GLib.idle_add(scroller.set_policy, policy, Gtk.PolicyType.NEVER)
+
     def set_positions(self, left, middle):
         self.outer_paned.set_position(left)
         self.inner_paned.set_position(middle)
@@ -1179,13 +1547,12 @@ class DrehzyklenPanel(Gtk.Box):
             context.add_class("compact")
         else:
             context.remove_class("compact")
-        bars = (self.selector, self.view_column.mode_bar)
-        buttons = [button for bar in bars for button in bar.buttons.values()]
+        labels = list(self.text_labels)
         for page in self.pages.values():
             if page.cycle_class.HAS_SIDE:
-                buttons.extend(page.side_bar.buttons.values())
-        for button in buttons + self.bottom_buttons:
-            button.text_label.set_visible(not narrow)
+                labels.extend(button.text_label for button in page.side_bar.buttons.values())
+        for label in labels:
+            label.set_visible(not narrow)
         return False
 
     def show_startup_hints(self):
@@ -1210,6 +1577,12 @@ class DrehzyklenPanel(Gtk.Box):
             if tool_number:
                 self.tool_page.select_number(int(tool_number))
         self.current = key
+        if key == "settings":
+            # settings use the whole width (language, machine data, picture of the machine)
+            self.settings_page.refresh()
+            self.main_stack.set_visible_child_name("settings")
+            return
+        self.main_stack.set_visible_child_name("work")
         self.stack.set_visible_child_name(key)
         self.view_column.view.reset_view()
         page = self.pages.get(key)
@@ -1221,6 +1594,7 @@ class DrehzyklenPanel(Gtk.Box):
             self.clear_edit()
             self.program_column.unselect()
         if page is not None:
+            page.chain_start()
             page.update()
         else:
             self.update_view()
@@ -1247,7 +1621,7 @@ class DrehzyklenPanel(Gtk.Box):
                     column.show_gcode(result.gcode, selected + 1)
                 else:
                     column.show_gcode(result.gcode)
-        if mode in ("program", "gcode") or (mode == "cycle" and self.current == "machine"):
+        if mode in ("program", "gcode"):
             view.set_mode("preview")
             self.show_program_scene()
             if result is not None:
@@ -1296,16 +1670,6 @@ class DrehzyklenPanel(Gtk.Box):
             before=simulate(stock, self.program.ops, 0), after=simulate(stock, self.program.ops),
             highlight=highlight, removed_color=(0.50, 0.53, 0.58, 0.16)))
 
-    def on_toggle_machine(self, button):
-        visible = button.get_active()
-        self.selector.buttons["machine"].set_visible(visible)
-        if self.starting:
-            return
-        if visible:
-            self.selector.buttons["machine"].set_active(True)
-        elif self.current == "machine":
-            self.selector.buttons["stock"].set_active(True)
-
     # ---------------------------------------------------------------- stock / tools
     def stock_changed(self, stock: Stock):
         old_stock = self.program.stock
@@ -1313,7 +1677,8 @@ class DrehzyklenPanel(Gtk.Box):
         for page in self.pages.values():
             page.form.set_stock(stock, old_stock)
             page.schedule_update()
-        self.refresh_gcode()
+        # the stock is the first entry of the program list; $Stock… variables change
+        self.refresh_list(self.program_column.selected())
 
     def reload_tools(self):
         selected = self.tool_page.selected_number()
@@ -1322,7 +1687,7 @@ class DrehzyklenPanel(Gtk.Box):
 
     def watch_tool_table(self):
         """Every 2 s check whether LinuxCNC changed the tool.tbl and read it again
-        (only if switched on in the machine tab)."""
+        (only if switched on in the settings)."""
         if not self.machine.auto_reload_tools:
             return True
         if self.tools.from_linuxcnc or self.tools.table_path():
@@ -1343,7 +1708,16 @@ class DrehzyklenPanel(Gtk.Box):
     # ---------------------------------------------------------------- program list
     def refresh_list(self, select: Optional[int] = None):
         column = self.program_column
+        self.program.resolve_all()
+        # calculated fields show the results with the current variables and stock
+        self.stock_page.form.refresh_calculated()
+        for page in self.pages.values():
+            page.form.refresh_calculated()
         column.store.clear()
+        stock = self.program.stock
+        column.store.append(["0", _("Stock"), "", stock.summary(),
+                             GLib.markup_escape_text(_("Stock and clamping") + ": "
+                                                     + stock.summary()), None])
         for index, op in enumerate(self.program.ops, 1):
             if op.HAS_TOOL:
                 tool_text = str(int(op.tool))
@@ -1353,9 +1727,9 @@ class DrehzyklenPanel(Gtk.Box):
             if op.HAS_SIDE and op.inside:
                 title += " " + _("inside")
             column.store.append([str(index), title, tool_text, op.summary(),
-                                 GLib.markup_escape_text(f"{op.title()}: {op.summary()}")])
+                                 GLib.markup_escape_text(f"{op.title()}: {op.summary()}"), None])
         if select is not None and 0 <= select < len(self.program.ops):
-            column.tree.get_selection().select_path(Gtk.TreePath.new_from_indices([select]))
+            column.select(select)
         self.refresh_gcode()
 
     def on_select(self):
@@ -1367,6 +1741,10 @@ class DrehzyklenPanel(Gtk.Box):
         self.refresh_list(len(self.program.ops) - 1)
         self.program_column.status.set_text(_("{title} added as step {number}").format(
             title=op.title(), number=len(self.program.ops)))
+        # the next cycle on this page starts where the new step ends
+        page = self.pages.get(self.current)
+        if page is not None:
+            page.chain_start()
 
     def replace_op(self, index: int, op: Cycle):
         if index >= len(self.program.ops):
@@ -1399,6 +1777,9 @@ class DrehzyklenPanel(Gtk.Box):
                 page.clear_edit()
 
     def on_edit(self, _button):
+        if self.program_column.stock_selected():
+            self.selector.buttons["stock"].set_active(True)
+            return
         index = self.program_column.selected()
         if index is None:
             return
@@ -1427,6 +1808,181 @@ class DrehzyklenPanel(Gtk.Box):
             del self.program.ops[index]
             self.clear_edit()
             self.refresh_list(min(index, len(self.program.ops) - 1))
+
+    # ---------------------------------------------------------------- steps as one contour
+    def merge_range(self):
+        """Suggested steps (1-based): the run of contour steps around the marked step, otherwise
+        the last run in the program."""
+        ops = self.program.ops
+        mergeable = [op.KEY in MERGE_KEYS for op in ops]
+        selected = self.program_column.selected()
+        if selected is None or not mergeable[selected]:
+            candidates = [index for index, ok in enumerate(mergeable) if ok]
+            if not candidates:
+                return 1, max(1, len(ops))
+            selected = candidates[-1]
+        first = last = selected
+        while first > 0 and mergeable[first - 1]:
+            first -= 1
+        while last + 1 < len(ops) and mergeable[last + 1]:
+            last += 1
+        return first + 1, last + 1
+
+    def renumber_finish_steps(self, mapping):
+        """After steps were removed/inserted: the finishing steps refer to the new numbers."""
+        for op in self.program.ops:
+            if isinstance(op, FinishContour):
+                for key in ("first", "last"):
+                    old = int(op.raw.get(key, 1))
+                    new = mapping(old)
+                    if new != old:
+                        op.set(key, new)
+
+    def on_merge(self, _button):
+        """Several steps as one contour: merge them into a contour step or add a finishing
+        step over them - the operator decides."""
+        ops = self.program.ops
+        if len(ops) < 2:
+            self.message(_("The program needs at least two steps (long turning, taper, contour, "
+                           "chamfer)."))
+            return
+        first, last = self.merge_range()
+        dialog = Gtk.Dialog(title=_("Steps as one contour"), transient_for=self.dialog_parent(),
+                            modal=True)
+        dialog.add_button(_("Cancel"), Gtk.ResponseType.CANCEL)
+        apply_button = dialog.add_button(_("Apply"), Gtk.ResponseType.OK)
+        dialog.set_default_size(560, -1)
+        content = dialog.get_content_area()
+        content.set_spacing(8)
+        content.set_border_width(10)
+        info = Gtk.Label(xalign=0, label=_(
+            "Every step turns its own piece of the contour; at the transitions the corner radius "
+            "of the tool leaves small noses. Turned as one contour the tool runs through."))
+        info.set_line_wrap(True)
+        info.set_max_width_chars(60)
+        content.pack_start(info, False, False, 0)
+        grid = Gtk.Grid(row_spacing=6, column_spacing=8)
+        spins = []
+        for row, (label, value) in enumerate(((_("From step"), first), (_("To step"), last))):
+            grid.attach(Gtk.Label(label=label, xalign=0), 0, row, 1, 1)
+            spin = Gtk.SpinButton.new_with_range(1, len(ops), 1)
+            spin.set_value(value)
+            grid.attach(spin, 1, row, 1, 1)
+            spins.append(spin)
+        content.pack_start(grid, False, False, 0)
+        merge_radio = Gtk.RadioButton.new_with_label(None, _(
+            "Merge into one contour - the steps are replaced by one contour step"))
+        finish_radio = Gtk.RadioButton.new_with_label_from_widget(merge_radio, _(
+            "Add a finishing step - the steps stay, a finishing pass over the whole contour "
+            "follows them"))
+        for radio in (merge_radio, finish_radio):
+            radio.get_child().set_line_wrap(True)
+            content.pack_start(radio, False, False, 0)
+        # without their own finishing pass the steps leave the finishing allowance, the
+        # finishing step removes it (otherwise it finishes again with 0)
+        no_finish_row, no_finish_check = labeled_switch(_(
+            "Switch off the finishing passes of these steps - they leave the finishing "
+            "allowance (aX, aZ), the finishing step removes it"), active=True)
+        no_finish_row.set_margin_start(24)
+        content.pack_start(no_finish_row, False, False, 0)
+        finish_radio.set_active(True)
+        status = Gtk.Label(xalign=0)
+        status.set_line_wrap(True)
+        status.set_max_width_chars(60)
+        status.set_selectable(True)
+        content.pack_start(status, False, False, 4)
+
+        def numbers():
+            low, high = int(spins[0].get_value()), int(spins[1].get_value())
+            return list(range(low, high + 1))
+
+        def check(*_args):
+            no_finish_row.set_sensitive(finish_radio.get_active())
+            steps = numbers()
+            try:
+                if not steps:
+                    raise ContourError(_("»From step« is after »to step«"))
+                text = contour_text(ops, steps)
+            except ContourError as error:
+                status.set_markup(error_markup(str(error)))
+                apply_button.set_sensitive(False)
+                return
+            count = len(text.splitlines())
+            message = _("Steps {first}–{last}: one contour with {count} points.").format(
+                first=steps[0], last=steps[-1], count=count)
+            if merge_radio.get_active() and any(
+                    is_expression(value) for number in steps
+                    for value in ops[number - 1].raw.values()):
+                message += "\n" + _("Calculations with $variables of these steps become "
+                                     "numbers in the contour.")
+            if finish_radio.get_active() and no_finish_check.get_active():
+                allowances = sorted({(number_text(ops[number - 1].v.get("allow_x", 0)),
+                                      number_text(ops[number - 1].v.get("allow_z", 0)))
+                                     for number in steps if "do_finish" in ops[number - 1].v})
+                if allowances:
+                    message += "\n" + _("Finishing allowance left: {values}").format(
+                        values=", ".join(f"aX {x} / aZ {z}" for x, z in allowances))
+            status.set_text(message)
+            apply_button.set_sensitive(True)
+
+        for widget in spins:
+            widget.connect("value-changed", check)
+        merge_radio.connect("toggled", check)
+        no_finish_check.connect("notify::active", check)
+        check()
+        dialog.show_all()
+        response = dialog.run()
+        steps = numbers()
+        merge = merge_radio.get_active()
+        switch_off_finishing = no_finish_check.get_active()
+        dialog.destroy()
+        if response != Gtk.ResponseType.OK or not steps:
+            return
+        try:
+            values = merged_values(ops, steps)
+        except ContourError as error:
+            self.message(str(error), Gtk.MessageType.ERROR)
+            return
+        variables = self.program.variable_set()
+        low, high = steps[0], steps[-1]
+        if merge:
+            new_op = cycle_from_dict({"cycle": "contour", "values": values}, variables)
+            ops[low - 1:high] = [new_op]
+            removed = high - low
+            self.renumber_finish_steps(
+                lambda number: number - removed if number > high else min(number, low))
+            index = low - 1
+            text = _("Steps {first}–{last} merged into one contour (step {number})").format(
+                first=low, last=high, number=low)
+        else:
+            source = next(ops[number - 1] for number in steps
+                          if ops[number - 1].KEY in PIECE_KEYS)
+            finish_values = {key: source.raw[key] for key in
+                             ("side", "tool", "tool_ok", "speed_feed", "speed", "spindle_dir",
+                              "coolant") if key in source.raw}
+            finish_values.update(first=low, last=high,
+                                 f_finish=source.v.get("f_finish", 0.1),
+                                 comp=source.v.get("comp", "auto"))
+            switched_off = []
+            if switch_off_finishing:
+                for number in steps:
+                    op = ops[number - 1]
+                    # only steps that rough - otherwise the step would do nothing at all
+                    if op.v.get("do_finish") and op.v.get("do_rough", False):
+                        op.set("do_finish", False)
+                        switched_off.append(number)
+            self.renumber_finish_steps(lambda number: number + 1 if number > high else number)
+            new_op = cycle_from_dict({"cycle": "finish", "values": finish_values}, variables)
+            ops.insert(high, new_op)
+            index = high
+            text = _("Finishing step for steps {first}–{last} added as step {number}").format(
+                first=low, last=high, number=high + 1)
+            if switched_off:
+                text += " · " + _("finishing switched off in step(s) {numbers}").format(
+                    numbers=", ".join(str(number) for number in switched_off))
+        self.clear_edit()
+        self.refresh_list(index)
+        self.program_column.status.set_text(text)
 
     # ---------------------------------------------------------------- G-code
     def schedule_refresh(self):
@@ -1459,18 +2015,80 @@ class DrehzyklenPanel(Gtk.Box):
         if result.errors:
             text += " · " + _("{count} error(s)").format(count=len(result.errors))
         self.program_column.status.set_text(text)
+        self.mark_error_rows(result.errors)
         self.update_view()
         return result
+
+    def mark_error_rows(self, errors):
+        """Rows of the program list with errors in red; the tooltip names the errors."""
+        rows = self.program.errors_by_row(errors)
+        store = self.program_column.store
+        for index, row in enumerate(store):
+            if index == 0:
+                tooltip = _("Stock and clamping") + ": " + self.program.stock.summary()
+            elif index <= len(self.program.ops):
+                op = self.program.ops[index - 1]
+                tooltip = f"{op.title()}: {op.summary()}"
+            else:
+                continue
+            row_errors = rows.get(index, [])
+            if row_errors:
+                tooltip += "\n\n" + "\n".join("✖ " + error for error in row_errors)
+            row[4] = GLib.markup_escape_text(tooltip)
+            row[5] = ERROR_ROW_COLOR if row_errors else None
 
     def gcode_ok(self, result) -> bool:
         if not self.program.ops:
             self.message(_("The program does not contain any cycles yet."))
             return False
         if result.errors:
-            self.message(_("The program contains errors:") + "\n\n" + "\n".join(result.errors),
-                         Gtk.MessageType.ERROR)
-            return False
+            return self.confirm_errors(result.errors)
         return True
+
+    def confirm_errors(self, errors) -> bool:
+        """Errors are listed once more; sending needs an explicit confirmation."""
+        dialog = Gtk.Dialog(title=_("Program with errors"), transient_for=self.dialog_parent(),
+                            modal=True)
+        dialog.add_button(_("Cancel"), Gtk.ResponseType.CANCEL)
+        send_button = dialog.add_button(_("Send anyway"), Gtk.ResponseType.OK)
+        send_button.get_style_context().add_class("destructive-action")
+        send_button.set_sensitive(False)
+        dialog.set_default_response(Gtk.ResponseType.CANCEL)
+        dialog.set_default_size(620, 380)
+        content = dialog.get_content_area()
+        content.set_spacing(8)
+        content.set_border_width(10)
+        heading = Gtk.Label(xalign=0)
+        heading.set_line_wrap(True)
+        heading.set_markup("<b>" + GLib.markup_escape_text(
+            _("The program contains {count} error(s):").format(count=len(errors))) + "</b>")
+        content.pack_start(heading, False, False, 0)
+        error_list = Gtk.Label(xalign=0, yalign=0)
+        error_list.set_line_wrap(True)
+        error_list.set_selectable(True)
+        error_list.set_markup("\n".join(
+            f"<span foreground='{ERROR_ROW_COLOR}'>✖</span> " + GLib.markup_escape_text(error)
+            for error in errors))
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_shadow_type(Gtk.ShadowType.IN)
+        scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroller.add(Gtk.Box(margin=6))
+        scroller.get_child().get_child().pack_start(error_list, True, True, 0)
+        content.pack_start(scroller, True, True, 0)
+        hint = Gtk.Label(xalign=0, label=_("Steps with errors are left out of the G-code or "
+                                           "may be wrong. Better correct the red steps in the "
+                                           "program list."))
+        hint.set_line_wrap(True)
+        content.pack_start(hint, False, False, 0)
+        check_row, check = labeled_switch(_("I have read the errors and want to send the "
+                                            "program anyway"))
+        check.connect("notify::active",
+                      lambda switch, _pspec: send_button.set_sensitive(switch.get_active()))
+        content.pack_start(check_row, False, False, 0)
+        dialog.show_all()
+        answer = dialog.run() == Gtk.ResponseType.OK and check.get_active()
+        dialog.destroy()
+        return answer
 
     def file_name(self):
         characters = []
@@ -1487,20 +2105,23 @@ class DrehzyklenPanel(Gtk.Box):
     def program_folder(self):
         return self.settings.program_dir(self.machine.program_dir)
 
-    def on_gcode_editor(self, _button):
-        """Show the generated G-code, complete it if needed, then save or load it."""
+    def on_send(self, _button):
+        """»Send«: show the generated G-code, complete it if needed, then save it or send it
+        to LinuxCNC."""
         result = self.refresh_gcode()
         if not self.gcode_ok(result):
             return
         dialog = Gtk.Dialog(title=_("G-code - show and complete"),
                             transient_for=self.get_toplevel(), modal=True)
-        dialog.add_buttons(_("Close"), Gtk.ResponseType.CANCEL, _("Save as …"), 1,
-                           _("Load into LinuxCNC"), 2)
+        save_response = Gtk.ResponseType.APPLY
+        send_response = Gtk.ResponseType.ACCEPT
+        dialog.add_buttons(_("Close"), Gtk.ResponseType.CANCEL, _("Save as …"), save_response,
+                           _("Send to LinuxCNC"), send_response)
         dialog.set_default_size(720, 520)
         running = linuxcnc_running()
-        dialog.set_response_sensitive(2, running)
+        dialog.set_response_sensitive(send_response, running)
         if not running:
-            load_button = dialog.get_widget_for_response(2)
+            load_button = dialog.get_widget_for_response(send_response)
             if load_button is not None:
                 load_button.set_tooltip_text(_("LinuxCNC is not running"))
         content = dialog.get_content_area()
@@ -1520,27 +2141,18 @@ class DrehzyklenPanel(Gtk.Box):
             response = dialog.run()
             buffer = text_view.get_buffer()
             text = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), True)
-            if response == 1:
+            if response == save_response:
                 path = self.file_dialog(_("Save G-code"), Gtk.FileChooserAction.SAVE,
                                         self.file_name(), (_("G-code"), "*.ngc"))
                 if path and self.write_file(path, text):
                     break
-            elif response == 2:
+            elif response == send_response:
                 if self.send_text(text, result.warnings):
                     break
             else:
                 break
         self.active_dialog = None
         dialog.destroy()
-
-    def on_send(self, _button):
-        if not linuxcnc_running():
-            self.message(_("LinuxCNC is not running - the program cannot be loaded.\n"
-                           "To save it, use »G-code« → »Save as …«."), Gtk.MessageType.WARNING)
-            return
-        result = self.refresh_gcode()
-        if self.gcode_ok(result):
-            self.send_text(result.gcode, result.warnings)
 
     def send_text(self, text, warnings) -> bool:
         path = os.path.join(self.program_folder(), self.file_name())
@@ -1676,14 +2288,14 @@ class DrehzyklenPanel(Gtk.Box):
         if ini_text != old_values.get("ini_file", ""):
             self.use_ini_file(ini_path, old_values)
         if self.machine.tc_enabled and not self.machine.tc_source:
-            self.machine.tc_source = N_("machine tab")
+            self.machine.tc_source = N_("settings")
         self.settings.last_dir = ""
         self.settings.save()
         self.machine_updated(old_values)
         return True
 
     def use_ini_file(self, ini_path, old_values):
-        """Read the INI entered in the machine tab right away (tool table, limits, G53)."""
+        """Read the INI entered in the settings right away (tool table, limits, G53)."""
         if self.ini_path or os.environ.get("INI_FILE_NAME"):
             self.message(_("LinuxCNC already passed an INI at the start - the entered INI is "
                            "only used without a running LinuxCNC."), Gtk.MessageType.INFO)
@@ -1783,16 +2395,30 @@ class DrehzyklenPanel(Gtk.Box):
         return path
 
 
-def install_css():
-    provider = Gtk.CssProvider()
-    provider.load_from_data(CSS)
+def css_files(config_dir):
+    """The CSS of the program, then the own files of the user (win)."""
+    own_files = [os.path.join(folder, CSS_FILE) for folder in reversed(user_dirs(config_dir))]
+    return [os.path.join(DATA_DIR, CSS_FILE)] + own_files
+
+
+def install_css(config_dir):
     screen = Gdk.Screen.get_default()
-    if screen:
-        Gtk.StyleContext.add_provider_for_screen(screen, provider,
-                                                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+    if screen is None:
+        return
+    for priority_offset, path in enumerate(css_files(config_dir)):
+        if not os.path.isfile(path):
+            continue
+        provider = Gtk.CssProvider()
+        try:
+            provider.load_from_path(path)
+        except GLib.Error as error:
+            print(f"Drehzyklen: {path}: {error.message}")
+            continue
+        Gtk.StyleContext.add_provider_for_screen(
+            screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + priority_offset)
 
 
-ICON_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+ICON_DIR = DATA_DIR
 
 
 def set_default_icon():
@@ -1836,14 +2462,12 @@ class App:
         self.window.add(panel)
         return panel
 
-    def finish_start(self, machine_tab=False):
+    def finish_start(self, settings_page=False):
+        """settings_page: open the settings at the start (option --machine-tab)."""
         panel = self.panel
         self.window.show_all()
-        if machine_tab:
-            panel.starting = True
-            panel.machine_button.set_active(True)
-            panel.starting = False
-        panel.selector.buttons["machine"].set_visible(panel.machine_button.get_active())
+        if settings_page:
+            panel.selector.buttons["settings"].set_active(True)
         for page in panel.pages.values():
             page.form.update_labels()
         panel.stock_page.form.update_labels()
@@ -1860,14 +2484,14 @@ class App:
         self.window.remove(old_panel)
         old_panel.destroy()
         panel = self.create_panel(program)
-        self.finish_start(state.get("machine_tab", False))
+        self.finish_start()
         panel.import_state(state)
         return False
 
 
 def run(machine: Machine, machine_json: str, ini_path: Optional[str], xid: Optional[int],
         project: Optional[str] = None, machine_tab: bool = False):
-    install_css()
+    install_css(os.path.dirname(os.path.abspath(machine_json)))
     set_default_icon()
     app = App(machine, machine_json, ini_path, xid)
     panel = app.create_panel()

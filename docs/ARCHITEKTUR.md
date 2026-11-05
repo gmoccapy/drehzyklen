@@ -9,13 +9,14 @@ seinen Eingabewerten (ein `dict`). Erst beim Erzeugen wird daraus G-Code; dabei 
 mitsimuliert, damit spätere Zyklen wissen, was noch steht, und Kollisionen erkannt werden.
 
 ```
- GUI (gui.py, widgets.py)
+ GUI (ui/drehzyklen.ui = Anordnung, gui.py = Logik, widgets.py, data/drehzyklen.css)
    │  Eingabefelder ← Feldbeschreibungen P (cycles/params.py, Cycle.PARAMS)
    │  Werte-dict  →  Cycle-Objekt (cycles/facing.py, … )
    ▼
  Program (cycles/program.py)  ── Rohteil (cycles/stock.py), Maschine (machine.py),
    │                              Werkzeuge (tools.py), Gewinde (threads.py)
    │  generate()
+   │   0. resolve_all    Rechnungen mit $Variablen auswerten (variables.py)
    │   1. _check_ops     Werte prüfen, Werkzeug prüfen (cycles/toolcheck.py), Fertigkontur
    │   2. _header        G18 G7 G21 …, Rückzugsebene
    │   3. je Zyklus      _machining: Werkzeugwechsel, S/M3/M4/M8, cycle.body(), Rückzug
@@ -42,6 +43,7 @@ Werkzeugbahn er fährt.
 | `edgebreak.py` | `EdgeBreak` | Fase/Radius als Kontur → `ContourTurner` |
 | `contour.py` | `Contour` | freie Kontur (Text aus `geometry.py`) → `ContourTurner` |
 | `thread.py` | `Thread` | ein G76-Satz im Radiusmodus G8, Gewindetabellen |
+| `groove.py` | `Groove` | radialer Einstich, mehrere Einstiche, Spanbruch |
 | `drill.py` | `Drill` | Bohren durchgehend, Spanbruch, Entspanen |
 | `gcodeblock.py` | `GCodeOp` | eigener G-Code, wird unverändert eingefügt |
 
@@ -97,6 +99,15 @@ werden sie direkt nach dem Schritt wieder eingeschaltet, sonst schaltet der näc
 ab. Wenn das nicht geht, gibt der Benutzer Typ/Hand/Lage ein (`werkzeuge.json`). Mit
 „→ In tool.tbl schreiben“ werden D, I, J, Q in die tool.tbl zurückgeschrieben.
 
+## Variablen
+
+Jeder Zyklus hat zwei Wertesätze: `raw` (wie eingegeben, z. B. `"$StockDiameter - 4"`, wird
+gespeichert) und `v` (berechnet, damit wird gearbeitet). `Cycle.resolve(variables)` rechnet `v`
+aus `raw`; `Program.resolve_all()` macht das für Rohteil und alle Zyklen vor jedem Erzeugen.
+Die Variablen (`variables.py`) sind die eigenen des Programms (`Program.variables`) plus die
+Rohteil-Variablen `$StockDiameter`, `$StockInner`, `$StockStickout`, `$StockFace`. Ein Fehler
+(unbekannte Variable, Schleife) steht in `resolve_error` und wird als Fehler des Zyklus gemeldet.
+
 ## Daten und Sprache
 
 - Gespeichert wird **sprachunabhängig**: Auswahlfelder speichern Schlüssel (`"outside"`,
@@ -107,6 +118,19 @@ ab. Wenn das nicht geht, gibt der Benutzer Typ/Hand/Lage ein (`werkzeuge.json`).
 - Sprachwechsel: `App.rebuild()` (`gui.py`) merkt sich Programm und Eingaben, baut die Oberfläche
   in der neuen Sprache neu auf und stellt alles wieder her.
 
+## Oberfläche
+
+- **Anordnung** in der Glade-Datei `ui/drehzyklen.ui` (GtkBuilder): Knopfleisten, Spalten mit
+  Griffen und Rahmen, Programmliste, Ansicht, Werkzeugseite, Einstellungsseite. Mit Glade oder
+  Cambalache bearbeitbar; eine eigene Kopie in `~/.config/drehzyklen/drehzyklen.ui` hat Vorrang.
+- **Code** (`gui.py`) lädt die Datei (`load_builder`), übersetzt ihre Texte (`translate_builder`),
+  verbindet die Signal-Handler (Namen in der Datei, z. B. `on_send`) und setzt das ein, was sich
+  aus den Daten ergibt: die Eingabeformulare (`ParamForm` aus `PARAMS`), die Zyklusknöpfe (aus
+  `CYCLES`), die Vorschau (`ViewArea`) und die Maschinendaten.
+- **Gezeichnete Symbole:** eine `GtkDrawingArea` mit dem Namen `icon:<key>` zeigt das Symbol aus
+  `helpdraw.draw_icon` (folgt der Werkzeuglage vor/hinter der Drehmitte).
+- **Aussehen** in `data/drehzyklen.css`, eigene Regeln in `~/.config/drehzyklen/drehzyklen.css`.
+
 ## Wo ändere ich was?
 
 | Aufgabe | Datei |
@@ -115,6 +139,8 @@ ab. Wenn das nicht geht, gibt der Benutzer Typ/Hand/Lage ein (`werkzeuge.json`).
 | Eingabefeld ergänzen | `PARAMS` der Zyklusklasse |
 | Werkzeugbahn ändern | `body()` des Zyklus bzw. `ContourTurner` |
 | Ablauf zwischen Zyklen | `Program._machining` / `_gcode_block` |
-| neuer Text | `_("…")` im Code, dann `python3 scripts/update_translations.py`, `de.po`/`es.po` ergänzen |
+| Knöpfe/Leisten verschieben | `ui/drehzyklen.ui` mit Glade oder Cambalache |
+| Größen, Farben der Oberfläche | `data/drehzyklen.css` bzw. eigene `drehzyklen.css` |
+| neuer Text | `_("…")` im Code oder `translatable="yes"` in der .ui, dann `python3 scripts/update_translations.py`, `de.po`/`es.po` ergänzen |
 | Gewinde ergänzen | `data/threads.json` oder `~/.config/drehzyklen/threads.json` |
 | Tests | `python3 tests/test_core.py` |

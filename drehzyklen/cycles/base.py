@@ -40,6 +40,7 @@ from ..geometry import Element
 from ..i18n import _
 from ..machine import Machine
 from ..material import Material
+from ..variables import NUMBER_KINDS, VariableError, is_expression, resolve_values
 from .params import (CUTTING_DATA_KEYS, INSIDE, SIDE, SPEED_FEED_MODES, TECH, P, feed_mode_of,
                      migrate_values, spindle_mode_of)
 
@@ -54,9 +55,16 @@ class Cycle:
     HAS_TOOL = True
     FORCE_G97 = False
     RENAMES: Dict[str, str] = {}        # keys of older projects -> current keys
+    # chaining: a new cycle starts where the step before it ended
+    END_KEYS: Optional[Tuple[str, str]] = None    # (Ø, Z) fields of the end point
+    START_KEYS: Optional[Tuple[str, str]] = None  # (Ø, Z) fields the end point is put into
+    # the corner radius of the tool rounds the inner corners of the removed material (preview,
+    # material for the following cycles); set for turning and facing
+    ROUNDS_CORNERS = False
 
-    def __init__(self, values: Optional[Dict[str, Any]] = None):
+    def __init__(self, values: Optional[Dict[str, Any]] = None, variables=None):
         self.v: Dict[str, Any] = {}
+        self.tool_radius = 0.0                  # corner radius of the tool (see prepare)
         params = self.all_params()
         for param in params:
             self.v[param.key] = param.default
@@ -74,6 +82,62 @@ class Cycle:
             for key, value in values.items():
                 if key in self.v:
                     self.v[key] = value
+        # raw: as entered (calculations with $variables), v: the values to work with
+        self.raw: Dict[str, Any] = dict(self.v)
+        self.variables = None
+        self.resolve_error = ""
+        self.resolve(variables)
+
+    def set(self, key: str, value):
+        """Change one field (as entered) and calculate again."""
+        self.raw[key] = value
+        self.resolve(self.variables)
+
+    def resolve(self, variables):
+        """Calculate the fields that contain $variables (see variables.py)."""
+        self.variables = variables
+        try:
+            self.v = resolve_values(self.all_params(), self.raw, variables)
+            self.resolve_error = ""
+        except VariableError as error:
+            self.resolve_error = str(error)
+            defaults = {param.key: param.default for param in self.all_params()}
+            self.v = {key: defaults.get(key, value) if is_expression(value) else value
+                      for key, value in self.raw.items()}
+
+    def end_point(self) -> Optional[Tuple[float, float]]:
+        """(Ø, Z) where the cycle ends; None if it has no end point a next cycle starts at."""
+        if self.END_KEYS is None or self.resolve_error:
+            return None
+        diameter, z = (self.v.get(key) for key in self.END_KEYS)
+        if not all(isinstance(value, (int, float)) and not isinstance(value, bool)
+                   for value in (diameter, z)):
+            return None
+        return float(diameter), float(z)
+
+    def limit_problems(self) -> List[str]:
+        """Values outside the limits of their field (e.g. after a variable or the stock was
+        changed, the fields themselves check only what is typed in)."""
+        problems = []
+        inside = self.HAS_SIDE and self.inside
+        for param in self.all_params():
+            if param.kind not in NUMBER_KINDS or (param.min is None and param.max is None):
+                continue
+            if param.show is not None and (param.show == "in") != inside:
+                continue
+            if param.when and self.v.get(param.when[0]) not in param.when[1]:
+                continue
+            value = self.v.get(param.key)
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                continue
+            field = param.sym or _(param.label)
+            if param.min is not None and value < param.min - 1e-9:
+                problems.append(_("{field}: at least {limit}").format(
+                    field=field, limit=f"{param.min:g}") + f" ({value:g})")
+            if param.max is not None and value > param.max + 1e-9:
+                problems.append(_("{field}: at most {limit}").format(
+                    field=field, limit=f"{param.max:g}") + f" ({value:g})")
+        return problems
 
     @classmethod
     def all_params(cls) -> List[P]:
@@ -139,7 +203,7 @@ class Cycle:
         return ""
 
     def to_dict(self):
-        return {"cycle": self.KEY, "values": dict(self.v)}
+        return {"cycle": self.KEY, "values": dict(self.raw)}
 
     def help_values(self) -> Dict[str, Any]:
         """Values for the parameter picture (including derived values)."""
@@ -200,10 +264,14 @@ class Cycle:
     def feed_mode(self) -> str:
         return feed_mode_of(self.v.get("speed_feed", SPEED_FEED_MODES[0]))
 
-    def spindle_direction(self, machine: Machine) -> str:
+    def spindle_direction(self, machine: Machine, tool=None) -> str:
+        """M3/M4 of the cycle; »auto«: the direction set for the tool, otherwise the machine
+        rule (tool in front of the centre line M3, behind it M4)."""
         direction = self.v.get("spindle_dir", "auto")
         if direction in ("M3", "M4"):
             return direction
+        if tool is not None and getattr(tool, "spindle", "auto") in ("M3", "M4"):
+            return tool.spindle
         return machine.default_spindle_dir
 
     def feed_keys(self) -> List[str]:
@@ -213,9 +281,9 @@ class Cycle:
         return [self.v[key] for key in self.feed_keys()]
 
     def copy_with(self, updates: Dict[str, Any]) -> "Cycle":
-        values = dict(self.v)
+        values = dict(self.raw)
         values.update(updates)
-        return type(self)(values)
+        return type(self)(values, self.variables)
 
     # ---------------------------------------------------------------- implemented by cycles
     def summary(self) -> str:
@@ -246,6 +314,11 @@ class Cycle:
 
     def tool_problems(self, tool) -> List[str]:
         return []
+
+    def prepare(self, tool):
+        """Called with the tool (or None) before body() and when the program is calculated -
+        for cycles that need tool data."""
+        self.tool_radius = max(0.0, getattr(tool, "nose_radius", 0.0) or 0.0) if tool else 0.0
 
     def body(self, emitter: Emitter, machine: Machine, material: Optional[Material]):
         raise NotImplementedError

@@ -66,6 +66,7 @@ class FacingPlan:
 
 class Facing(Cycle):
     KEY = "facing"
+    ROUNDS_CORNERS = True
     TITLE = N_("Facing")
     SHORT = N_("Face")
     RENAMES = {"stock_d": "d_start", "inner_d": "d_end"}

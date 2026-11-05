@@ -42,6 +42,7 @@ EDGE_BACK = "back"
 
 class EdgeBreak(TurningCycle):
     KEY = "edge"
+    END_KEYS = ("diameter", "z_start")
     TITLE = N_("Chamfer / edge radius")
     SHORT = N_("Chamfer")
     RENAMES = {"edge_d": "diameter", "edge_z": "z_start"}

@@ -4,8 +4,8 @@ Zyklenprogrammierung für Drehmaschinen. Du stellst Zyklen in einer Liste zusamm
 Abtrag und Parameterbild und erzeugst daraus das fertige CNC-Programm (`.ngc`). Das Programm läuft
 als **Benutzer-Tab in gmoccapy** (ab 1024×768) oder als **eigenes Fenster**.
 
-Die Oberfläche ist standardmäßig **englisch**; Deutsch und Spanisch lassen sich unten rechts in der
-Bedienleiste jederzeit umschalten (siehe [Sprache](#sprache)). Die Begriffe in dieser Anleitung
+Die Oberfläche ist standardmäßig **englisch**; Deutsch und Spanisch lassen sich in den
+Einstellungen (☰) jederzeit umschalten (siehe [Sprache](#sprache)). Die Begriffe in dieser Anleitung
 entsprechen der deutschen Übersetzung. Wie das Programm intern arbeitet, beschreibt
 [docs/ARCHITEKTUR.md](docs/ARCHITEKTUR.md).
 
@@ -13,24 +13,50 @@ entsprechen der deutschen Übersetzung. Wie das Programm intern arbeitet, beschr
 
 ![Oberfläche von Drehzyklen](docs/bilder/oberflaeche.png)
 
-*(Eigenen Screenshot als `docs/bilder/oberflaeche.png` speichern – er erscheint dann hier.)*
 
-- **Oben:** Knöpfe für Rohteil, die Zyklen, Werkzeuge und (ohne laufendes LinuxCNC) Maschine.
-  Die Symbole richten sich nach der Werkzeuglage (vor oder hinter der Drehmitte).
+
+- **Oben:** **Neu**, **Öffnen**, **Speichern**, **Senden**; rechts **Werkzeuge** und **☰
+  Einstellungen**. „Senden“ zeigt den erzeugten G-Code, dort ergänzen, speichern oder an LinuxCNC
+  senden.
+- **Unten:** die Zyklen von **Rohteil** bis **G-Code**. Die Symbole richten sich nach der
+  Werkzeuglage (vor oder hinter der Drehmitte); gezeichnet ist die übliche Bearbeitung von rechts
+  nach links.
 - **Links – Programm:** die Schritte des Programms; ▲ ▼ verschieben, ✎ (oder Doppelklick)
-  bearbeiten, ⧉ duplizieren, ✖ löschen. Wählst du oben einen anderen Zyklus, wird die Markierung
+  bearbeiten, ⧉ duplizieren, ✖ löschen. Wählst du einen anderen Zyklus, wird die Markierung
   in der Liste aufgehoben – „✔ Übernehmen“ gilt nur für den gerade bearbeiteten Schritt.
-- **Mitte – Parameter** (eingerahmt): Knöpfe **Außen | Innen**, die Eingabefelder und „＋ Zum Programm“. Der
-  Knopf ist nach dem Anfügen gesperrt, bis du einen Parameter änderst.
-- **Rechts – Ansicht** (eingerahmt): Knöpfe **Zyklus | Bild | G-Code | Programm**. Die Vorschau zeigt Rohteil,
-  Futter und Abtrag (orange); Mausrad: Zoom, linke Maustaste: verschieben, Doppelklick:
-  zurücksetzen. „G-Code“ springt zum Code des links markierten Programmschritts.
+- **Mitte – Parameter** (eingerahmt): Knöpfe **Außen | Innen**, die Eingabefelder und
+  „＋ Zum Programm“. Der Knopf ist nach dem Anfügen gesperrt, bis du einen Parameter änderst.
+- **Rechts – Ansicht** (eingerahmt): Knöpfe **Zyklus | Bild | G-Code | Programm**. Die Vorschau
+  zeigt Rohteil, Futter und Abtrag (orange); Mausrad: Zoom, linke Maustaste: verschieben,
+  Doppelklick: zurücksetzen. „G-Code“ (Symbol mit Lupe) springt zum Code des links markierten
+  Programmschritts.
 - **Spalten:** Programm- und Parameterspalte sind schmal, ihre Breite stellst du mit den Griffen
   zwischen den Spalten ein. Den Rest bekommt die Vorschau.
-- **Unten:** Neu, Öffnen, Speichern, G-Code, Sprache, Maschine, Laden.
+- **☰ Einstellungen:** eine eigene Seite über die ganze Breite mit Sprache, Maschinendaten und
+  einem Bild der Maschine (siehe [Maschinenbild](#maschinenbild)). Ein Zyklusknopf führt zurück.
 - **Kleine Bildschirme:** Die Oberfläche lässt sich bis etwa 800 × 390 Pixel verkleinern (passt
   als Benutzer-Tab in gmoccapy bei 1024 × 768). Unter ca. 920 × 600 werden die Knöpfe niedriger,
-  unter 760 × 480 zeigen sie nur noch das Symbol. Der Reiter Werkzeuge rollt bei wenig Höhe.
+  unter 760 × 480 zeigen sie nur noch das Symbol.
+
+### Oberfläche anpassen (Glade, CSS)
+
+- **Anordnung:** Die Oberfläche ist in der Glade-Datei `drehzyklen/ui/drehzyklen.ui` beschrieben.
+  Sie lässt sich mit [Glade](https://glade.gnome.org/) oder
+  [Cambalache](https://gitlab.gnome.org/jpu/cambalache) öffnen; Knöpfe, Leisten und Spalten kannst
+  du dort verschieben. Lege die geänderte Datei als `~/.config/drehzyklen/drehzyklen.ui` ab, dann
+  wird sie statt der mitgelieferten benutzt (so überlebt sie ein Update). Die ids und
+  Signal-Handler müssen bleiben; fehlt nach einem Update etwas, nimmt das Programm die
+  mitgelieferte Datei und meldet das in der Konsole. Was das Programm selbst einsetzt
+  (Eingabefelder, Zyklusknöpfe, Vorschau), steht oben in der Datei.
+- **Aussehen:** Größen, Abstände und Farben der Knöpfe stehen in `drehzyklen/data/drehzyklen.css`.
+  Eigene Regeln kommen in `~/.config/drehzyklen/drehzyklen.css`; sie werden danach geladen und
+  gewinnen, z.B. `.dz .buttonbar button { min-height: 60px; }`.
+
+### Maschinenbild
+
+Ein Bild der eigenen Maschine als `machine.svg` oder `machine.png` in den Ordner
+`~/.config/drehzyklen/bilder/` (oder `bilder/` im Programmordner) legen. Es erscheint skaliert
+rechts auf der Einstellungsseite.
 
 ## Einheitliche Bezeichnungen
 
@@ -46,6 +72,28 @@ Die eingegebenen Werte bestimmen die Richtung:
 - **Z1 < Z2:** Bearbeitung nach +Z (von links nach rechts), z.B. Plandrehen einer Rückseite von
   Z10 nach Z50 bei Nullpunkt am Futter, mit linkem Werkzeug
 - Längsdrehen außen braucht D ≥ d, innen D ≤ d.
+- **Enter** springt ins nächste Feld.
+
+## Variablen und Varianten
+
+Statt einer Zahl darf in jedem Zahlenfeld eine Rechnung mit Variablen stehen, z.B.
+`$StockDiameter - 4` oder `$Length / 2`. Ändert sich eine Variable, rechnet das ganze Programm neu
+– so entstehen Varianten eines Bauteils.
+
+- **Rohteil-Variablen** (aus dem Reiter Rohteil): `$StockDiameter` (D), `$StockInner` (d),
+  `$StockStickout` (L), `$StockFace` (Planaufmaß a).
+- **Eigene Variablen:** Knopf **$ Variablen …** in der Programmspalte, eine pro Zeile:
+  ```
+  Diameter = $StockDiameter - 4   ; Fertig-Ø
+  Length = 45
+  Half = $Length / 2
+  ```
+  Die Liste zeigt sofort die berechneten Werte. Unbekannte Variablen und Variablen, die sich
+  gegenseitig brauchen, werden gemeldet.
+- **Kontur:** Rechnungen in eckigen Klammern, eine einzelne Variable auch ohne:
+  `X[$Diameter - 14] Z0`, `X$Diameter Z[-$Length]`. Eine Kontur mit Variablen wird als Text
+  bearbeitet; die Liste zeigt die berechneten Punkte.
+- Gespeichert werden die Rechnungen (im Projekt `.dzp`), die Zyklen rechnen mit den Werten.
 
 ## Zyklen
 
@@ -56,9 +104,10 @@ Alle Zyklen außer Bohren und G-Code haben den Schalter **Außen | Innen**.
 | Plan | D → d radial, Z1 → Z2 in Zustellungen ap. D > d: zur Mitte, D < d: nach außen |
 | Längs | D → d zwischen Z1 und Z2. Kante am Anfang und Ende einzeln: keine, Fase oder Radius. Die Endkante darf größer sein als der Absatz und endet dann bei D |
 | Konus | „Angabe über Enddurchmesser“ (D1, D2, Z1, Z2) oder „Winkel“ (D1, D2, Z1, α/2). Hier heißen die Durchmesser **D1/D2** passend zu Z1/Z2 (Ø an Z1 / an Z2). Umschalten berechnet den fehlenden Wert. Ein fallender Konus (z.B. D1 44 → D2 30) wird je Ebene schräg am Kegel angefahren |
-| Gewinde | G76 außen/innen, Z1 Gewindeanfang, Z2 Gewindeende, Zs Startpunkt. Abfrage von L vor E. Gewinde aus Tabelle: metrisch Regel/Fein, UNC, UNF, Whitworth BSW, Rohrgewinde G |
+| Gewinde | G76 außen/innen, Z1 Gewindeanfang, Z2 Gewindeende, Zs Startpunkt. Abfrage von L vor E. Gewinde aus Tabelle: metrisch Regel/Fein, UNC, UNF, Whitworth BSW, Rohrgewinde G, **NPT** (kegelig 1:16, siehe [Kegelige Gewinde](#kegelige-gewinde-npt)) |
 | Fase/R | Fase L × α (Winkel zur Z-Achse) oder Radius an Vorder- oder Rückkante. **Negativer Winkel = Fase an der Rückkante**; sie wird schräg angefahren |
 | Kontur | freie Kontur, Ecken je Punkt, Bögen; Richtung = erster → letzter Punkt. Passen zwei gegenläufige Radien (z.B. R2 innen, R5 außen an einem kurzen Absatz) nicht auf die Strecke dazwischen, gehen sie tangential ineinander über |
+| Einstechen | radialer Einstich außen/innen zwischen den Flanken Z1 und Z2 von D auf d. Breiter als das Werkzeug: mehrere Einstiche, je um 80 % der Werkzeugbreite versetzt. Q > 0: stufenweise mit Spanbruch Rb, P Verweilzeit. Geprüft: Einstechwerkzeug, Breite, Einstechtiefe |
 | Bohren | durchgehend, Spanbruch oder Entspanen; Tiefe auf Spitze oder vollen Ø |
 | G-Code | eigener Code zwischen zwei Zyklen, mit **Textbausteinen** |
 
@@ -107,6 +156,8 @@ Daraus folgt:
 - **Eilgänge durch Material**, das nach dem Zyklus noch steht, werden als Fehler gemeldet, z.B. bei
   falscher Reihenfolge oder vertauschten Z1/Z2.
 - Innenzyklen ohne Vorbohrung melden „zuerst bohren“.
+- Das Rohteil steht als Eintrag **0** in der Programmliste (Doppelklick öffnet den Reiter Rohteil)
+  und wird mit dem Projekt gespeichert.
 
 ## Werkzeuge
 
@@ -119,9 +170,10 @@ Daraus folgt:
 - Geht das nicht (I = J = 0, Q = 0 oder 9), öffnet sich beim Start der Reiter Werkzeuge. Dort gibst
   du Typ, Hand und Lage an. Die Angabe wird gespeichert und **neu abgefragt, sobald sich die Zeile
   in der tool.tbl ändert**.
+- Der Griff zwischen Werkzeugliste und Eingabefeldern vergrößert die Liste nach unten.
 - Ändert LinuxCNC die tool.tbl (z.B. neues Werkzeug im Werkzeugeditor), liest **⟳ Einlesen** im
   Reiter Werkzeuge sie neu ein. Mit dem Schalter „Werkzeugtabelle autom.
-  einlesen“ im Reiter Maschine geschieht das nach spätestens 2 Sekunden von selbst (Standard: aus).
+  einlesen“ in den Einstellungen geschieht das nach spätestens 2 Sekunden von selbst (Standard: aus).
 - Die Orientierung Q bestimmt die Richtung des Halters in der Grafik (Q7: Schaft nach +Z, wie in
   der LinuxCNC-Doku). Front- und Rückwinkel I/J werden mit Bogen ab Z+ eingezeichnet.
 - **→ In tool.tbl schreiben** trägt das gewählte Werkzeug mit D, I, J, Q und Kommentar in die
@@ -144,11 +196,29 @@ Daraus folgt:
 - Einstechwerkzeug, Gewindewerkzeug
 - zusätzlich ein Bohrer und eine Bohrstange
 
+**Weitere Werkzeugdaten** (stehen nicht in der tool.tbl, Drehzyklen merkt sie sich je
+Werkzeugnummer; 0 = keine Prüfung):
+- **Nutzbare Länge:** Bohrer – Spannutenlänge (geprüft gegen die Bohrtiefe mit Spitze),
+  Innenwerkzeug – wie tief es in die Bohrung reicht (geprüft ab der Rohteil-Vorderkante).
+- **Kleinster Bohrungs-Ø:** Innenwerkzeug passt erst ab diesem Ø; geprüft gegen die Bohrung, die
+  vor dem Zyklus vorhanden ist (Abtragssimulation).
+- **Einstechtiefe** und **Bezugspunkt** (linke Ecke, Mitte, rechte Ecke – womit angetastet wurde)
+  beim Einstechwerkzeug.
+- **Drehrichtung:** M3/M4 fest für dieses Werkzeug; Zyklen mit „auto“ übernehmen sie.
+- Der **Eckenradius** wird in den Werkzeugbildern gezeichnet; beim Einstechwerkzeug darf er nicht
+  größer als die halbe Breite sein (Warnung, z.B. b3 mit r1,5 = vollrund, r2 zu groß).
+
+**In jedem Zyklus** zeigt ein kleines Bild das gewählte Werkzeug. In der Werkzeugauswahl sind die
+Werkzeuge eingefärbt: **grün** passt zur Operation, **gelb** nicht – ein gelbes Werkzeug lässt sich
+nur mit „Werkzeug trotz Warnung freigeben“ verwenden.
+
 **Plausibilitätsprüfung** in jedem Zyklus. Gemeldet werden unter anderem:
 - Gewinde ohne Gewindewerkzeug (z.B. mit Form C)
 - falsche Hand für die Schnittrichtung
 - Außenwerkzeug für Innenbearbeitung
 - zu wenig Freiwinkel für fallende Konturen
+- Bohrer zu kurz, Innenwerkzeug reicht nicht tief genug oder passt nicht in die Bohrung
+- Einstich tiefer als die Einstechtiefe oder schmaler als das Werkzeug
 
 Das ist ein Fehler, den du mit **„Werkzeug trotz Warnung freigeben“** übersteuern kannst, z.B. für
 Rund- oder Sondergewinde. Dann bleibt eine deutliche Warnung.
@@ -157,9 +227,9 @@ Rund- oder Sondergewinde. Dann bleibt eine deutliche Warnung.
 
 - **Werkzeugwechsel** immer mit `T… M6 G43`, nur bei neuer T-Nummer.
 - **Wechselposition `G53`** aus `[CHANGE_POSITION]`, sonst `[EMCIO] TOOL_CHANGE_POSITION`, sonst
-  Reiter Maschine. Angefahren wird im Radiusmodus G8, damit X dem INI-Wert entspricht; erst X,
+  Einstellungen. Angefahren wird im Radiusmodus G8, damit X dem INI-Wert entspricht; erst X,
   dann Z. Soll Z stehen bleiben (nur X anfahren), den Schalter „Werkzeugwechsel: auch Z“
-  im Reiter Maschine ausschalten oder in `[CHANGE_POSITION]` nur `X` eintragen.
+  in den Einstellungen ausschalten oder in `[CHANGE_POSITION]` nur `X` eintragen.
 - **Zwischen den Zyklen** auf eine Rückzugsebene vor dem Werkstück:
   - außen: erst X nach außen
   - innen: erst X zur Mitte, dann Z heraus
@@ -196,18 +266,31 @@ Der Vordreh-Ø erscheint als Hinweis unter der Vorschau. Die Werte sind Faustfor
 in der Mitte der Toleranzfelder 6g (Bolzen) und 6H (Mutter). Passt der Spitzenwinkel des Werkzeugs
 nicht zur Norm (55° gegen 60°), meldet die Werkzeugprüfung das.
 
+### Kegelige Gewinde (NPT)
+
+NPT-Gewinde (1/16" bis 2", Kegel 1:16 auf den Ø, 60°, Gewindetiefe 0,8·P) stehen in der Tabelle.
+Bei der Auswahl werden D, P, Zustellwinkel, **Kegel 1:16** und Z2 (Gewindelänge L2) eingetragen:
+- **außen:** Z1 ist das dünne Ende (Rohrende), D = Außen-Ø dort (E0 + h); der Ø wächst Richtung Z2.
+- **innen:** Z1 ist die Öffnung, D = Kern-Ø dort; der Ø wird Richtung Z2 kleiner.
+- G76 kann keinen Kegel. Jeder Durchgang ist deshalb ein **G33** entlang des Kegels, mit denselben
+  Zustellungen wie G76 (J·n^(1/R) bis K), dem Zustellwinkel Q und H Leerschnitten. Die Ein-/
+  Auslaufkegel L/E entfallen.
+- Den Kegel vorher mit dem Zyklus Konus vordrehen (Hinweis unter der Vorschau).
+- Ein eigenes kegeliges Gewinde: Feld **Kegel 1:k** (0 = zylindrisch).
+
 ## G-Code bearbeiten
 
-- Die Taste **G-Code** zeigt den erzeugten Code in einem Editor. Dort ergänzen, speichern oder direkt
-  in LinuxCNC laden (nur möglich, wenn LinuxCNC läuft).
+- **Senden** (oben) zeigt den erzeugten Code in einem Editor. Dort ergänzen, speichern oder an
+  LinuxCNC senden (nur möglich, wenn LinuxCNC läuft).
 - Dauerhafter Code zwischen zwei Zyklen gehört in einen Schritt **G-Code**. Einen Textbaustein
   auswählen ersetzt den Inhalt des Codefelds, **Einfügen** fügt ihn zusätzlich an der Schreibmarke
-  ein, **Leeren** macht das Feld frei für einen neuen Baustein. Die Bausteine („Späne entfernen“,
-  „Nachmessen“, eigene über **Speichern …**) stehen in `settings.json`.
+  ein, **Leeren** macht das Feld frei für einen neuen Baustein, **Löschen** entfernt den gewählten
+  Baustein und leert das Feld. Die Bausteine („Späne entfernen“, „Nachmessen“, eigene über
+  **Speichern …**) stehen in `settings.json`.
 - „Spindel/Kühlung wieder ein“: Folgt ein Zyklus mit demselben Werkzeug, werden
   Drehzahl mit M3/M4 und M8 direkt nach dem Baustein wieder ausgegeben; bei einem Werkzeugwechsel
   schaltet der nächste Zyklus sie ein.
-- Der **Programmordner** steht im Reiter Maschine (Standard aus `PROGRAM_PREFIX`). Ein Ordner, den
+- Der **Programmordner** steht in den Einstellungen (Standard aus `PROGRAM_PREFIX`). Ein Ordner, den
   es nicht gibt, wird nicht übernommen (auf Wunsch wird er angelegt). Danach merkt sich das
   Programm den zuletzt benutzten Ordner.
 - Die **Schnittdaten** (Werkzeug, Drehzahl, Vorschübe, Zustellung, Aufmaße …) merkt sich jeder
@@ -245,13 +328,13 @@ Welche INI gelesen wird (Werkzeugtabelle `[EMCIO] TOOL_TABLE`, Grenzen, G53-Wech
 1. `--ini` beim Aufruf
 2. `INI_FILE_NAME` – setzt LinuxCNC, wenn es das Programm startet (eingebettet in gmoccapy)
 3. die INI des gerade laufenden LinuxCNC (z.B. wenn das Programm im Terminal gestartet wurde)
-4. die im Reiter Maschine unter „LinuxCNC-INI-Datei“ eingetragene Datei (Betrieb ohne LinuxCNC)
+4. die in den Einstellungen unter „LinuxCNC-INI-Datei“ eingetragene Datei (Betrieb ohne LinuxCNC)
 
-Welche Datei benutzt wurde, steht unten im Reiter Maschine.
+Welche Datei benutzt wurde, steht unten in den Einstellungen.
 
 ## Sprache
 
-- Die Auswahl unten in der Bedienleiste wechselt die Sprache **sofort**: die Oberfläche wird neu
+- Die Auswahl in den Einstellungen (☰) wechselt die Sprache **sofort**: die Oberfläche wird neu
   aufgebaut, Programm, Eingaben und der gerade bearbeitete Schritt bleiben erhalten. Die Wahl wird in
   `settings.json` gespeichert. Auch die Kommentare im erzeugten G-Code folgen der Sprache.
 - Beim Start: `--language de` (oder `en`, `es`) setzt die Sprache und speichert sie.
@@ -282,7 +365,8 @@ Welche Datei benutzt wurde, steht unten im Reiter Maschine.
 ```
 start_drehzyklen.py          Start (Fenster, gmoccapy-Plug, Kommandozeile)
 drehzyklen/cycles/           ein Modul je Zyklus, jedes beschreibt oben seine Werkzeugbahn
-  facing.py longturning.py taper.py edgebreak.py contour.py thread.py drill.py gcodeblock.py
+  facing.py longturning.py taper.py edgebreak.py contour.py thread.py groove.py drill.py
+  gcodeblock.py
   params.py                  Feldbeschreibungen (P), Auswahlschlüssel, gemeinsame Parametergruppen
   base.py                    Basisklasse Cycle (Werte, Richtung, Drehzahl/Vorschub)
   turning.py                 TurningCycle, ContourTurner (Schruppebenen + Schlichtschnitt)
@@ -296,6 +380,7 @@ drehzyklen/tools.py          Werkzeugtabelle (tool.tbl / Vorgaben), Schreiben in
 drehzyklen/threads.py        Gewindetabellen (data/threads.json + eigene)
 drehzyklen/machine.py        Maschinendaten (machine.json + INI)
 drehzyklen/settings.py       Sprache, letzter Ordner, Textbausteine, Schnittdaten
+drehzyklen/variables.py      Variablen und Rechnungen in den Feldern ($StockDiameter …)
 drehzyklen/i18n.py           Übersetzung (_(), N_(), Sprachwechsel), locale/*.po
 drehzyklen/render.py         Vorschau mit Zoom
 drehzyklen/helpdraw.py       Parameterbilder und Symbole

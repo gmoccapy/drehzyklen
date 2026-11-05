@@ -41,6 +41,8 @@ MODE_ANGLE = "angle"
 
 class Taper(TurningCycle):
     KEY = "taper"
+    END_KEYS = ("d_end", "z_end")
+    START_KEYS = ("d_start", "z_start")
     TITLE = N_("Taper")
     SHORT = N_("Taper")
     PARAMS = [

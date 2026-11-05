@@ -19,7 +19,7 @@
 Stand-alone:               python3 start_drehzyklen.py [--ini my_machine.ini]
 Embedded in gmoccapy:      EMBED_TAB_COMMAND = python3 /path/start_drehzyklen.py --xid {XID}
 Without GUI (test):        python3 start_drehzyklen.py --gcode project.dzp > part.ngc
-Show the machine tab:      --machine-tab
+Open the settings:         --machine-tab
 Language:                  --language de   (otherwise the language chosen in the program)
 
 Settings (machine.json, settings.json, werkzeuge.json, threads.json) are kept in
@@ -63,7 +63,7 @@ def main():
     parser.add_argument("--machine", default=default_machine_json(), help="path of machine.json")
     parser.add_argument("--project", help="load a project (.dzp) at the start")
     parser.add_argument("--machine-tab", action="store_true",
-                        help="show the machine tab even while LinuxCNC is running")
+                        help="open the settings page (machine data) at the start")
     parser.add_argument("--gcode", metavar="PROJECT",
                         help="convert a project to G-code without GUI (output to stdout)")
     parser.add_argument("--language", help="en, de or es (saved for the next start)")
